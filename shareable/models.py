@@ -4,8 +4,12 @@
 #
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.db import models
 from serializable.models import SerializableModel
+from knowledge_server.models import KnowledgeServer
+import utils
 
 class CustomModelManager(models.Manager):
     '''
@@ -670,7 +674,7 @@ class ShareableModel(SerializableModel):
             print(e.message)
 
     @staticmethod
-    def simple_entity_from_xml_tag(xml_child_node):
+    def model_metadata_from_xml_tag(xml_child_node):
         URIInstance = xml_child_node.attributes["URIModelMetadata"].firstChild.data
         try:
             se = ModelMetadata.objects.get(URIInstance=URIInstance)
@@ -694,8 +698,8 @@ class ShareableModel(SerializableModel):
             ks_url = ""
             # encode di URIInstance
             URIInstance_base64 = ""
-            # wget ks_url + "/ks/api/simple_entity_definition/" + URIInstance_base64
-            raise Exception("NOT IMPLEMENTED in simple_entity_from_xml_tag: get ModelMetadata from appropriate KS.")
+            # wget ks_url + "/ks/api/model_metadata_definition/" + URIInstance_base64
+            raise Exception("NOT IMPLEMENTED in model_metadata_from_xml_tag: get ModelMetadata from appropriate KS.")
         return se
 
     @classmethod
@@ -750,7 +754,7 @@ class ModelMetadata(ShareableModel):
         if only_versioned: skips views and shallow ones and returns at most one 
         '''
         types = []
-        nodes = StructureNode.objects.using('ksm').filter(simple_entity=self, external_reference=external_reference)
+        nodes = StructureNode.objects.using('ksm').filter(model_metadata=self, external_reference=external_reference)
         try:
             for node in nodes:
                 entry_node = node
@@ -776,13 +780,13 @@ class AttributeType(ShareableModel):
 
 class Attribute(ShareableModel):
     name = models.CharField(max_length=255L, blank=True)
-    simple_entity = models.ForeignKey('ModelMetadata', null=True, blank=True)
+    model_metadata = models.ForeignKey('ModelMetadata', null=True, blank=True)
     type = models.ForeignKey('AttributeType')
     def __str__(self):
         return self.model_metadata.name + "." + self.name
 
 class StructureNode(ShareableModel):
-    simple_entity = models.ForeignKey('ModelMetadata')
+    model_metadata = models.ForeignKey('ModelMetadata')
     # attribute is blank for the entry point
     attribute = models.CharField(max_length=255L, blank=True)
     # "parent" assert: there is only one parent so we should change to 
@@ -828,15 +832,16 @@ class StructureNode(ShareableModel):
         # of instances of the classes corresponding to that ModelMetadata
         if not 'output' in status.keys():
             status['output'] = {}
-        if not self.simple_entity in status['output'].keys():
-            status['output'][self.simple_entity] = []
-        if not instance in status['output'][self.simple_entity]:
-            status['output'][self.simple_entity].append(instance)
+        if not self.model_metadata in status['output'].keys():
+            status['output'][self.model_metadata] = []
+        if not instance in status['output'][self.model_metadata]:
+            status['output'][self.model_metadata].append(instance)
 
 class DataSetStructure(ShareableModel):
-    dataset_structure_name = "Dataset structure"
-    simple_entity_dataset_structure_name = "Entity"
-    organization_dataset_structure_name = "Organization and Open Knowledge Servers"
+    # DSN = DataSet Structure Name
+    dataset_structure_DSN = "Dataset structure"
+    model_metadata_DSN = "Model meta-data"
+    organization_DSN = "Organization and Open Knowledge Servers"
     '''
     Main idea behind the model: a chunk of knowledge that needs to be shared is not represented 
     with a single class or a single table in a database but it is usually represented using a 
@@ -871,19 +876,19 @@ class DataSetStructure(ShareableModel):
     name = models.CharField(max_length=200L)
     description = models.CharField(max_length=2000L)
     '''
-    an DataSetStructure is shallow when it is automatically created to export a ModelMetadata; 
+    It is shallow when automatically created to export a ModelMetadata without following any relationship; 
     is_shallow = True means that all foreignKeys and related attributes are external references
     '''
     is_shallow = models.BooleanField(default=False)
     '''
-    an DataSetStructure is a view if it is not used to determine the structure of an DataSet
-    hence it is used for example to export some data
+    It is a view if it is not used to determine the structure of a DataSet
+    hence it is used for example just to export some data;
     '''
     is_a_view = models.BooleanField(default=False)
     '''
     the entry point of the structure; the class StructureNode has then child_nodes of the same class 
-    hence it defines the structure
-    assert: the root_node is the entr_point for only one structure so we should change to 
+    hence it defines the structure/graph
+    assert: the root_node is the entry point for only one structure 
     '''
     root_node = models.ForeignKey('StructureNode', related_name='dataset_type')
     '''
@@ -917,7 +922,7 @@ class DataSetStructure(ShareableModel):
         and executes it on the actual instance of each node; the signature of such method must be:
             def generic_structure_node_method(self, instance, status)
         each method can add whatever it wants to the status and set its output to status.output
-        the instance_method_name must be a method of SerializableModelMetadata so that it is implemented
+        the instance_method_name must be a method of ModelMetadata so that it is implemented
         by any instance of any node.
         If children_before the method is invoked on the children first
         '''
@@ -931,5 +936,337 @@ class DataSetStructure(ShareableModel):
             self.root_node.navigate(instance, instance_method_name, node_method_name, status, children_before)
         return status['output']
     
-        
+class DataSet(ShareableModel):
+    '''
+    A data set / chunk of knowledge; its data structure is described by self.dataset_structure
+    The only Versionable object so far
+    Serializable like many others 
+    It has an owner KS which can be inferred by the URIInstance but it is explicitly linked 
 
+    A DataSet is Versionable (if its structure is neither shallow nor a view) so there are many datasets
+    that are basically different versions of the same thing; they share the same "first_version" attribute
+    
+    Relevant methods:
+        new version:  create a copy of all instances starting from the root, following the nodes in the   
+                      structure, all but those with external_reference=True
+        set_released: it sets version_released True and it sets it to False for all the other instances 
+                      of the same set; it materializes the dataset
+    '''
+    owner_knowledge_server = models.ForeignKey(KnowledgeServer)
+
+    # if the dataset structure is intended to be a view there won't be any version information
+    # assert dataset_structure.is_a_view ===> root, version, ... == None
+    dataset_structure = models.ForeignKey(DataSetStructure)
+
+    # if it is a view a description might be useful
+    description = models.CharField(max_length=2000L, default="")
+    
+    root_content_type = models.ForeignKey(ContentType)
+    root_instance_id = models.PositiveIntegerField()
+    root = GenericForeignKey('root_content_type', 'root_instance_id', null=True, blank=True)
+
+    # An alternative to the root_node_id is to have a filter to apply to the all the objects 
+    # of type root_content_type. Assert:
+    #     filter_text != None ===> root == None
+    #     root != None ===> filter_text == None
+    # If root_node == None filter_text can be "" meaning that you have to take all of the 
+    # entries without filtering them
+    filter_text = models.CharField(max_length=200L, null=True, blank=True)
+
+    # When root is None (hence the structure is a view) I still might want to refer to a version for the 
+    # data that will be in my view; there might be data belonging to different versions matching the 
+    # criteria in the filter text; to prevent this I specify a DataSet (that has its own version) so 
+    # that I will put in the view only those belonging to that version
+    filter_dataset = models.ForeignKey('self', null=True, blank=True)
+    # NOT USED YET: TODO: it should be used in get_instances
+
+    # following attributes used to be in a separate class VersionableDataSet
+    '''
+    An Instance belongs to a set of instances which are basically the same but with a different version.
+    firt_version is the first instance of this set; firt_version has firt_version=self so that if I filter 
+    for firt_version=smthng I get all of them including the firt_version
+    WE REFER TO SUCH SET AS THE "version set"
+    '''
+    firt_version = models.ForeignKey('self', related_name='versions', null=True, blank=True)
+    # http://semver.org/
+    version_major = models.IntegerField(null=True, blank=True)
+    version_minor = models.IntegerField(null=True, blank=True)
+    version_patch = models.IntegerField(null=True, blank=True)
+    version_description = models.CharField(max_length=2000L, default="")
+    # release_date is the date of the release of the dataset; e.g. the date the Creative 
+    # Commons Attribution 1.0 license was released
+    release_date = models.DateTimeField(auto_now_add=True)
+    # version_date is the date this version has been released in the OKS
+    version_date = models.DateTimeField(auto_now_add=True)
+    '''
+    Assert: If self.dataset_structure.multiple_releases==False: at most one instance in the VERSION SET
+            has version_released = True
+    '''
+    version_released = models.BooleanField(default=False)
+    '''
+        http://www.dcc.ac.uk/resources/how-guides/license-research-data 
+        "The option to multiply license a dataset is certainly available to you if you hold all the rights 
+        that pertain to the dataset"
+    '''
+    licenses = models.ManyToManyField("license.License")
+    
+
+    def get_instances(self, db_alias='ksm'):
+        '''
+        Used for views only
+        It returns the list of instances matching the filter criteria
+        CHECK: default ksm? E' una view e quindi che senso ha andare su default dove ci sono anche le versioni vecchie?
+        '''
+        mm_model_metadata = self.dataset_structure.root_node.model_metadata
+        actual_class = utils.load_class(mm_model_metadata.module + ".models", mm_model_metadata.name)
+        q = eval("Q(" + self.filter_text + ")")
+        return actual_class.objects.using(db_alias).filter(q)
+    
+    def get_instances_of_a_type(self, se, db_alias='ksm'):
+        '''
+        starting from the instances matching the filter criteria it returns the list of instances of the se type
+        anywhere in the structure 
+        '''
+        t = self.dataset_structure.navigate(self, "", "navigate_helper_list_by_type")
+        if se in t.keys():
+            return t[se]
+        else:
+            return None
+
+    def get_state(self):
+        '''
+        Three implicit states: working, released, obsolete  
+         -  working: the latest version where version_released = False
+         -  released: the one with version_released = True
+         -  obsolete: all the others
+        '''
+        if self.version_released:
+            return "released"
+        version_major__max = self.__class__.objects.all().aggregate(Max('version_major'))['version_major__max']
+        if self.version_major == version_major__max:
+            version_minor__max = self.__class__.objects.filter(version_major=version_major__max).aggregate(Max('version_minor'))['version_minor__max']
+            if self.version_minor == version_minor__max:
+                version_patch__max = self.__class__.objects.filter(version_major=version_major__max, version_minor=version_minor__max).aggregate(Max('version_patch'))['version_patch__max']
+                if self.version_patch == version_patch__max:
+                    return "working"
+        return "obsolete"
+        
+    def set_version(self, version_major=0, version_minor=1, version_patch=0):
+        self.version_major = version_major
+        self.version_minor = version_minor
+        self.version_patch = version_patch
+
+    def new_version(self, version_major=None, version_minor=None, version_patch=None, version_description="", version_date=None):
+        '''
+        DATABASE: it works only on default database as record go to the materialized one only
+                  via the set_released method
+        It creates new records for each record in the whole structure excluding external references
+        version_released is set to False
+        It creates a new DataSet and returns it
+        '''
+
+        if version_major == None or version_minor == None or version_patch == None:
+            # if the version is not fully specified just version_patch is increased by 1
+            version_major = self.version_major
+            version_minor = self.version_minor
+            version_patch = self.version_patch + 1
+        else:
+            # it needs to be a greater version number
+            message = "Trying to create a new version with an older version number."
+            if version_major < self.version_major:
+                raise Exception(message)
+            else:
+                if version_major == self.version_major and version_minor < self.version_minor:
+                    raise Exception(message)
+                else:
+                    if version_major == self.version_major and version_minor == self.version_minor and version_patch < self.version_patch:
+                        raise Exception(message)
+        try:
+            with transaction.atomic():
+                instance = self.root.new_version(self.dataset_structure.root_node, processed_instances={})
+                new_ds = DataSet()
+                new_ds.version_major = version_major
+                new_ds.version_minor = version_minor
+                new_ds.version_patch = version_patch
+                new_ds.owner_knowledge_server = KnowledgeServer.this_knowledge_server('default')
+                new_ds.dataset_structure = self.dataset_structure
+                new_ds.first_version = self.first_version
+                new_ds.version_description = version_description
+                if version_date:
+                    new_ds.version_date = version_date
+                new_ds.save()
+        except Exception as e:
+            print (str(e))
+        return new_ds
+
+    def materialize_dataset(self):
+        '''
+        if this dataset is a view then I have imported it and need to materialize it with all its instances
+        if it is not a view it will have just one instance
+        '''
+        try:
+            if self.dataset_structure.is_a_view:
+                instances = self.get_instances(db_alias='default')
+            else:
+                instances = []
+                instances.append(self.root)
+            for instance in instances:
+                m_existing = instance.__class__.objects.using('ksm').filter(URI_imported_instance=instance.URI_imported_instance)
+                if len(m_existing) == 0:
+                    instance.materialize(self.dataset_structure.root_node, processed_instances=[])
+            m_existing = DataSet.objects.using('ksm').filter(URI_imported_instance=self.URI_imported_instance)
+            if len(m_existing) == 0:
+                self.materialize(self.shallow_dataset_structure().root_node, processed_instances=[])
+            # end of transaction
+        except Exception as ex:
+            raise ex
+            print ("materialize_dataset (" + self.description + "): " + str(ex))
+
+    def set_released(self):
+        '''
+        Sets this version as the (only) released (one)
+        It materializes data and the DataSet itself
+        It triggers the generation of events so that subscribers to relevant datasets can get the notification
+        '''
+        try:
+            with transaction.atomic():
+                currently_released = None
+                if not self.dataset_structure.multiple_releases:
+                    # There cannot be more than one released? I set the others to False
+                    try:
+                        currently_released = self.first_version.versions.get(version_released=True)
+                        if currently_released.pk != self.pk:
+                            currently_released.version_released = False
+                            currently_released.save()
+                        previously_released = currently_released
+                    except:
+                        if currently_released != None and currently_released.pk == self.pk:
+                            # I am trying to release self and it is already released
+                            raise Exception("Trying to release a dataset that is already relased: " + self.URIInstance)
+                        else:
+                            print("DataSet.set_released couldn't find a released version.")
+                # this one is released now
+                self.version_released = True
+                self.save()
+                # MATERIALIZATION Now we must copy newly released self to the materialized database
+                # I must check whether it is already materialized so that I don't do it twice
+                m_existing = DataSet.objects.using('ksm').filter(URIInstance=self.URIInstance)
+                if len(m_existing) == 0:
+                    instance = self.root
+                    materialized_instance = instance.materialize(self.dataset_structure.root_node, processed_instances=[])
+                    materialized_self = self.materialize(self.shallow_dataset_structure().root_node, processed_instances=[])
+                    materialized_self.root = materialized_instance
+                    materialized_self.save()
+                    if not self.dataset_structure.multiple_releases:
+                        # if there is only a materialized release I must set first_version to self otherwise deleting the 
+                        # previous version will delete this as well
+                        materialized_self.first_version = materialized_self
+                        materialized_self.save()
+                        # now I can delete the old dataset (if any) as I want just one release (multiple_releases == false)
+                        if currently_released:
+                            materialized_previously_released = DataSet.objects.using('ksm').get(URIInstance=previously_released.URIInstance)
+                            materialized_previously_released.delete_entire_dataset()
+                    
+                    # If I own this DataSet then I create the event for notifications
+                    # releasing a dataset that I do not own makes no sense; in fact when I create a new version of
+                    # a dataset that has a different owner, the owner is set to this oks
+                    this_ks = KnowledgeServer.this_knowledge_server()
+                    if self.owner_knowledge_server.URIInstance == this_ks.URIInstance:
+                        # TODO: in the future this task must be run asynchronously
+                        e = Event()
+                        e.dataset = self
+                        e.type = "New version"
+                        e.save()
+                        '''#157 now I need to generate events for views
+                        I shall navigate the release structure
+                        Creating a set of lists, one list per each kind of SimpleEntity I encounter
+                        Each list contains the instances without repetitions
+                        Then for each list I find each DataSetStructure that contains a node of the SimpleEntity
+                        For each DataSet with that structure that is a view I test whether at least one of the
+                        instances on the list is also in the dataset (also I must check if any is no longer there!)
+                        If so I generate the event for that dataset.
+                        To check if one is no longer there I must generate the same lists also for previously_released
+                        and then compare the lists after applying the criteria of the view
+
+                        '''
+                        released_instances_list = self.dataset_structure.navigate(self, "", "navigate_helper_list_by_type")
+                        if not self.dataset_structure.multiple_releases:
+                            previously_released_instances_list = previously_released.dataset_structure.navigate(self, "", "navigate_helper_list_by_type")
+                        # I assume the list of keys of the above lists is the same, e.g. the dataset_structure has not changed
+                        # keys are ModelMetadata
+                        for se in released_instances_list.keys():
+                            '''
+                            '   if multiple_releases all the newly released instances can affect a view
+                            '   else we must compare currently and previously released
+                            '   I must create a list of
+                            '    - all those that are in current but not in previous
+                            '    - all those that are in previous but not in current
+                            '    - all those that are in both but have changed 
+                                        changed means attribute but TODO:also their relationships!!!
+                            '''
+                            if not self.dataset_structure.multiple_releases:
+                                #     - all those that are in current but not in previous
+                                current_not_previous = list(i for i in released_instances_list[se] if i.URI_previous_version not in list(i.URIInstance for i in previously_released_instances_list[se]))
+                                #    - all those that are in previous but not in current
+                                previous_not_current = list(i for i in previously_released_instances_list[se] if i.URIInstance not in list(i.URI_previous_version for i in released_instances_list[se]))
+                                #    - all those that are in both but have changed 
+                                current_changed = []
+                                previous_changed = []
+                                previous_and_current = list(i for i in previously_released_instances_list[se] if i.URIInstance in list(i.URI_previous_version for i in released_instances_list[se]))
+                                for previous_instance in previous_and_current:
+                                    current_instance = list(i for i in released_instances_list[se] if i.URI_previous_version == previous_instance.URIInstance)[0]
+                                    if not ModelMetadata.compare(current_instance, previous_instance):
+                                        current_changed.append(current_instance)
+                                        previous_changed.append(previous_instance)
+                            else:
+                                current = released_instances_list[se]
+                            # for each simple entity I must find the list of all structures of type view the contain
+                            # at least a node of that type;
+                            structure_views = se.dataset_structures(is_shallow=False, is_a_view=True, external_reference=False)
+                            for sv in structure_views:
+                                # for each of them I find all the actual datasets
+                                dataset_views = DataSet.objects.filter(dataset_structure = sv)
+                                for dv in dataset_views:
+                                    # instances of type se within the structure of the dataset
+                                    t = dv.get_instances_of_a_type(se)
+                                    generate_event = False
+                                    if self.dataset_structure.multiple_releases:
+                                        generate_event = (len(ModelMetadata.intersect_list(t, current)) > 0)
+                                    else:
+                                        generate_event = (len(ModelMetadata.intersect_list(t, (current_not_previous + previous_not_current + current_changed + previous_changed))) > 0)
+                                    if generate_event:
+                                        e = Event()
+                                        e.dataset = dv
+                                        e.type = "New version"
+                                        e.save()
+                    # end of transaction
+        except Exception as ex:
+            print ("set_released (" + self.description + "): " + str(ex))
+    
+    def delete_entire_dataset(self):
+        '''
+        Navigating the structure deletes each record in the entire dataset obviously excluding external references
+        Then it deletes self
+        '''
+        with transaction.atomic():
+            self.root.delete_children(self.dataset_structure.entry_point)
+            self.root.delete()
+            self.delete()
+        
+    def get_latest(self, released=None):
+        '''
+        gets the latest version starting from any DataSet in the version set
+        it can be either released or not if released is None:
+        if released == True: the latest released one
+        if released == False: the latest unreleased one
+        '''
+        if released is None:  # I take the latest regardless of the fact that it is released or not
+            version_major__max = DataSet.objects.filter(root=self.root).aggregate(Max('version_major'))['version_major__max']
+            version_minor__max = DataSet.objects.filter(root=self.root, version_major=version_major__max).aggregate(Max('version_minor'))['version_minor__max']
+            version_patch__max = DataSet.objects.filter(root=self.root, version_major=version_major__max, version_minor=version_minor__max).aggregate(Max('version_patch'))['version_patch__max']
+        else:  # I filter according to released
+            version_major__max = DataSet.objects.filter(version_released=released, root=self.root).aggregate(Max('version_major'))['version_major__max']
+            version_minor__max = DataSet.objects.filter(version_released=released, root=self.root, version_major=version_major__max).aggregate(Max('version_minor'))['version_minor__max']
+            version_patch__max = DataSet.objects.filter(version_released=released, root=self.root, version_major=version_major__max, version_minor=version_minor__max).aggregate(Max('version_patch'))['version_patch__max']
+        return DataSet.objects.get(root=self.root, version_major=version_major__max, version_minor=version_minor__max, version_patch=version_patch__max)
+   
