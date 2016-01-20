@@ -14,8 +14,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
 from django.conf.urls import include, url
-from django.contrib import admin
 
 urlpatterns = [
-    url(r'^admin/', include(admin.site.urls)),
+    url(r'^$', 'knowledge_server.views.home', name='home'),
+
+    url(r'^oks/', include('knowledge_server.urls')),
+
+    #   catch all; if I receive an unrecognized url I try to see whether it is a URIInstance
+    # http://stackoverflow.com/questions/6545741/django-catch-all-url-without-breaking-append-slash
+    url(r'^(?P<uri_instance>.*)/$', 'knowledge_server.views.api_catch_all', name='api_catch_all'), 
 ]

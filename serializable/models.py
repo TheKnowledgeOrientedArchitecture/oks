@@ -4,6 +4,8 @@
 #
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
+from django.db import models
+
 class SerializableModel(models.Model):
 
     def foreign_key_attributes(self): 
@@ -11,7 +13,7 @@ class SerializableModel(models.Model):
         for key in self._meta.fields:
             if key.__class__.__name__ == "ForeignKey":
                 attributes.append(key.name)
-        return attributes    @staticmethod
+        return attributes
                 
     def related_manager_attributes(self): 
         attributes = ""
