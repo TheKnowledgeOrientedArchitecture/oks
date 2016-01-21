@@ -56,7 +56,7 @@ class ShareableModel(SerializableModel):
     When a ShareableModel gets imported from XML of from a remote KS a new
     URIInstance is generated using generate_URIInstance
     '''
-    URIInstance = models.CharField(max_length=2000L)
+    URIInstance = models.CharField(max_length=2000L, default='')
     '''
     URI_imported_instance if the instance comes from XML (or a remote KS) this attribute
     stores the URIInstance as it is in the XML. Doing so I can update an instance with data
@@ -157,22 +157,24 @@ class ShareableModel(SerializableModel):
         node.save(using=db_alias)
         node.child_nodes = []
         for fk in self.foreign_key_attributes():
-            node_fk = StructureNode()
-            if getattr(self, fk) is None:
-                # the attribute is not set so I can't get its __class__.__name__ and I take it from the model
-                class_name = self._meta.get_field(fk).rel.model.__name__
-                try:
-                    node_fk.model_metadata = self.get_model_metadata(class_name)
-                except Exception as ex:
-                    logger = utils.poor_mans_logger()
-                    logger.error("shallow_structure_node class_name = " + class_name + " - " + ex.message)
-            else:
-                node_fk.model_metadata = getattr(self, fk).get_model_metadata()
-            node_fk.external_reference = True
-            node_fk.attribute = fk
-            node_fk.is_many = False
-            node_fk.save(using=db_alias)
-            node.child_nodes.add(node_fk)
+            # PATCH: I must not include 'root_content_type'
+            if fk != 'root_content_type':
+                node_fk = StructureNode()
+                if getattr(self, fk) is None:
+                    # the attribute is not set so I can't get its __class__.__name__ and I take it from the model
+                    class_name = self._meta.get_field(fk).rel.model.__name__
+                    try:
+                        node_fk.model_metadata = self.get_model_metadata(class_name)
+                    except Exception as ex:
+                        logger = utils.poor_mans_logger()
+                        logger.error("shallow_structure_node class_name = " + class_name + " - " + ex.message)
+                else:
+                    node_fk.model_metadata = getattr(self, fk).get_model_metadata()
+                node_fk.external_reference = True
+                node_fk.attribute = fk
+                node_fk.is_many = False
+                node_fk.save(using=db_alias)
+                node.child_nodes.add(node_fk)
         for rm in self.related_manager_attributes():
             # TODO: shallow_structure_node: implement self.related_manager_attributes case
             pass
@@ -548,14 +550,14 @@ class ShareableModel(SerializableModel):
 
         if sn.external_reference:
             try:
-                return self.__class__.objects.using('ksm').get(URIInstance=self.URIInstance)
+                return self.__class__.objects.using('materialized').get(URIInstance=self.URIInstance)
             except Exception as ex:
-                new_ex = Exception("ShareableModel.materialize: self.URIInstance: " + self.URIInstance + " searching it on ksm: " + ex.message + " Should we add it to dangling references?????")
+                new_ex = Exception("ShareableModel.materialize: self.URIInstance: " + self.URIInstance + " searching it on materialized: " + ex.message + " Should we add it to dangling references?????")
                 raise ex
 
         if self.URIInstance and str(self.URIInstance) in processed_instances:
             # already materialized it, I return that one 
-            return self.__class__.objects.using('ksm').get(URIInstance=self.URIInstance)
+            return self.__class__.objects.using('materialized').get(URIInstance=self.URIInstance)
         
         new_instance = self.__class__()
         if parent:
@@ -591,11 +593,11 @@ class ShareableModel(SerializableModel):
                 setattr(new_instance, key.name, eval("self." + key.name))
         
         # I have added all attributes corresponding to ForeignKey, I can save it so that I can use it as a parent for the other attributes
-        new_instance.save(using='ksm')
+        new_instance.save(using='materialized')
         if len(list_of_self_relationships_pointing_to_self) > 0:
             for attribute in list_of_self_relationships_pointing_to_self:
                 setattr(new_instance, attribute, new_instance)
-            new_instance.save(using='ksm')
+            new_instance.save(using='materialized')
         
         for sn_child_node in sn.child_nodes.all():
             if not (sn_child_node.attribute in self.foreign_key_attributes()):
@@ -613,7 +615,7 @@ class ShareableModel(SerializableModel):
                     new_child_instance = child_instance.materialize(sn_child_node, processed_instances, self)
                     setattr(new_instance, sn_child_node.attribute, new_child_instance)
         
-        new_instance.save(using='ksm')
+        new_instance.save(using='materialized')
         # after saving
         processed_instances.append(new_instance.URIInstance)
         return new_instance
@@ -654,7 +656,7 @@ class ShareableModel(SerializableModel):
             TODO: we should also take into account the case when a new_materialized_instance can have more than URI_previous_version; this
             situation requires redesign of the model and db
             '''
-            new_materialized_instances = self.__class__.objects.using('ksm').filter(URI_previous_version=self.URIInstance)
+            new_materialized_instances = self.__class__.objects.using('materialized').filter(URI_previous_version=self.URIInstance)
             new_instances = self.__class__.objects.filter(URI_previous_version=self.URIInstance)
             self_on_default_db = self.__class__.objects.filter(URIInstance=self.URIInstance)
             
@@ -758,7 +760,7 @@ class ModelMetadata(ShareableModel):
         if only_versioned: skips views and shallow ones and returns at most one 
         '''
         types = []
-        nodes = StructureNode.objects.using('ksm').filter(model_metadata=self, external_reference=external_reference)
+        nodes = StructureNode.objects.using('materialized').filter(model_metadata=self, external_reference=external_reference)
         try:
             for node in nodes:
                 entry_node = node
@@ -935,7 +937,7 @@ class DataSetStructure(ShareableModel):
             for instance in dataset.get_instances():
                 self.root_node.navigate(instance, instance_method_name, node_method_name, status, children_before)
         else:
-            instance = dataset.get_instance()
+            instance = dataset.root
             self.root_node.navigate(instance, instance_method_name, node_method_name, status, children_before)
         return status['output']
     
@@ -986,11 +988,11 @@ class DataSet(ShareableModel):
     # following attributes used to be in a separate class VersionableDataSet
     '''
     An Instance belongs to a set of instances which are basically the same but with a different version.
-    firt_version is the first instance of this set; firt_version has firt_version=self so that if I filter 
-    for firt_version=smthng I get all of them including the firt_version
+    first_version is the first instance of this set; first_version has first_version=self so that if I filter 
+    for first_version=smthng I get all of them including the first_version
     WE REFER TO SUCH SET AS THE "version set"
     '''
-    firt_version = models.ForeignKey('self', related_name='versions', null=True, blank=True)
+    first_version = models.ForeignKey('self', related_name='versions', null=True, blank=True)
     # http://semver.org/
     version_major = models.IntegerField(null=True, blank=True)
     version_minor = models.IntegerField(null=True, blank=True)
@@ -1014,18 +1016,18 @@ class DataSet(ShareableModel):
     licenses = models.ManyToManyField("licenses.License")
     
 
-    def get_instances(self, db_alias='ksm'):
+    def get_instances(self, db_alias='materialized'):
         '''
         Used for views only
         It returns the list of instances matching the filter criteria
-        CHECK: default ksm? E' una view e quindi che senso ha andare su default dove ci sono anche le versioni vecchie?
+        CHECK: default materialized? E' una view e quindi che senso ha andare su default dove ci sono anche le versioni vecchie?
         '''
         mm_model_metadata = self.dataset_structure.root_node.model_metadata
         actual_class = utils.load_class(mm_model_metadata.module + ".models", mm_model_metadata.name)
         q = eval("Q(" + self.filter_text + ")")
         return actual_class.objects.using(db_alias).filter(q)
     
-    def get_instances_of_a_type(self, se, db_alias='ksm'):
+    def get_instances_of_a_type(self, se, db_alias='materialized'):
         '''
         starting from the instances matching the filter criteria it returns the list of instances of the se type
         anywhere in the structure 
@@ -1114,12 +1116,12 @@ class DataSet(ShareableModel):
                 instances = []
                 instances.append(self.root)
             for instance in instances:
-                m_existing = instance.__class__.objects.using('ksm').filter(URI_imported_instance=instance.URI_imported_instance)
+                m_existing = instance.__class__.objects.using('materialized').filter(URI_imported_instance=instance.URI_imported_instance)
                 if len(m_existing) == 0:
                     instance.materialize(self.dataset_structure.root_node, processed_instances=[])
-            m_existing = DataSet.objects.using('ksm').filter(URI_imported_instance=self.URI_imported_instance)
+            m_existing = DataSet.objects.using('materialized').filter(URI_imported_instance=self.URI_imported_instance)
             if len(m_existing) == 0:
-                self.materialize(self.shallow_dataset_structure().root_node, processed_instances=[])
+                self.materialize(self.shallow_structure().root_node, processed_instances=[])
             # end of transaction
         except Exception as ex:
             raise ex
@@ -1153,11 +1155,11 @@ class DataSet(ShareableModel):
                 self.save()
                 # MATERIALIZATION Now we must copy newly released self to the materialized database
                 # I must check whether it is already materialized so that I don't do it twice
-                m_existing = DataSet.objects.using('ksm').filter(URIInstance=self.URIInstance)
+                m_existing = DataSet.objects.using('materialized').filter(URIInstance=self.URIInstance)
                 if len(m_existing) == 0:
                     instance = self.root
                     materialized_instance = instance.materialize(self.dataset_structure.root_node, processed_instances=[])
-                    materialized_self = self.materialize(self.shallow_dataset_structure().root_node, processed_instances=[])
+                    materialized_self = self.materialize(self.shallow_structure().root_node, processed_instances=[])
                     materialized_self.root = materialized_instance
                     materialized_self.save()
                     if not self.dataset_structure.multiple_releases:
@@ -1167,7 +1169,7 @@ class DataSet(ShareableModel):
                         materialized_self.save()
                         # now I can delete the old dataset (if any) as I want just one release (multiple_releases == false)
                         if currently_released:
-                            materialized_previously_released = DataSet.objects.using('ksm').get(URIInstance=previously_released.URIInstance)
+                            materialized_previously_released = DataSet.objects.using('materialized').get(URIInstance=previously_released.URIInstance)
                             materialized_previously_released.delete_entire_dataset()
                     
                     # If I own this DataSet then I create the event for notifications
@@ -1182,9 +1184,9 @@ class DataSet(ShareableModel):
                         e.save()
                         '''#157 now I need to generate events for views
                         I shall navigate the release structure
-                        Creating a set of lists, one list per each kind of SimpleEntity I encounter
+                        Creating a set of lists, one list per each kind of ModelMetadata I encounter
                         Each list contains the instances without repetitions
-                        Then for each list I find each DataSetStructure that contains a node of the SimpleEntity
+                        Then for each list I find each DataSetStructure that contains a node of the ModelMetadata
                         For each DataSet with that structure that is a view I test whether at least one of the
                         instances on the list is also in the dataset (also I must check if any is no longer there!)
                         If so I generate the event for that dataset.
@@ -1376,7 +1378,7 @@ class KnowledgeServer(ShareableModel):
             for notification in notifications:
                 message += "send_notifications, found a notification for URIInstance " + notification.event.dataset.URIInstance + "<br>"
                 message += "about to notify " + notification.remote_url + "<br>"
-                m_es = DataSetStructure.objects.using('ksm').get(name=DataSetStructure.dataset_structure_name)
+                m_es = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_name)
                 es = DataSetStructure.objects.using('default').get(URIInstance=m_es.URIInstance)
                 this_es = DataSetStructure.objects.get(URIInstance=notification.event.dataset.dataset_structure.URIInstance)
                 ei_of_this_es = DataSet.objects.get(entry_point_instance_id=this_es.id, dataset_structure=es)
@@ -1408,7 +1410,7 @@ class KnowledgeServer(ShareableModel):
         for notification in notifications:
             try:
                 with transaction.atomic():
-                    # We assume we have already all SimpleEntity
+                    # We assume we have already all ModelMetadata
                     # Let's retrieve the structure
                     response = urllib2.urlopen(notification.URL_structure)
                     structure_xml_stream = response.read()
@@ -1423,7 +1425,7 @@ class KnowledgeServer(ShareableModel):
                     dataset_xml_stream = response.read()
                     ei = DataSet()
                     ei = ei.from_xml_with_actual_instance(dataset_xml_stream)
-                    ei.dataset_structure = ei_structure.get_instance()
+                    ei.dataset_structure = ei_structure.root
                     ei.materialize_dataset()
                     notification.processed = True
                     notification.save()
@@ -1432,7 +1434,7 @@ class KnowledgeServer(ShareableModel):
         return message + "<br>"
         
     @staticmethod
-    def this_knowledge_server(db_alias='ksm'):
+    def this_knowledge_server(db_alias='materialized'):
         '''
         *** method that works BY DEFAULT on the materialized database ***
         *** the reason being that only there "get(this_ks = True)" is ***
@@ -1441,7 +1443,7 @@ class KnowledgeServer(ShareableModel):
         materialized; then, using the URIInstance we search it on the default
         because the URIInstance will be unique there
         '''
-        materialized_ks = KnowledgeServer.objects.using('ksm').get(this_ks=True)
+        materialized_ks = KnowledgeServer.objects.using('materialized').get(this_ks=True)
         if db_alias == 'default':
             return KnowledgeServer.objects.using('default').get(URIInstance=materialized_ks.URIInstance)
         else:
@@ -1465,7 +1467,7 @@ class SubscriptionToThis(ShareableModel):
     '''
     The subscriptions other systems do to my data
     '''
-    first_version_URIInstance = models.CharField(max_length=2000L)
+    first_version_URIInstance = models.CharField(default='', max_length=2000L)
     # where to send the notification; remote_url, in the case of a KS, will be something like http://rootks.thekoa.org/notify
     # the actual notification will have the URIInstance of the DataSet and the URIInstance of the EventType
     remote_url = models.CharField(max_length=200L)
@@ -1532,7 +1534,7 @@ class KsUri(object):
         self.uri = uri
         self.parsed = urlparse(self.uri)
         # I remove format options if any, e.g.
-        # http://rootks.thekoa.org/entity/SimpleEntity/1/json/  --> http://rootks.thekoa.org/entity/SimpleEntity/1/json/
+        # http://rootks.thekoa.org/entity/ModelMetadata/1/json/  --> http://rootks.thekoa.org/entity/ModelMetadata/1/json/
         self.clean_uri = uri
         # remove the trailing slash
         if self.clean_uri[-1:] == "/":
@@ -1546,7 +1548,7 @@ class KsUri(object):
 
         # I check whether it's structure i well formed according to the GenerateURIInstance method
         self.is_sintactically_correct = False
-        # not it looks something like: http://rootks.thekoa.org/entity/SimpleEntity/1
+        # not it looks something like: http://rootks.thekoa.org/entity/ModelMetadata/1
         self.clean_parsed = urlparse(self.clean_uri)
         self.scheme = ""
         for scheme in utils.Choices.SCHEME:
@@ -1555,16 +1557,16 @@ class KsUri(object):
         self.netloc = self.clean_parsed.netloc.lower()
         self.path = self.clean_parsed.path
         if self.scheme and self.netloc and self.path:
-            # the path should have the format: "/entity/SimpleEntity/1"
-            # where "entity" is the module, "SimpleEntity" is the class name and "1" is the id or pk
+            # the path should have the format: "/entity/ModelMetadata/1"
+            # where "entity" is the module, "ModelMetadata" is the class name and "1" is the id or pk
             temp_path = self.path
             if temp_path[0] == "/":
                 temp_path = temp_path[1:]
-            # "entity/SimpleEntity/1"
+            # "entity/ModelMetadata/1"
             if temp_path.find('/'):
                 self.namespace = temp_path[:temp_path.find('/')]
                 temp_path = temp_path[temp_path.find('/') + 1:]
-                # 'SimpleEntity/1'
+                # 'ModelMetadata/1'
                 if temp_path.find('/'):
                     self.class_name = temp_path[:temp_path.find('/')]
                     temp_path = temp_path[temp_path.find('/') + 1:]
@@ -1585,9 +1587,9 @@ class KsUri(object):
         I do not put this in the __init__ so the class can be used only for syntactic check or functionalities
         '''
         if self.is_sintactically_correct:
-            # I search the ks by netloc and scheme on ksm
+            # I search the ks by netloc and scheme on materialized
             try:
-                self.knowledge_server = KnowledgeServer.objects.using('ksm').get(scheme=self.schem, netloc=self.netloc)
+                self.knowledge_server = KnowledgeServer.objects.using('materialized').get(scheme=self.schem, netloc=self.netloc)
                 self.is_ks_known = True
             except:
                 self.is_ks_known = False

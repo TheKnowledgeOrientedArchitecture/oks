@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
+# Subject to the terms of the GNU AFFERO GENERAL PUBLIC LICENSE, v. 3.0. If a copy of the AGPL was not
+# distributed with this file, You can obtain one at http://www.gnu.org/licenses/agpl.txt
+#
+# Author: Davide Galletti                davide   ( at )   c4k.it
+
 from __future__ import unicode_literals
 
 from django.db import models, migrations
-from entity.models import Organization, KnowledgeServer, DataSet, DataSetStructure, SimpleEntity, StructureNode
+from knowledge_server.models import Organization, KnowledgeServer, DataSet, DataSetStructure
 
 def forwards_func(apps, schema_editor):
     test_client_org = Organization();test_client_org.name="A demo Organization";test_client_org.website='http://demo.example.com';test_client_org.description="This is just a demo Organization.";
     test_client_org.save(using='default')
     id_on_default_db = test_client_org.id
     test_client_org.id = None
-    test_client_org.save(using='ksm')
+    test_client_org.save(using='materialized')
     m_test_client_org = test_client_org
     test_client_org = Organization.objects.get(pk=id_on_default_db)
     
@@ -21,7 +26,7 @@ def forwards_func(apps, schema_editor):
     root_ks.save()
     
     m_test_client_org_ks = KnowledgeServer(name="A demo OKS used as a client.", scheme="http", netloc="client.thekoa.org", description="Just a test.", organization=test_client_org, this_ks=True,html_home="", html_disclaimer="This web site is solely for test purposes. Feel free to contact us.")
-    m_test_client_org_ks.save(using='ksm')
+    m_test_client_org_ks.save(using='materialized')
     test_client_org_ks = m_test_client_org_ks
     test_client_org_ks.id = None
     test_client_org_ks.URIInstance = ""
@@ -34,18 +39,18 @@ def forwards_func(apps, schema_editor):
     test_client_org.URIInstance = ""
     test_client_org.save()
     
-    m_es = DataSetStructure.objects.using('ksm').get(name = DataSetStructure.organization_dataset_structure_name)
+    m_es = DataSetStructure.objects.using('materialized').get(name = DataSetStructure.organization_dataset_structure_name)
     es = DataSetStructure.objects.get(URIInstance = m_es.URIInstance)
     ei = DataSet(owner_knowledge_server=test_client_org_ks,entry_point_instance_id=test_client_org.id,dataset_structure=es,description="A test Organization and their KSs",version_major=0,version_minor=1,version_patch=0)
     ei.save(using='default');ei.root_id=ei.id;ei.save(using='default')
-    # let's materialize the ei; I cannot release it as I saved manually the ks in ksm (I cannot do otherwise as it 
+    # let's materialize the ei; I cannot release it as I saved manually the ks in materialized (I cannot do otherwise as it 
     # is needed to generateURIInstance every time something is saved)
-    ei.materialize(ei.shallow_dataset_structure().entry_point, processed_instances = [])
+    ei.materialize(ei.shallow_structure().entry_point, processed_instances = [])
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('entity', '0004_common_to_other_ks'),
+        ('knowledge_server', '0002_initial_data'),
     ]
 
     operations = [

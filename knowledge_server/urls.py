@@ -21,7 +21,7 @@ urlpatterns = patterns('',
                        ###################   API   ####################
     url(r'^api/root_uri/(?P<base64_URIInstance>[\w|=|%|.]+)/$', views.api_root_uri, name='api_root_uri'),
     #33:
-    url(r'^api/simple_entity_definition/(?P<base64_SimpleEntity_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_simple_entity_definition, name='api_simple_entity_definition'), 
+    url(r'^api/simple_entity_definition/(?P<base64_ModelMetadata_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_simple_entity_definition, name='api_simple_entity_definition'), 
     #36:
     url(r'^api/dataset/(?P<base64_DataSet_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_dataset, name='api_dataset'),
     #64: 
