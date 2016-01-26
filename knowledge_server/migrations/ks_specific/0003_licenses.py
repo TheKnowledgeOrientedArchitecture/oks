@@ -41,10 +41,6 @@ def forwards_func(apps, schema_editor):
     test_license_org.save()
     
     
-    
-    
-    # it was in 0004_common
-    
     this_ks = KnowledgeServer.this_knowledge_server('default')
     seLicense = ModelMetadata.objects.using('default').get(name="License")
     
@@ -54,7 +50,8 @@ def forwards_func(apps, schema_editor):
     esLicense.save(using='default')
     m_es = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_DSN)
     es = DataSetStructure.objects.using('default').get(URIInstance=m_es.URIInstance)
-    ei = DataSet(description='-License- data set structure', owner_knowledge_server=this_ks, dataset_structure=es, root=esLicense, version_major=0, version_minor=1, version_patch=0, version_description="", version_released=True)
+    ei = DataSet(description='-License- data set structure', owner_knowledge_server=this_ks, dataset_structure=es, 
+                 root=esLicense, version_major=0, version_minor=1, version_patch=0, version_description="")
     ei.save(using='default');ei.first_version_id = ei.id;ei.save(using='default')
     ei.set_released()  # here materialization happens
     
@@ -66,11 +63,10 @@ def forwards_func(apps, schema_editor):
     esLicenseList.root_node = en1;esLicenseList.name = "List of licenses";esLicenseList.description = "List of all released licenses";esLicenseList.namespace = "license";
     esLicenseList.save(using='default')
     # DataSet of the above DataSetStructure
-    ei = DataSet(description='-List of licenses- data set structure', owner_knowledge_server=this_ks, dataset_structure=es, root=esLicenseList, version_major=0, version_minor=1, version_patch=0, version_description="", version_released=True)
+    ei = DataSet(description='-List of licenses- data set structure', owner_knowledge_server=this_ks, dataset_structure=es, 
+                 root=esLicenseList, version_major=0, version_minor=1, version_patch=0, version_description="")
     ei.save(using='default');ei.first_version_id = ei.id;ei.save(using='default')
     ei.set_released()  # here materialization happens
-    # it was in 0004_common
-    
     
     
     
@@ -82,7 +78,6 @@ def forwards_func(apps, schema_editor):
     # is needed to generateURIInstance every time something is saved)
     ei.materialize(ei.shallow_structure().root_node, processed_instances=[])
     
-    # temporarily created in 0004
     esLicense = DataSetStructure.objects.get(name="License") 
     
     ######## BEGIN LICENSES DATA
@@ -98,7 +93,8 @@ def forwards_func(apps, schema_editor):
     adrm.conformant_for_opendefinition = True
     adrm.legalcode = ''
     adrm.save(using='default')
-    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, root=adrm, version_major=2, version_minor=0, version_patch=0, version_description="", version_released=True)
+    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, 
+                 root=adrm, version_major=2, version_minor=0, version_patch=0, version_description="")
     ei.save(using='default');ei.first_version_id = ei.id;ei.save(using='default')
     ei.set_released()  # here materialization happens
 
@@ -113,9 +109,10 @@ def forwards_func(apps, schema_editor):
     ccby10.conformant_for_opendefinition = True
     ccby10.legalcode = ''
     ccby10.save(using='default')
-    ei_ccby10 = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, root=ccby10, version_major=1, version_minor=0, version_patch=0, version_description="", version_released=True)
+    ei_ccby10 = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, 
+                        root=ccby10, version_major=1, version_minor=0, version_patch=0, version_description="")
     ei_ccby10.save(using='default');ei_ccby10.first_version_id = ei_ccby10.id;ei_ccby10.save(using='default')
-    ei.set_released()  # here materialization happens
+    ei_ccby10.set_released()  # here materialization happens
 
     # above reccomended; below other conformant
     
@@ -130,7 +127,8 @@ def forwards_func(apps, schema_editor):
     cczero.conformant_for_opendefinition = True
     cczero.legalcode = ''
     cczero.save(using='default')
-    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, root=cczero, version_major=1, version_minor=0, version_patch=0, version_description="", version_released=True)
+    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, 
+                 root=cczero, version_major=1, version_minor=0, version_patch=0, version_description="")
     ei.save(using='default');ei.first_version_id = ei.id;ei.save(using='default')
     ei.set_released()  # here materialization happens
 
@@ -145,7 +143,8 @@ def forwards_func(apps, schema_editor):
     pddl.conformant_for_opendefinition = True
     pddl.legalcode = ''
     pddl.save(using='default')
-    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, root=pddl, version_major=1, version_minor=0, version_patch=0, version_description="", version_released=True)
+    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, 
+                 root=pddl, version_major=1, version_minor=0, version_patch=0, version_description="")
     ei.save(using='default');ei.first_version_id = ei.id;ei.save(using='default')
     ei.set_released()  # here materialization happens
 
@@ -160,8 +159,8 @@ def forwards_func(apps, schema_editor):
     ccby40.conformant_for_opendefinition = True
     ccby40.legalcode = ''
     ccby40.save(using='default')
-    # note that version_released=False
-    ei = DataSet(owner_knowledge_server=test_license_org_ks, first_version_id=ei_ccby10.id, dataset_structure=esLicense, root=ccby40, version_major=4, version_minor=0, version_patch=0, version_description="", version_released=False)
+    ei = DataSet(owner_knowledge_server=test_license_org_ks, first_version_id=ei_ccby10.id, dataset_structure=esLicense, 
+                 root=ccby40, version_major=4, version_minor=0, version_patch=0, version_description="")
     ei.save(using='default')
     # I do not set it as released; it will be done to demonstrate the notification and update process
 #     ei.set_released() #here materialization happens
@@ -177,7 +176,8 @@ def forwards_func(apps, schema_editor):
     odcby.conformant_for_opendefinition = True
     odcby.legalcode = ''
     odcby.save(using='default')
-    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, root=odcby, version_major=1, version_minor=0, version_patch=0, version_description="", version_released=True)
+    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, 
+                 root=odcby, version_major=1, version_minor=0, version_patch=0, version_description="")
     ei.save(using='default');ei.first_version_id = ei.id;ei.save(using='default')
     ei.set_released()  # here materialization happens
 
@@ -192,7 +192,8 @@ def forwards_func(apps, schema_editor):
     ccbysa40.conformant_for_opendefinition = True
     ccbysa40.legalcode = ''
     ccbysa40.save(using='default')
-    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, root=ccbysa40, version_major=4, version_minor=0, version_patch=0, version_description="", version_released=True)
+    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, 
+                 root=ccbysa40, version_major=4, version_minor=0, version_patch=0, version_description="")
     ei.save(using='default');ei.first_version_id = ei.id;ei.save(using='default')
     ei.set_released()  # here materialization happens
 
@@ -207,7 +208,8 @@ def forwards_func(apps, schema_editor):
     odbl.conformant_for_opendefinition = True
     odbl.legalcode = ''
     odbl.save(using='default')
-    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, root=odbl, version_major=1, version_minor=0, version_patch=0, version_description="", version_released=True)
+    ei = DataSet(owner_knowledge_server=test_license_org_ks, dataset_structure=esLicense, 
+                 root=odbl, version_major=1, version_minor=0, version_patch=0, version_description="")
     ei.save(using='default');ei.first_version_id = ei.id;ei.save(using='default')
     ei.set_released()  # here materialization happens
 

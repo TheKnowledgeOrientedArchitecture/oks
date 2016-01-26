@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
             name='License',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('URIInstance', models.CharField(max_length=2000L)),
+                ('URIInstance', models.CharField(default=b'', max_length=2000L)),
                 ('URI_imported_instance', models.CharField(max_length=2000L)),
                 ('URI_previous_version', models.CharField(max_length=2000L, null=True, blank=True)),
                 ('name', models.CharField(max_length=200L)),

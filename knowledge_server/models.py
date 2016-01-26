@@ -48,7 +48,7 @@ def model_post_save(sender, **kwargs):
             if kwargs['instance'].URIInstance != "":
                 kwargs['instance'].save()
         except Exception as e:
-            print (e.message)
+            print ("model_post_save kwargs['instance'].URIInstance: " + kwargs['instance'].URIInstance + "  -  " + e.message)
 
 class ShareableModel(SerializableModel):
     '''
@@ -552,7 +552,8 @@ class ShareableModel(SerializableModel):
             try:
                 return self.__class__.objects.using('materialized').get(URIInstance=self.URIInstance)
             except Exception as ex:
-                new_ex = Exception("ShareableModel.materialize: self.URIInstance: " + self.URIInstance + " searching it on materialized: " + ex.message + " Should we add it to dangling references?????")
+                new_ex = Exception("ShareableModel.materialize: external_reference to self.URIInstance: " + self.URIInstance + " searching it on materialized: " + ex.message + " Should we add it to dangling references?????")
+                print(ex.message)
                 raise ex
 
         if self.URIInstance and str(self.URIInstance) in processed_instances:
@@ -573,20 +574,20 @@ class ShareableModel(SerializableModel):
                 # if they are nullable I do nothing
                 try:
                     child_instance = getattr(self, sn_child_node.attribute)
-                    
-                    # e.g. DataSet.root is a self relationship often set to self; I am materializing self
-                    # so I don't have it; I return self; I could probably do the same also in the other case
-                    # because what actually counts for Django is the pk
-                    if self == child_instance:
-                        # In Django ORM it seems not possible to have not nullable self relationships pointing to self
-                        # I make not nullable in the model (this becomes a general constraint!); 
-                        # put them in a list and save them after saving new_instance
-                        list_of_self_relationships_pointing_to_self.append(sn_child_node.attribute)
-                    else:
-                        new_child_instance = child_instance.materialize(sn_child_node, processed_instances)
-                        setattr(new_instance, sn_child_node.attribute, new_child_instance)  # the parameter "parent" shouldn't be necessary in this case as this is a ForeignKey
+                    if not child_instance is None:
+                        # e.g. DataSet.root is a self relationship often set to self; I am materializing self
+                        # so I don't have it; I return self; I could probably do the same also in the other case
+                        # because what actually counts for Django is the pk
+                        if self == child_instance:
+                            # In Django ORM it seems not possible to have not nullable self relationships pointing to self
+                            # I make not nullable in the model (this becomes a general constraint!); 
+                            # put them in a list and save them after saving new_instance
+                            list_of_self_relationships_pointing_to_self.append(sn_child_node.attribute)
+                        else:
+                            new_child_instance = child_instance.materialize(sn_child_node, processed_instances)
+                            setattr(new_instance, sn_child_node.attribute, new_child_instance)  # the parameter "parent" shouldn't be necessary in this case as this is a ForeignKey
                 except Exception as ex:
-#                     print("ShareableModel.materialize: " + self.__class__.__name__ + " " + str(self.pk) + " attribute \"" + sn_child_node.attribute + "\" " + ex.message)
+                    print("ShareableModel.materialize: " + self.__class__.__name__ + " " + str(self.pk) + " attribute \"" + sn_child_node.attribute + "\" " + ex.message)
                     pass
         for key in self._meta.fields:
             if key.__class__.__name__ != "ForeignKey" and self._meta.pk != key:
@@ -610,9 +611,10 @@ class ShareableModel(SerializableModel):
                         else:
                             new_child_instance = child_instance.materialize(sn_child_node, processed_instances, new_instance)
                 else:
-                    # not is_many
+                    # not is_many ###############################################################################
                     child_instance = eval("self." + sn_child_node.attribute)
                     new_child_instance = child_instance.materialize(sn_child_node, processed_instances, self)
+                    # The child_instance could be a reference so we expect to find it already there
                     setattr(new_instance, sn_child_node.attribute, new_child_instance)
         
         new_instance.save(using='materialized')
@@ -1136,6 +1138,7 @@ class DataSet(ShareableModel):
         try:
             with transaction.atomic():
                 currently_released = None
+                previously_released = None
                 if not self.dataset_structure.multiple_releases:
                     # There cannot be more than one released? I set the others to False
                     try:
@@ -1144,12 +1147,12 @@ class DataSet(ShareableModel):
                             currently_released.version_released = False
                             currently_released.save()
                         previously_released = currently_released
-                    except:
-                        if currently_released != None and currently_released.pk == self.pk:
-                            # I am trying to release self and it is already released
-                            raise Exception("Trying to release a dataset that is already relased: " + self.URIInstance)
-                        else:
-                            print("DataSet.set_released couldn't find a released version.")
+                    except Exception as ex:
+                        # TODO: check if .get has returned more than one release, if so throw an exception
+                        pass
+                    if previously_released and previously_released.pk == self.pk:
+                        # version_released was erroneously set to True before the set_released (TODO: it should be encapsulated in a property)
+                        previously_released = None
                 # this one is released now
                 self.version_released = True
                 self.save()
@@ -1168,7 +1171,7 @@ class DataSet(ShareableModel):
                         materialized_self.first_version = materialized_self
                         materialized_self.save()
                         # now I can delete the old dataset (if any) as I want just one release (multiple_releases == false)
-                        if currently_released:
+                        if previously_released:
                             materialized_previously_released = DataSet.objects.using('materialized').get(URIInstance=previously_released.URIInstance)
                             materialized_previously_released.delete_entire_dataset()
                     
@@ -1196,7 +1199,9 @@ class DataSet(ShareableModel):
                         '''
                         released_instances_list = self.dataset_structure.navigate(self, "", "navigate_helper_list_by_type")
                         if not self.dataset_structure.multiple_releases:
-                            previously_released_instances_list = previously_released.dataset_structure.navigate(self, "", "navigate_helper_list_by_type")
+                            previously_released_instances_list = []
+                            if previously_released:
+                                previously_released_instances_list = previously_released.dataset_structure.navigate(self, "", "navigate_helper_list_by_type")
                         # I assume the list of keys of the above lists is the same, e.g. the dataset_structure has not changed
                         # keys are ModelMetadata
                         for se in released_instances_list.keys():
@@ -1210,14 +1215,23 @@ class DataSet(ShareableModel):
                                         changed means attribute but TODO:also their relationships!!!
                             '''
                             if not self.dataset_structure.multiple_releases:
-                                #     - all those that are in current but not in previous
-                                current_not_previous = list(i for i in released_instances_list[se] if i.URI_previous_version not in list(i.URIInstance for i in previously_released_instances_list[se]))
-                                #    - all those that are in previous but not in current
-                                previous_not_current = list(i for i in previously_released_instances_list[se] if i.URIInstance not in list(i.URI_previous_version for i in released_instances_list[se]))
+                                if previously_released:
+                                    #     - all those that are in current but not in previous
+                                    current_not_previous = list(i for i in released_instances_list[se] if i.URI_previous_version not in list(i.URIInstance for i in previously_released_instances_list[se]))
+                                    #    - all those that are in previous but not in current
+                                    previous_not_current = list(i for i in previously_released_instances_list[se] if i.URIInstance not in list(i.URI_previous_version for i in released_instances_list[se]))
+                                else:
+                                    # previously_released is None
+                                    #     - all those that are in current but not in previous
+                                    current_not_previous = list(i for i in released_instances_list[se])
+                                    previous_not_current = []
                                 #    - all those that are in both but have changed 
                                 current_changed = []
                                 previous_changed = []
-                                previous_and_current = list(i for i in previously_released_instances_list[se] if i.URIInstance in list(i.URI_previous_version for i in released_instances_list[se]))
+                                if previously_released:
+                                    previous_and_current = list(i for i in previously_released_instances_list[se] if i.URIInstance in list(i.URI_previous_version for i in released_instances_list[se]))
+                                else: # previously_released is None
+                                    previous_and_current = []
                                 for previous_instance in previous_and_current:
                                     current_instance = list(i for i in released_instances_list[se] if i.URI_previous_version == previous_instance.URIInstance)[0]
                                     if not ModelMetadata.compare(current_instance, previous_instance):
@@ -1254,7 +1268,7 @@ class DataSet(ShareableModel):
         Then it deletes self
         '''
         with transaction.atomic():
-            self.root.delete_children(self.dataset_structure.entry_point)
+            self.root.delete_children(self.dataset_structure.root_node)
             self.root.delete()
             self.delete()
         
