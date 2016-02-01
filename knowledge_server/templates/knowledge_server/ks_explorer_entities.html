@@ -31,7 +31,7 @@
           <ul>
           {% for structure in other_structures %}
             <li>
-                <a href="{% url 'browse_dataset' ks_url structure.URIInstance "browse" %}">{{ structure.actual_instance_name }}</a> ( <a href="{% url 'browse_dataset' ks_url structure.URIInstance "xml" %}">xml</a> | <a href="{% url 'browse_dataset' ks_url structure.URIInstance "json" %}">json</a> ) - <a href="{% url 'redirect_to_base64_oks_url' structure.oks_URIInstance  %}" target="_blank">{{ structure.oks_name }}</a>
+                <a href="{% url 'browse_dataset' ks_url structure.URIInstance "browse" %}">{{ structure.actual_instance_name }}</a> ( <a href="{% url 'browse_dataset' ks_url structure.URIInstance "xml" %}">xml</a> | <a href="{% url 'browse_dataset' ks_url structure.URIInstance "json" %}">json</a> ) - <a href="{% url 'ks_explorer' %}?ks_complete_url={{ structure.oks_home }}" target="_blank">{{ structure.oks_name }}</a>
             </li>
           {% endfor %}
           </ul>

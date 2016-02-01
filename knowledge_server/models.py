@@ -5,10 +5,12 @@
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
 import json
+from lxml import etree
 import utils
 import urllib
 import urllib2
 from urlparse import urlparse
+from xml.dom import minidom
 
 from django.db import models, transaction
 from django.db.models import Max
@@ -242,7 +244,10 @@ class ShareableModel(SerializableModel):
                     else:
                         child_instance = eval("self." + child_node.attribute)
                         if not child_instance is None:
-                            serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
+                            if export_format == 'JSON':
+                                child_serialized = outer_comma
+                            child_serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
+                            serialized += child_serialized
                     outer_comma = ", "
             except Exception as ex:
                 print(str(ex))
@@ -268,7 +273,7 @@ class ShareableModel(SerializableModel):
                 if node.is_many:
                     return '{ ' + self.serialized_URI_MM(export_format) + ', "URIInstance" : "' + self.URIInstance + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
                 else:
-                    return '"' + tag_name + '" :  { ' + self.serialized_URI_SE(export_format) + ', "URIInstance" : "' + self.URIInstance + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
+                    return '"' + tag_name + '" :  { ' + self.serialized_URI_MM(export_format) + ', "URIInstance" : "' + self.URIInstance + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
             
     def from_xml(self, xmldoc, structure_node, parent=None):
         '''
@@ -1017,7 +1022,131 @@ class DataSet(ShareableModel):
     '''
     licenses = models.ManyToManyField("licenses.License")
     
+    def export(self, export_format='XML', force_external_reference=False):
+        '''
+        it exports, serializing it, a dataset; starting from the root the serialization is based on the dataset structure
+        parameters:
+        force_external_reference: if True if will force the root to be serialized like an external reference e.g. only the pk
+        '''
+        serialized_head = ''
+        export_format = export_format.upper()
+        if export_format == 'XML':
+            serialized_head = "<DataSet " + self.serialized_attributes(export_format) + " >"
+        if export_format == 'JSON':
+            serialized_head = ' { ' + self.serialized_attributes(export_format)
+        comma = ""    
+        if export_format == 'JSON':
+            comma = ", "
 
+        e_model_metadata = ModelMetadata.objects.get(name="DataSetStructure")
+        temp_etn = StructureNode(model_metadata=e_model_metadata, external_reference=True, is_many=False, attribute="dataset_structure")
+        serialized_head += comma + self.dataset_structure.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        
+        ks_model_metadata = ModelMetadata.objects.get(name="KnowledgeServer")
+        temp_etn = StructureNode(model_metadata=ks_model_metadata, external_reference=True, is_many=False, attribute="owner_knowledge_server")
+        serialized_head += comma + self.owner_knowledge_server.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        
+        ei_model_metadata = ModelMetadata.objects.get(name="DataSet")
+        temp_etn = StructureNode(model_metadata=ei_model_metadata, external_reference=True, is_many=False, attribute="root")
+        serialized_head += comma + self.root.serialize(temp_etn, exported_instances=[], export_format=export_format)
+
+        if force_external_reference:
+            self.dataset_structure.root_node.external_reference = True
+
+#         if self.root_instance_id:
+        if not self.dataset_structure.is_a_view:
+            instance = self.root
+            if export_format == 'XML':
+                serialized_head += "<ActualInstance>" + instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format) + "</ActualInstance>"
+            if export_format == 'JSON':
+                serialized_head += ', "ActualInstance" : { ' + instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format) + " } "
+        elif self.filter_text:
+            instances = self.get_instances()
+            if export_format == 'XML':
+                serialized_head += "<ActualInstances>"
+            if export_format == 'JSON':
+                serialized_head += ', "ActualInstances" : [ '
+            comma = ""
+            for instance in instances:
+                if export_format == 'XML':
+                    serialized_head += "<ActualInstance>" + instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format) + "</ActualInstance>"
+                if export_format == 'JSON':
+                    serialized_head += comma + ' { ' + instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format) + " } "
+                    comma = ', '
+            if export_format == 'XML':
+                serialized_head += "</ActualInstances>"
+            if export_format == 'JSON':
+                serialized_head += ' ] '
+        if export_format == 'XML':
+            serialized_tail = "</DataSet>"
+        if export_format == 'JSON':
+            serialized_tail = " }"
+        return serialized_head + serialized_tail
+
+
+    def import_dataset(self, dataset_xml_stream):
+        '''
+        '''
+        # http://stackoverflow.com/questions/3310614/remove-whitespaces-in-xml-string 
+        p = etree.XMLParser(remove_blank_text=True)
+        elem = etree.XML(dataset_xml_stream, parser=p)
+        dataset_xml_stream = etree.tostring(elem)
+        xmldoc = minidom.parseString(dataset_xml_stream)
+        
+        dataset_xml = xmldoc.childNodes[0].childNodes[0]
+        DataSetStructureURI = dataset_xml.getElementsByTagName("dataset_structure")[0].attributes["URIInstance"].firstChild.data
+
+        # assert: the structure is present locally
+        es = DataSetStructure.retrieve(DataSetStructureURI)
+        self.dataset_structure = es
+        
+        try:
+            with transaction.atomic():
+                actual_instances_xml = []
+                if es.is_a_view:
+                    # I have a list of actual instances
+                    for instance_xml in dataset_xml.getElementsByTagName("ActualInstances")[0].childNodes:
+                        actual_instances_xml.append(instance_xml.childNodes[0])
+                else:
+                    # I create the actual instance
+                    actual_instances_xml.append(dataset_xml.getElementsByTagName("ActualInstance")[0].childNodes[0])
+                actual_class = utils.load_class(es.entry_point.simple_entity.module + ".models", es.entry_point.simple_entity.name)
+                for actual_instance_xml in actual_instances_xml:
+                    # already imported ?
+                    actual_instance_URIInstance = actual_instance_xml.attributes["URIInstance"].firstChild.data
+                    try:
+                        actual_instance = actual_class.retrieve(actual_instance_URIInstance)
+                        # it is already in this database; ?????I return the corresponding DataSet
+#?????                        return DataSet.objects.get(dataset_structure=es, entry_point_instance_id=actual_instance_on_db.pk)
+                    except:  # I didn't find it on this db, no problem
+                        actual_instance = actual_class()
+                        actual_instance.from_xml(actual_instance_xml, es.entry_point, insert=True)
+                        # from_xml saves actual_instance on the database
+                
+                # I create the DataSet if not already imported
+                dataset_URIInstance = dataset_xml.attributes["URIInstance"].firstChild.data
+                try:
+                    dataset_on_db = DataSet.retrieve(dataset_URIInstance)
+                    if not es.is_a_view:
+                        # actual_instance.pk changes during import as we have "insert = True" and the pk is set to None
+                        dataset_on_db.entry_point_instance_id = actual_instance.pk
+                        dataset_on_db.save()
+                    return dataset_on_db
+                except:  # I didn't find it on this db, no problem
+                    # In the next call the KnowledgeServer owner of this DataSet must exist
+                    # So it must be imported while subscribing; it is imported by this very same method
+                    # Since it is in the actual instance the next method will find it
+                    self.from_xml(dataset_xml, self.shallow_dataset_structure().entry_point, insert=True)
+                    if not es.is_a_view:
+                        # actual_instance.pk changes during import as we have "insert = True" and the pk is set to None
+                        self.entry_point_instance_id = actual_instance.pk
+                        self.save()
+        except Exception as ex:
+            print (ex.message)
+            raise ex
+        return self
+
+        
     def get_instances(self, db_alias='materialized'):
         '''
         Used for views only
@@ -1312,10 +1441,10 @@ class KnowledgeServer(ShareableModel):
     
     organization = models.ForeignKey(Organization)
 
-    def uri(self, encode_base64=False):
+    def uri(self, encode=False):
         # "http://rootks.thekoa.org/"
         uri = self.scheme + "://" + self.netloc
-        if encode_base64:
+        if encode:
             uri = urllib.urlencode({'':uri})[1:]
         return uri
     
@@ -1395,16 +1524,16 @@ class KnowledgeServer(ShareableModel):
                 m_es = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_name)
                 es = DataSetStructure.objects.using('default').get(URIInstance=m_es.URIInstance)
                 this_es = DataSetStructure.objects.get(URIInstance=notification.event.dataset.dataset_structure.URIInstance)
-                ei_of_this_es = DataSet.objects.get(entry_point_instance_id=this_es.id, dataset_structure=es)
+                ei_of_this_es = DataSet.objects.get(root_instance_id=this_es.id, dataset_structure=es)
                 values = { 'first_version_URIInstance' : notification.event.dataset.root.URIInstance,
-                           'URL_dataset' : this_ks.uri() + reverse('api_dataset', args=(base64.encodestring(notification.event.dataset.URIInstance).replace('\n', ''), "XML",)),
-                           'URL_structure' : this_ks.uri() + reverse('api_dataset', args=(base64.encodestring(ei_of_this_es.URIInstance).replace('\n', ''), "XML",)),
+                           'URL_dataset' : this_ks.uri() + reverse('api_dataset', args=(urllib.urlencode({'':notification.event.dataset.URIInstance})[1:], "XML",)),
+                           'URL_structure' : this_ks.uri() + reverse('api_dataset', args=(urllib.urlencode({'':ei_of_this_es.URIInstance})[1:], "XML",)),
                            'type' : notification.event.type,
                            'timestamp' : notification.event.timestamp, }
                 data = urllib.urlencode(values)
                 req = urllib2.Request(notification.remote_url, data)
                 response = urllib2.urlopen(req)
-                ar = ApiReponse()
+                ar = ApiResponse()
                 ar.parse(response.read())
                 if ar.status == "success":
                     notification.sent = True
@@ -1429,16 +1558,16 @@ class KnowledgeServer(ShareableModel):
                     response = urllib2.urlopen(notification.URL_structure)
                     structure_xml_stream = response.read()
                     ei_structure = DataSet()
-                    ei_structure = ei_structure.from_xml_with_actual_instance(structure_xml_stream)
+                    ei_structure = ei_structure.import_dataset(structure_xml_stream)
                     ei_structure.dataset_structure = DataSetStructure.objects.get(name=DataSetStructure.dataset_structure_name)
                     ei_structure.materialize_dataset()
                     # the dataset is retrieved with api #36 api_dataset that serializes
                     # the DataSet and also the complete actual instance 
-                    # from_xml_with_actual_instance will create the DataSet and the actual instance
+                    # import_dataset will create the DataSet and the actual instance
                     response = urllib2.urlopen(notification.URL_dataset)
                     dataset_xml_stream = response.read()
                     ei = DataSet()
-                    ei = ei.from_xml_with_actual_instance(dataset_xml_stream)
+                    ei = ei.import_dataset(dataset_xml_stream)
                     ei.dataset_structure = ei_structure.root
                     ei.materialize_dataset()
                     notification.processed = True
@@ -1515,22 +1644,30 @@ class NotificationReceived(ShareableModel):
     processed = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
     
-class ApiReponse():
+class ApiResponse():
     '''
     
     '''
-    def __init__(self, status="", message=""):
+    def __init__(self, status="", message=""): #, deprecated=False, deprecation_message=""):
         self.status = status
         self.message = message
+#         self.deprecation_message = deprecation_message
+#         self.deprecated = deprecated
         
     def json(self):
-        ret_str = '{ "status" : "' + self.status + '", "message" : "' + self.message + '"}'
+        ret_str = '{ "status" : "' + self.status + '", "message" : "' + self.message
+        if self.deprecated:
+            ret_str +=  '", "deprecated" : "' + self.deprecation_message
+        ret_str +=  '"}'
         return ret_str
     
     def parse(self, json_response):
         decoded = json.loads(json_response)
         self.status = decoded['status']
         self.message = decoded['message']
+        if decoded.has_key("deprecated"):
+            self.deprecated = True
+            self.deprecation_message = decoded['deprecation_message']
         
 class KsUri(object):
     '''
@@ -1590,8 +1727,17 @@ class KsUri(object):
                         self.is_sintactically_correct = True
 
     def base64(self):
+        '''
+        deprecated
+        '''
         return base64.encodestring(self.uri).replace('\n', '')
         
+    def encoded(self):
+        return urllib.urlencode({'':self.uri})[1:]
+        
+    def home(self):
+        return self.scheme + '://' + self.netloc 
+
     def __repr__(self):
         return self.scheme + '://' + self.netloc + '/' + self.namespace + '/' + self.class_name + '/' + str(self.pk_value)
     

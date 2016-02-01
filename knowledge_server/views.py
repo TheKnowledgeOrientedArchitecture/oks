@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import base64
 from datetime import datetime
 import json
 import urllib, urllib2, urlparse
@@ -16,70 +15,68 @@ from django.template import RequestContext
 from django.views.decorators.csrf import csrf_exempt
 
 from knowledge_server.models import ModelMetadata, DataSetStructure, DataSet, KnowledgeServer
-from knowledge_server.models import SubscriptionToOther, SubscriptionToThis, ApiReponse, NotificationReceived, KsUri, Notification, Event
+from knowledge_server.models import SubscriptionToOther, SubscriptionToThis, ApiResponse, NotificationReceived, KsUri, Notification, Event
 import knowledge_server.utils as utils
 import logging
 import forms as myforms 
 
 logger = logging.getLogger(__name__)
 
-def api_simple_entity_definition(request, base64_ModelMetadata_URIInstance, format):
+def api_simple_entity_definition(request, ModelMetadata_URIInstance, format):
     '''
         #33
     '''
     format = format.upper()
-    URIModelMetadata = base64.decodestring(base64_ModelMetadata_URIInstance)
     actual_class = ModelMetadata
 
-    se = actual_class.retrieve(URIModelMetadata)
+    se = actual_class.retrieve(ModelMetadata_URIInstance)
     
     instance = get_object_or_404(actual_class, pk=se.id)
-    e = DataSetStructure.objects.get(name = DataSetStructure.simple_entity_dataset_structure_name)
+    e = DataSetStructure.objects.get(name = DataSetStructure.model_metadata_DSN)
     if format == 'JSON':
-        exported_json = '{ "Export" : { "DataSetStructureName" : "' + e.name + '", "DataSetStructureURI" : "' + e.URIInstance + '", "ExportDateTime" : "' + str(datetime.now()) + '", ' + instance.serialize(e.entry_point, format=format, exported_instances = []) + ' } }'
+        exported_json = '{ "Export" : { "DataSetStructureName" : "' + e.name + '", "DataSetStructureURI" : "' + e.URIInstance + '", "ExportDateTime" : "' + str(datetime.now()) + '", ' + instance.serialize(e.entry_point, export_format=format, exported_instances = []) + ' } }'
         return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
     if format == 'XML':
-        exported_xml = "<Export DataSetStructureName=\"" + e.name + "\" DataSetStructureURI=\"" + e.URIInstance + "\" ExportDateTime=\"" + str(datetime.now()) + "\">" + instance.serialize(e.entry_point, format=format, exported_instances = []) + "</Export>"
+        exported_xml = "<Export DataSetStructureName=\"" + e.name + "\" DataSetStructureURI=\"" + e.URIInstance + "\" ExportDateTime=\"" + str(datetime.now()) + "\">" + instance.serialize(e.entry_point, export_format=format, exported_instances = []) + "</Export>"
         xmldoc = minidom.parseString(exported_xml)
         exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
         return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
 
-def api_dataset(request, base64_DataSet_URIInstance, format):
+def api_dataset(request, DataSet_URIInstance, format):
     '''
         #36
         It returns the dataset with the URIInstance in the parameter 
         
         parameter:
-        * base64_DataSet_URIInstance: URIInstance of the DataSet base64 encoded
+        * DataSet_URIInstance: URIInstance of the DataSet 
         
         Implementation:
         # it creates the ModelMetadata class, 
-        # fetches from the DB the one with pk = DataSet.entry_point_instance_id
+        # fetches from the DB the one with pk = DataSet.root_instance_id
         # it runs to_xml of the ModelMetadata using DataSet.entity.entry_point
     '''
     format = format.upper()
-    URIInstance = base64.decodestring(base64_DataSet_URIInstance)
-    dataset = DataSet.retrieve(URIInstance)
+    dataset = DataSet.retrieve(DataSet_URIInstance)
     actual_instance = ""
     actual_instance_json = ""
     if not dataset.dataset_structure.is_a_view:
         actual_instance = dataset.root
-    base64_dataset_URIInstance = KsUri(dataset.URIInstance).base64()
+    DataSet_URIInstance = KsUri(dataset.URIInstance).encoded()
     
     if format == 'HTML' or format == 'BROWSE':
-        actual_instance_json = '{' + actual_instance.serialize(dataset.dataset_structure.entry_point, format='json', exported_instances = []) + '}'
+        actual_instance_json = '{' + actual_instance.serialize(dataset.dataset_structure.entry_point, export_format='json', exported_instances = []) + '}'
     if format == 'JSON':
-        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSet" : ' + dataset.serialize_with_actual_instance(format = 'JSON') + ' } }'
+        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSet" : ' + dataset.export(export_format = 'JSON') + ' } }'
         return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
     if format == 'XML':
-        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\">" + dataset.serialize_with_actual_instance(format = format) + "</Export>"
+        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\">" + dataset.export(export_format = format) + "</Export>"
         xmldoc = minidom.parseString(exported_xml)
         exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
         return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
     if format == 'HTML' or format == 'BROWSE':
         this_ks = KnowledgeServer.this_knowledge_server()
-        cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.entry_point, 'base64_dataset_URIInstance': base64_dataset_URIInstance, 'this_ks':this_ks, 'this_ks_base64_url':this_ks.uri(True)})
-        return render_to_response('ks/browse_dataset.html', context_instance=cont)
+        cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.entry_point, 'DataSet_URIInstance': DataSet_URIInstance, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
+        return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
         pass
 
 def api_catch_all(request, uri_instance):
@@ -115,10 +112,10 @@ def api_catch_all(request, uri_instance):
             this_ks = KnowledgeServer.this_knowledge_server()
             instance = actual_class.retrieve(this_ks.uri() + "/" + uri_instance)
             if format == 'JSON':
-                exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", ' + instance.serialize(format='JSON', exported_instances = []) + ' } }'
+                exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", ' + instance.serialize(export_format='JSON', exported_instances = []) + ' } }'
                 return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
             if format == 'XML':
-                exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\">" + instance.serialize(format='XML', exported_instances = []) + "</Export>"
+                exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\">" + instance.serialize(export_format='XML', exported_instances = []) + "</Export>"
                 xmldoc = minidom.parseString(exported_xml)
                 exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
                 return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
@@ -144,26 +141,26 @@ def api_dataset_types(request, format):
             so that I get all the EntitieStructures in this_ks in a shallow export
     '''
     # Look for all DataSetStructure of type "DataSetStructure-StructureNode-Application" ...
-    entities_id = DataSetStructure.objects.filter(name=DataSetStructure.dataset_structure_name).values("id")
+    entities_id = DataSetStructure.objects.filter(name=DataSetStructure.dataset_structure_DSN).values("id")
     # Look for the only DataSet whose DataSetStructure is *incidentally* of the above type (entity_id__in=entities_id)
-    # whose instance is ov the above type entry_point_instance_id__in=entities_id
+    # whose instance is ov the above type root_instance_id__in=entities_id
     # and it is released (there must be exactly one!
-    ei = DataSet.objects.get(version_released=True, entry_point_instance_id__in=entities_id, dataset_structure_id__in=entities_id)
-    e = DataSetStructure.objects.get(pk=ei.entry_point_instance_id)
+    ei = DataSet.objects.get(version_released=True, root_instance_id__in=entities_id, dataset_structure_id__in=entities_id)
+    e = DataSetStructure.objects.get(pk=ei.root_instance_id)
     
-    return api_datasets(request, base64.encodestring(e.URIInstance).replace('\n',''), format)
+    return api_datasets(request, DataSetStructure_URIInstance = e.URIInstance, format=format)
 
-def api_dataset_info(request, base64_DataSet_URIInstance, format):
+def api_dataset_info(request, DataSet_URIInstance, format):
     '''
         #52 
         
         Parameters:
         * format { 'XML' | 'JSON' | 'HTML' = 'BROWSE' }
-        * base64_DataSet_URIInstance: URIInstance of the DataSet base64 encoded
+        * DataSet_URIInstance: URIInstance of the DataSet 
         
         Implementation:
         it fetches the DataSet, then the list of all that share the same root
-        it returns DataSet.serialize_with_actual_instance(format) and for each on the above list:
+        it returns DataSet.export(format) and for each on the above list:
             the URIInstance of the ErtityInstance
             the version status {working | released | obsolete}
             the version number (e.g. 0.1.0)
@@ -173,8 +170,7 @@ def api_dataset_info(request, base64_DataSet_URIInstance, format):
 
     '''
     format = format.upper()
-    URIInstance = base64.decodestring(base64_DataSet_URIInstance)
-    dataset = DataSet.retrieve(URIInstance)
+    dataset = DataSet.retrieve(DataSet_URIInstance)
     all_versions = DataSet.objects.filter(root = dataset.root)
     all_versions_serialized = ""
     comma = ""
@@ -182,15 +178,15 @@ def api_dataset_info(request, base64_DataSet_URIInstance, format):
         for v in all_versions:
             if format == 'JSON':
                 all_versions_serialized += comma
-            all_versions_serialized += v.serialize_with_actual_instance(format = format, force_external_reference=True)
+            all_versions_serialized += v.export(export_format = format, force_external_reference=True)
             comma = ", "
     if format == 'XML':
-        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\"><DataSet>" + dataset.serialize_with_actual_instance(format = format, force_external_reference=True) + "</DataSet><Versions>" + all_versions_serialized + "</Versions></Export>"
+        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\"><DataSet>" + dataset.export(export_format = format, force_external_reference=True) + "</DataSet><Versions>" + all_versions_serialized + "</Versions></Export>"
         xmldoc = minidom.parseString(exported_xml)
         exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
         return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
     if format == 'JSON':
-        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSet" : ' + dataset.serialize_with_actual_instance(format = format, force_external_reference=True) + ', "Versions" : [' + all_versions_serialized + '] } }'
+        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSet" : ' + dataset.export(export_format = format, force_external_reference=True) + ', "Versions" : [' + all_versions_serialized + '] } }'
         return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
     if format == 'HTML' or format == 'BROWSE':
         if dataset.dataset_structure.is_a_view:
@@ -210,25 +206,24 @@ def api_dataset_info(request, base64_DataSet_URIInstance, format):
                 version_with_instance['simple_entity'].append(v.root)
                 all_versions_with_instances.append(version_with_instance)
         this_ks = KnowledgeServer.this_knowledge_server()
-        cont = RequestContext(request, {'base64_DataSet_URIInstance': base64_DataSet_URIInstance, 'dataset': dataset, 'all_versions_with_instances': all_versions_with_instances, 'ks': dataset.owner_knowledge_server, 'instances': instances, 'this_ks':this_ks, 'this_ks_base64_url':this_ks.uri(True) })
-        return render_to_response('ks/api_dataset_info.html', context_instance=cont)
+        cont = RequestContext(request, {'DataSet_URIInstance': DataSet_URIInstance, 'dataset': dataset, 'all_versions_with_instances': all_versions_with_instances, 'ks': dataset.owner_knowledge_server, 'instances': instances, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True) })
+        return render_to_response('knowledge_server/api_dataset_info.html', context_instance=cont)
     
-def api_datasets(request, base64_DataSetStructure_URIInstance, format):
+def api_datasets(request, DataSetStructure_URIInstance, format):
     '''
         http://redmine.davide.galletti.name/issues/64
         all the released datasets of a given structure/type
         
         parameter:
         * format { 'XML' | 'JSON' }
-        * base64_Entity_URIInstance: URIInstance of the DataSetStructure base64 encoded
+        * DataSetStructure_URIInstance: URIInstance of the DataSetStructure encoded
         
         Implementation:
         # it fetches the structure from the DB, looks for all the datasets
         # with that structure; if it is not a view only those that are released; 
     '''
     format = format.upper()
-    URIInstance = base64.decodestring(base64_DataSetStructure_URIInstance)
-    e = DataSetStructure.retrieve(URIInstance)
+    e = DataSetStructure.retrieve(DataSetStructure_URIInstance)
     
     # Now I need to get all the released DataSet of the DataSetStructure passed as a parameter
     if e.is_a_view:
@@ -241,7 +236,7 @@ def api_datasets(request, base64_DataSetStructure_URIInstance, format):
     for ei in released_dataset:
         if format == 'JSON':
             serialized += comma
-        serialized += ei.serialize_with_actual_instance(format = format, force_external_reference=True)
+        serialized += ei.export(export_format = format, force_external_reference=True)
         comma = ", "
     if format == 'XML':
         exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\"><DataSets>" + serialized + "</DataSets></Export>"
@@ -254,7 +249,6 @@ def api_datasets(request, base64_DataSetStructure_URIInstance, format):
 
 def ks_explorer(request):
     try:
-#        ks_url = base64.decodestring(request.GET['ks_complete_url'])
         ks_url = urlparse.parse_qs('url=' + request.GET['ks_complete_url'])['url'][0]
     except:
         ks_url = request.POST['ks_complete_url']
@@ -282,26 +276,26 @@ def ks_explorer(request):
         for ei in decoded['Export']['DataSets']:
             entity = {}
             entity['actual_instance_name'] = ei['ActualInstance']['DataSetStructure']['name']
-            entity['URIInstance'] = base64.encodestring(ei['ActualInstance']['DataSetStructure']['URIInstance']).replace('\n','')
+            entity['URIInstance'] = urllib.urlencode({'':ei['ActualInstance']['DataSetStructure']['URIInstance']})[1:]
             entity['oks_name'] = ei['owner_knowledge_server']['name']
-            entity['oks_URIInstance'] = base64.encodestring(ei['owner_knowledge_server']['URIInstance']).replace('\n','')
+            external_oks_url = KsUri(ei['owner_knowledge_server']['URIInstance']).home()
+            entity['oks_home'] = urllib.urlencode({'':external_oks_url})[1:]
             if ei['owner_knowledge_server']['URIInstance'] == explored_ks['URIInstance']:
                 owned_structures.append(entity)
             else:
                 other_structures.append(entity)
     except Exception as ex:
         return HttpResponse(ex.message)
-    cont = RequestContext(request, {'owned_structures':owned_structures, 'other_structures':other_structures, 'this_ks':this_ks, 'this_ks_base64_url':this_ks.uri(True), 'organization': organization, 'explored_ks': explored_ks, 'ks_url':base64.encodestring(ks_url).replace('\n','')})
-    return render_to_response('ks/ks_explorer_entities.html', context_instance=cont)
+    cont = RequestContext(request, {'owned_structures':owned_structures, 'other_structures':other_structures, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True), 'organization': organization, 'explored_ks': explored_ks, 'ks_url':urllib.urlencode({'':ks_url})[1:]})
+    return render_to_response('knowledge_server/ks_explorer_entities.html', context_instance=cont)
 
 def ks_explorer_form(request):
     form = myforms.ExploreOtherKSForm()
     this_ks = KnowledgeServer.this_knowledge_server()
-    cont = RequestContext(request, {'form':form, 'this_ks':this_ks, 'this_ks_base64_url':this_ks.uri(True)})
-    return render_to_response('ks/ks_explorer_form.html', context_instance=cont)
+    cont = RequestContext(request, {'form':form, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
+    return render_to_response('knowledge_server/ks_explorer_form.html', context_instance=cont)
 
-def browse_dataset(request, ks_url, base64URIInstance, format):
-    ks_url = base64.decodestring(ks_url)
+def browse_dataset(request, ks_url, URIInstance, format):
     this_ks = KnowledgeServer.this_knowledge_server()
     format = format.upper()
 
@@ -321,16 +315,16 @@ def browse_dataset(request, ks_url, base64URIInstance, format):
     external_ks.netloc = external_ks_json['netloc']
     external_ks.description = external_ks_json['description']
     #info on the DataSetStructure
-    response = urllib2.urlopen(base64.decodestring(base64URIInstance) + "/json")
+    response = urllib2.urlopen(URIInstance + "/json")
     es_info_json_stream = response.read()
     # parsing json
     es_info_json = json.loads(es_info_json_stream)
     
     
     if format == 'XML':
-        local_url = reverse('api_datasets', args=(base64URIInstance,format))
+        local_url = reverse('api_datasets', args=(URIInstance,format))
     if format == 'JSON' or format == 'BROWSE':
-        local_url = reverse ('api_datasets', args=(base64URIInstance,'JSON'))
+        local_url = reverse ('api_datasets', args=(URIInstance,'JSON'))
     response = urllib2.urlopen(ks_url + local_url)
     entities = response.read()
     if format == 'XML':
@@ -356,18 +350,18 @@ def browse_dataset(request, ks_url, base64URIInstance, format):
                 entity['actual_instance_name'] = ei['ActualInstance'][actual_instance_class]['name']
             else: #is a view
                 entity['actual_instance_name'] = ei['description']
-            entity['base64URIInstance'] = base64.encodestring(ei['URIInstance']).replace('\n','')
+            entity['encodedURIInstance'] = urllib.urlencode({'':ei['URIInstance']})[1:]
             entity['URIInstance'] = ei['URIInstance']
             if ei['root']['URIInstance'] in subscribed_root_URIInstances:
                 entity['subscribed'] = True
             entities.append(entity)
-        cont = RequestContext(request, {'entities':entities, 'organization': organization, 'this_ks':this_ks, 'this_ks_base64_url':this_ks.uri(True), 'external_ks': external_ks, 'es_info_json': es_info_json})
-        return render_to_response('ks/list_dataset.html', context_instance=cont)
+        cont = RequestContext(request, {'entities':entities, 'organization': organization, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True), 'external_ks': external_ks, 'es_info_json': es_info_json})
+        return render_to_response('knowledge_server/list_dataset.html', context_instance=cont)
     
 def home(request):
     this_ks = KnowledgeServer.this_knowledge_server()
-    cont = RequestContext(request, {'this_ks':this_ks, 'this_ks_base64_url':this_ks.uri(True)})
-    return render(request, 'ks/home.html', context_instance=cont)
+    cont = RequestContext(request, {'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
+    return render(request, 'knowledge_server/home.html', context_instance=cont)
 
 def api_ks_info(request, format):
     '''
@@ -382,65 +376,61 @@ def api_ks_info(request, format):
     '''
     format = format.upper()
     this_ks = KnowledgeServer.this_knowledge_server()    
-    es = DataSetStructure.objects.get(name = DataSetStructure.organization_dataset_structure_name)
-    ei = DataSet.objects.get(dataset_structure=es, entry_point_instance_id=this_ks.organization.id)
-    base64_DataSet_URIInstance = base64.encodestring(ei.URIInstance).replace('\n','')
-    return api_dataset(request, base64_DataSet_URIInstance, format)
+    es = DataSetStructure.objects.get(name = DataSetStructure.organization_DSN)
+    ei = DataSet.objects.get(dataset_structure=es, root_instance_id=this_ks.organization.id)
+    return api_dataset(request, ei.URIInstance, format)
     
-def api_root_uri(request, base64_URIInstance):
+def api_root_uri(request, URIInstance):
     '''
-    base64_URIInstance is the URI of an DataSet
+    URIInstance is the URI of an DataSet
     Simply return the URIinstance of the root
     '''
     try:
-        URIInstance = base64.decodestring(base64_URIInstance)
         ei = DataSet.objects.get(URIInstance=URIInstance)
         return HttpResponse('{ "URI" : "' + ei.root.URIInstance + '" }')
     except:
         return HttpResponse('{ "URI" : "" }')
 
-def this_ks_unsubscribes_to(request, base64_URIInstance):
+def this_ks_unsubscribes_to(request, URIInstance):
     '''
     '''
     pass
 
-def release_dataset(request, base64_Dataset_URIInstance):
+def release_dataset(request, DataSet_URIInstance):
     '''
     '''
     try:
-        dataset_URIInstance = base64.decodestring(base64_Dataset_URIInstance)
-        dataset = DataSet.objects.get(URIInstance = dataset_URIInstance)
+        dataset = DataSet.objects.get(URIInstance = DataSet_URIInstance)
         dataset.set_released()
-        return render(request, 'knowledge_server/export.json', {'json': ApiReponse("success", dataset_URIInstance + " successfully released.").json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse("success", dataset_URIInstance + " successfully released.").json()}, content_type="application/json")
     except Exception as ex:
-        return render(request, 'knowledge_server/export.json', {'json': ApiReponse("failure", ex.message).json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse("failure", ex.message).json()}, content_type="application/json")
         
-def redirect_to_base64_oks_url(request, base64_oks_URIInstance):
-    '''
-    Used in templates to redirect to a KS URIInstance when I have just the base64 encoding
-    '''
-    ks_uri = KsUri(base64.decodestring(base64_oks_URIInstance))
-    if ks_uri.is_sintactically_correct:
-        return redirect(ks_uri.scheme + "://" + ks_uri.netloc)
-    else:
-        return HttpResponse("The URI is not sintactically correct: " + base64.decodestring(base64_oks_URIInstance))
+# def redirect_to_base64_oks_url(request, base64_oks_URIInstance):
+#     '''
+#     Used in templates to redirect to a KS URIInstance when I have just the base64 encoding
+#     '''
+#     ks_uri = KsUri(base64.decodestring(base64_oks_URIInstance))
+#     if ks_uri.is_sintactically_correct:
+#         return redirect(ks_uri.scheme + "://" + ks_uri.netloc)
+#     else:
+#         return HttpResponse("The URI is not sintactically correct: " + base64.decodestring(base64_oks_URIInstance))
 
-def this_ks_subscribes_to(request, base64_URIInstance):
+def this_ks_subscribes_to(request, URIInstance):
     '''
     This ks is subscribing to a data set in another ks
     First I store the subscription locally
     Then I invoke remotely api_subscribe
     If it works I commit locally
     '''
-    URIInstance = base64.decodestring(base64_URIInstance)
     other_ks_uri = URIInstance[:str.find(URIInstance, '/', str.find(URIInstance, '/', str.find(URIInstance, '/')+1)+1)]  # TODO: make it a method of a helper class to find the URL of the KS from a URIInstance
 
     local_url = reverse('api_ks_info', args=("XML",))
     response = urllib2.urlopen(other_ks_uri + local_url)
     ks_info_xml_stream = response.read()
-    # from_xml_with_actual_instance creates the entity instance and the actual instance
+    # import_dataset creates the entity instance and the actual instance
     ei = DataSet()
-    local_ei = ei.from_xml_with_actual_instance(ks_info_xml_stream)
+    local_ei = ei.import_dataset(ks_info_xml_stream)
     # I have imported a KnowledgeServer with this_ks = True; must set it to False (see this_knowledge_server())
     external_org = local_ei.root
     for ks in external_org.knowledgeserver_set.all():
@@ -453,13 +443,14 @@ def this_ks_subscribes_to(request, base64_URIInstance):
         with transaction.atomic():
             # am I already subscribed? We check also whether we have subscribed to another version 
             # (with an API to get the root URIInstance and the attribute root_URIInstance of SubscriptionToOther)
-            local_url = reverse('api_root_uri', args=(base64_URIInstance,))
+            encoded_URIInstance = urllib.urlencode({'':URIInstance})[1:]
+            local_url = reverse('api_root_uri', args=(encoded_URIInstance,))
             response = urllib2.urlopen(other_ks_uri + local_url)
             root_URIInstance_json = json.loads(response.read())
             root_URIInstance = root_URIInstance_json['URI']
             others = SubscriptionToOther.objects.filter(root_URIInstance=root_URIInstance)
             if len(others) > 0:
-                return render(request, 'knowledge_server/export.json', {'json': ApiReponse("failure", "Already subscribed").json()}, content_type="application/json")
+                return render(request, 'knowledge_server/export.json', {'json': ApiResponse("failure", "Already subscribed").json()}, content_type="application/json")
             # save locally
             sto = SubscriptionToOther()
             sto.URI = URIInstance
@@ -467,40 +458,38 @@ def this_ks_subscribes_to(request, base64_URIInstance):
             sto.save()
             # invoke remote API to subscribe
             this_ks = KnowledgeServer.this_knowledge_server()
-            url_to_invoke = base64.encodestring(this_ks.uri() + reverse('api_notify')).replace('\n','')
-            local_url = reverse('api_subscribe', args=(base64_URIInstance,url_to_invoke,))
+            url_to_invoke = urllib.urlencode({'':this_ks.uri() + reverse('api_notify')})[1:]
+            local_url = reverse('api_subscribe', args=(encoded_URIInstance,url_to_invoke,))
             response = urllib2.urlopen(other_ks_uri + local_url)
             return render(request, 'knowledge_server/export.json', {'json': response.read()}, content_type="application/json")
     except:
         pass
     
-def api_subscribe(request, base64_URIInstance, base64_remote_url):
+def api_subscribe(request, URIInstance, remote_url):
     '''
         #35 
         parameters:
-        base64_URIInstance the base64 encoded URIInstance to which I want to subscribe
-        base64_URL the URL this KS has to invoke to notify
+        URIInstance is the one to which I want to subscribe
+        remote_url the URL this KS has to invoke to notify
     '''
     # check the client KS has already subscribed
-    URIInstance = base64.decodestring(base64_URIInstance)
     ei = DataSet.objects.get(URIInstance=URIInstance)
     root_URIInstance = ei.root.URIInstance
-    remote_url = base64.decodestring(base64_remote_url)
     existing_subscriptions = SubscriptionToThis.objects.filter(root_URIInstance=root_URIInstance, remote_url=remote_url)
     if len(existing_subscriptions) > 0:
-        return render(request, 'knowledge_server/export.json', {'json': ApiReponse("failure", "Already subscribed").json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse("failure", "Already subscribed").json()}, content_type="application/json")
     stt = SubscriptionToThis()
     stt.root_URIInstance=root_URIInstance
     stt.remote_url=remote_url
     stt.save()
-    return render(request, 'knowledge_server/export.json', {'json': ApiReponse("success", "Subscribed sucessfully").json()}, content_type="application/json")
+    return render(request, 'knowledge_server/export.json', {'json': ApiResponse("success", "Subscribed sucessfully").json()}, content_type="application/json")
     
-def api_unsubscribe(request, base64_URIInstance, base64_URL):
+def api_unsubscribe(request, URIInstance, remote_URL):
     '''
         #123
         parameters:
-        base64_URIInstance the base64 encoded URIInstance to which I want to subscribe
-        base64_URL the URL this KS has to invoke to notify
+        URIInstance is the one to which I want to subscribe
+        remote_url the URL this KS has to invoke to notify
     '''
     
 @csrf_exempt
@@ -508,17 +497,20 @@ def api_notify(request):
     '''
         #35 it receives a notification; the verb is POST
         parameters:
-        URIInstance: the base64 encoded URIInstance of the DataSet for which the event has happened
+        TODO: 
+            root_URIInstance->first_version_URIInstance
+            URL_dataset --> dataset_URIInstance
+            URL_structure --> structure_URIInstance
+        root_URIInstance: the URIInstance of the first version of the DataSet for which the event has happened
         event_type: the URInstance of the EventType
-        extra_info_json: a JSON structure with info specific to an EventType (optional)
-    '''
+   '''
     root_URIInstance = request.POST.get("root_URIInstance", "")
     URL_dataset = request.POST.get("URL_dataset", "")
     URL_structure = request.POST.get("URL_structure", "")
-    type = request.POST.get("type", "")
+    event_type = request.POST.get("type", "")
     # Did I subscribe to this?
     sto = SubscriptionToOther.objects.filter(root_URIInstance=root_URIInstance)
-    ar = ApiReponse()
+    ar = ApiResponse()
     if len(sto) > 0:
         nr = NotificationReceived()
         nr.URL_dataset = URL_dataset
@@ -546,7 +538,7 @@ def disclaimer(request):
     '''
     this_ks = KnowledgeServer.this_knowledge_server()
     cont = RequestContext(request, {'this_ks': this_ks})
-    return render_to_response('ks/disclaimer.html', context_instance=cont)
+    return render_to_response('knowledge_server/disclaimer.html', context_instance=cont)
 
 def subscriptions(request):
     '''
@@ -557,9 +549,9 @@ def subscriptions(request):
     notifications_to_be_sent = Notification.objects.filter(sent=False)
     received_notifications = NotificationReceived.objects.filter(processed=False)
     subscriptions_to_other = SubscriptionToOther.objects.all()
-    cont = RequestContext(request, {'received_notifications': received_notifications, 'notifications_to_be_sent': notifications_to_be_sent, 'events': events, 'subscriptions_to_other': subscriptions_to_other, 'subscriptions_to_this': subscriptions_to_this, 'this_ks': this_ks, 'this_ks_base64_url':this_ks.uri(True)})
+    cont = RequestContext(request, {'received_notifications': received_notifications, 'notifications_to_be_sent': notifications_to_be_sent, 'events': events, 'subscriptions_to_other': subscriptions_to_other, 'subscriptions_to_this': subscriptions_to_this, 'this_ks': this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
     
-    return render_to_response('ks/subscriptions.html', context_instance=cont)
+    return render_to_response('knowledge_server/subscriptions.html', context_instance=cont)
 
 def debug(request):
     '''

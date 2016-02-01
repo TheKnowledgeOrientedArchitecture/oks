@@ -39,9 +39,9 @@ def forwards_func(apps, schema_editor):
     test_client_org.URIInstance = ""
     test_client_org.save()
     
-    m_es = DataSetStructure.objects.using('materialized').get(name = DataSetStructure.organization_dataset_structure_name)
+    m_es = DataSetStructure.objects.using('materialized').get(name = DataSetStructure.organization_DSN)
     es = DataSetStructure.objects.get(URIInstance = m_es.URIInstance)
-    ei = DataSet(owner_knowledge_server=test_client_org_ks,entry_point_instance_id=test_client_org.id,dataset_structure=es,description="A test Organization and their KSs",version_major=0,version_minor=1,version_patch=0)
+    ei = DataSet(owner_knowledge_server=test_client_org_ks,root_instance_id=test_client_org.id,dataset_structure=es,description="A test Organization and their KSs",version_major=0,version_minor=1,version_patch=0)
     ei.save(using='default');ei.root_id=ei.id;ei.save(using='default')
     # let's materialize the ei; I cannot release it as I saved manually the ks in materialized (I cannot do otherwise as it 
     # is needed to generateURIInstance every time something is saved)
