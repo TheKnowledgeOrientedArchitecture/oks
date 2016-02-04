@@ -109,7 +109,7 @@ def forwards_func(apps, schema_editor):
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,
                  root = mmModelMetadata,
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     # DataSet has no DataSetStructure, I create the shallow one so that I can set DataSetStructure.namespace
     # and hence generate the URIInstance for each instance of DataSet
     es = ei.shallow_structure(db_alias)
@@ -122,47 +122,47 @@ def forwards_func(apps, schema_editor):
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
                  root=mmAttribute,                                   
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
                  root=mmAttributeType,                               
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
                  root=mmStructureNode,                         
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
                  root=mmDataSetStructure,                             
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
                  root=mmOrganization,                                
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
                  root=mmDataSet,                              
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
                  root=mmKnowledgeServer,                             
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=dssModelMetadataAttributes,                       
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=dssDataSetStructureStructureNode,
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=eOrganizationKS,                               
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=eOrganizationKS,                  
                  root=the_koa_org,                                   
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.root_id=ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
 
 
 

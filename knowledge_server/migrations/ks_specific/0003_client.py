@@ -45,7 +45,7 @@ def forwards_func(apps, schema_editor):
     ei.save(using='default');ei.root_id=ei.id;ei.save(using='default')
     # let's materialize the ei; I cannot release it as I saved manually the ks in materialized (I cannot do otherwise as it 
     # is needed to generateURIInstance every time something is saved)
-    ei.materialize(ei.shallow_structure().entry_point, processed_instances = [])
+    ei.materialize(ei.shallow_structure().root_node, processed_instances = [])
 
 class Migration(migrations.Migration):
 

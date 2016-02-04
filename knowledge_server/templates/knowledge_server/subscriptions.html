@@ -21,7 +21,7 @@
     <ul>
     {% for subscription in subscriptions_to_this %}
         <li>
-            {{ subscription.remote_url }} has subscribed to {{ subscription.root_URIInstance }}
+            {{ subscription.remote_url }} has subscribed to {{ subscription.first_version_URIInstance }}
         </li>
     {% endfor %}
     </ul>
@@ -34,7 +34,7 @@
     <ul>
     {% for subscription in subscriptions_to_other %}
         <li>
-            {{ subscription.root_URIInstance }}
+            {{ subscription.first_version_URIInstance }}
         </li>
     {% endfor %}
     </ul>

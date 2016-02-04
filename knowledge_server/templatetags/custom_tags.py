@@ -1,5 +1,7 @@
 import base64
 import json
+import urllib
+
 from django import template
 from django.core.urlresolvers import reverse
 from knowledge_server.models import KnowledgeServer 
@@ -35,7 +37,7 @@ def version_instance_info(dataset, instances, *args, **kwargs):
 
 @register.simple_tag
 def browse_json_data(actual_instance, exported_json, esn, *args, **kwargs):
-    json_data = json.loads(exported_json)[esn.simple_entity.name]
+    json_data = json.loads(exported_json)[esn.model_metadata.name]
     
     return json_to_html(actual_instance, json_data, esn)
 
@@ -44,7 +46,7 @@ def json_to_html(actual_instance, json_data, esn, indent_level=0):
         ret_html = ""
         if esn.attribute == "":
             # no attribute, I am at the entry point
-            ret_html = (indent_level * "--&nbsp;") + " " + esn.simple_entity.name + ': "<a href="' + json_data["URIInstance"] + '">' + json_data[esn.simple_entity.name_field] +'</a>"<br>'
+            ret_html = (indent_level * "--&nbsp;") + " " + esn.model_metadata.name + ': "<a href="' + json_data["URIInstance"] + '">' + json_data[esn.model_metadata.name_field] +'</a>"<br>'
             ret_html += actual_instance.serialized_attributes(format = 'HTML')
         else:
             if esn.is_many:
@@ -52,18 +54,18 @@ def json_to_html(actual_instance, json_data, esn, indent_level=0):
                 esn.attribute = ""
                 for json_child in json_children:
                     ext_json_child = {}
-                    ext_json_child[esn.simple_entity.name] = json_child
+                    ext_json_child[esn.model_metadata.name] = json_child
                     ret_html += json_to_html(ext_json_child, esn, indent_level)
                 return ret_html
             else:
                 # there exist simple entities with no name
                 try:
-                    name = json_data[esn.simple_entity.name_field]
+                    name = json_data[esn.model_metadata.name_field]
                 except:
                     name = ""
                 if name == "":
                     name = esn.attribute
-                ret_html = (indent_level * "--&nbsp;") + " " + esn.simple_entity.name + ': "<a href="' + json_data["URIInstance"] + '">' + name +'</a>"<br>'
+                ret_html = (indent_level * "--&nbsp;") + " " + esn.model_metadata.name + ': "<a href="' + json_data["URIInstance"] + '">' + name +'</a>"<br>'
         indent_level+=1
         for esn_child_node in esn.child_nodes.all():
             try:

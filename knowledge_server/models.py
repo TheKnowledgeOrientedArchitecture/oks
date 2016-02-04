@@ -13,7 +13,7 @@ from urlparse import urlparse
 from xml.dom import minidom
 
 from django.db import models, transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.core.urlresolvers import reverse
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -411,7 +411,7 @@ class ShareableModel(SerializableModel):
         # TODO: UGLY PATCH: see #143
         if self.__class__.__name__ == 'DataSet':
             '''
-            if the first_version has been imported here then I use it, otherwise self
+            if the first_version has been imported hfirstere then I use it, otherwise self
             '''
             self.first_version = self
             try:
@@ -1046,9 +1046,11 @@ class DataSet(ShareableModel):
         temp_etn = StructureNode(model_metadata=ks_model_metadata, external_reference=True, is_many=False, attribute="owner_knowledge_server")
         serialized_head += comma + self.owner_knowledge_server.serialize(temp_etn, exported_instances=[], export_format=export_format)
         
-        ei_model_metadata = ModelMetadata.objects.get(name="DataSet")
-        temp_etn = StructureNode(model_metadata=ei_model_metadata, external_reference=True, is_many=False, attribute="root")
-        serialized_head += comma + self.root.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        if not self.dataset_structure.is_a_view:
+            #if it is a view there is no first_version
+            ei_model_metadata = ModelMetadata.objects.get(name="DataSet")
+            temp_etn = StructureNode(model_metadata=ei_model_metadata, external_reference=True, is_many=False, attribute="first_version")
+            serialized_head += comma + self.first_version.serialize(temp_etn, exported_instances=[], export_format=export_format)
 
         if force_external_reference:
             self.dataset_structure.root_node.external_reference = True
@@ -1110,7 +1112,7 @@ class DataSet(ShareableModel):
                 else:
                     # I create the actual instance
                     actual_instances_xml.append(dataset_xml.getElementsByTagName("ActualInstance")[0].childNodes[0])
-                actual_class = utils.load_class(es.entry_point.simple_entity.module + ".models", es.entry_point.simple_entity.name)
+                actual_class = utils.load_class(es.root_node.model_metadata.module + ".models", es.root_node.model_metadata.name)
                 for actual_instance_xml in actual_instances_xml:
                     # already imported ?
                     actual_instance_URIInstance = actual_instance_xml.attributes["URIInstance"].firstChild.data
@@ -1120,7 +1122,7 @@ class DataSet(ShareableModel):
 #?????                        return DataSet.objects.get(dataset_structure=es, entry_point_instance_id=actual_instance_on_db.pk)
                     except:  # I didn't find it on this db, no problem
                         actual_instance = actual_class()
-                        actual_instance.from_xml(actual_instance_xml, es.entry_point, insert=True)
+                        actual_instance.from_xml(actual_instance_xml, es.root_node)
                         # from_xml saves actual_instance on the database
                 
                 # I create the DataSet if not already imported
@@ -1128,18 +1130,16 @@ class DataSet(ShareableModel):
                 try:
                     dataset_on_db = DataSet.retrieve(dataset_URIInstance)
                     if not es.is_a_view:
-                        # actual_instance.pk changes during import as we have "insert = True" and the pk is set to None
-                        dataset_on_db.entry_point_instance_id = actual_instance.pk
+                        dataset_on_db.root = actual_instance
                         dataset_on_db.save()
                     return dataset_on_db
                 except:  # I didn't find it on this db, no problem
                     # In the next call the KnowledgeServer owner of this DataSet must exist
                     # So it must be imported while subscribing; it is imported by this very same method
                     # Since it is in the actual instance the next method will find it
-                    self.from_xml(dataset_xml, self.shallow_dataset_structure().entry_point, insert=True)
+                    self.from_xml(dataset_xml, self.shallow_structure().root_node)
                     if not es.is_a_view:
-                        # actual_instance.pk changes during import as we have "insert = True" and the pk is set to None
-                        self.entry_point_instance_id = actual_instance.pk
+                        self.root = actual_instance
                         self.save()
         except Exception as ex:
             print (ex.message)
@@ -1409,14 +1409,14 @@ class DataSet(ShareableModel):
         if released == False: the latest unreleased one
         '''
         if released is None:  # I take the latest regardless of the fact that it is released or not
-            version_major__max = DataSet.objects.filter(root=self.root).aggregate(Max('version_major'))['version_major__max']
-            version_minor__max = DataSet.objects.filter(root=self.root, version_major=version_major__max).aggregate(Max('version_minor'))['version_minor__max']
-            version_patch__max = DataSet.objects.filter(root=self.root, version_major=version_major__max, version_minor=version_minor__max).aggregate(Max('version_patch'))['version_patch__max']
+            version_major__max = DataSet.objects.filter(first_version=self.first_version).aggregate(Max('version_major'))['version_major__max']
+            version_minor__max = DataSet.objects.filter(first_version=self.first_version, version_major=version_major__max).aggregate(Max('version_minor'))['version_minor__max']
+            version_patch__max = DataSet.objects.filter(first_version=self.first_version, version_major=version_major__max, version_minor=version_minor__max).aggregate(Max('version_patch'))['version_patch__max']
         else:  # I filter according to released
-            version_major__max = DataSet.objects.filter(version_released=released, root=self.root).aggregate(Max('version_major'))['version_major__max']
-            version_minor__max = DataSet.objects.filter(version_released=released, root=self.root, version_major=version_major__max).aggregate(Max('version_minor'))['version_minor__max']
-            version_patch__max = DataSet.objects.filter(version_released=released, root=self.root, version_major=version_major__max, version_minor=version_minor__max).aggregate(Max('version_patch'))['version_patch__max']
-        return DataSet.objects.get(root=self.root, version_major=version_major__max, version_minor=version_minor__max, version_patch=version_patch__max)
+            version_major__max = DataSet.objects.filter(version_released=released, first_version=self.first_version).aggregate(Max('version_major'))['version_major__max']
+            version_minor__max = DataSet.objects.filter(version_released=released, first_version=self.first_version, version_major=version_major__max).aggregate(Max('version_minor'))['version_minor__max']
+            version_patch__max = DataSet.objects.filter(version_released=released, first_version=self.first_version, version_major=version_major__max, version_minor=version_minor__max).aggregate(Max('version_patch'))['version_patch__max']
+        return DataSet.objects.get(first_version=self.first_version, version_major=version_major__max, version_minor=version_minor__max, version_patch=version_patch__max)
    
 class Organization(ShareableModel):
     name = models.CharField(max_length=500L, blank=True)
@@ -1521,7 +1521,7 @@ class KnowledgeServer(ShareableModel):
             for notification in notifications:
                 message += "send_notifications, found a notification for URIInstance " + notification.event.dataset.URIInstance + "<br>"
                 message += "about to notify " + notification.remote_url + "<br>"
-                m_es = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_name)
+                m_es = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_DSN)
                 es = DataSetStructure.objects.using('default').get(URIInstance=m_es.URIInstance)
                 this_es = DataSetStructure.objects.get(URIInstance=notification.event.dataset.dataset_structure.URIInstance)
                 ei_of_this_es = DataSet.objects.get(root_instance_id=this_es.id, dataset_structure=es)
@@ -1656,8 +1656,8 @@ class ApiResponse():
         
     def json(self):
         ret_str = '{ "status" : "' + self.status + '", "message" : "' + self.message
-        if self.deprecated:
-            ret_str +=  '", "deprecated" : "' + self.deprecation_message
+#         if self.deprecated:
+#             ret_str +=  '", "deprecated" : "' + self.deprecation_message
         ret_str +=  '"}'
         return ret_str
     
@@ -1665,9 +1665,9 @@ class ApiResponse():
         decoded = json.loads(json_response)
         self.status = decoded['status']
         self.message = decoded['message']
-        if decoded.has_key("deprecated"):
-            self.deprecated = True
-            self.deprecation_message = decoded['deprecation_message']
+#         if decoded.has_key("deprecated"):
+#             self.deprecated = True
+#             self.deprecation_message = decoded['deprecation_message']
         
 class KsUri(object):
     '''
