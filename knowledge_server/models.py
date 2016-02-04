@@ -244,6 +244,7 @@ class ShareableModel(SerializableModel):
                     else:
                         child_instance = eval("self." + child_node.attribute)
                         if not child_instance is None:
+                            child_serialized = ""
                             if export_format == 'JSON':
                                 child_serialized = outer_comma
                             child_serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
@@ -1525,7 +1526,7 @@ class KnowledgeServer(ShareableModel):
                 es = DataSetStructure.objects.using('default').get(URIInstance=m_es.URIInstance)
                 this_es = DataSetStructure.objects.get(URIInstance=notification.event.dataset.dataset_structure.URIInstance)
                 ei_of_this_es = DataSet.objects.get(root_instance_id=this_es.id, dataset_structure=es)
-                values = { 'first_version_URIInstance' : notification.event.dataset.root.URIInstance,
+                values = { 'first_version_URIInstance' : notification.event.dataset.first_version.URIInstance,
                            'URL_dataset' : this_ks.uri() + reverse('api_dataset', args=(urllib.urlencode({'':notification.event.dataset.URIInstance})[1:], "XML",)),
                            'URL_structure' : this_ks.uri() + reverse('api_dataset', args=(urllib.urlencode({'':ei_of_this_es.URIInstance})[1:], "XML",)),
                            'type' : notification.event.type,
@@ -1559,7 +1560,7 @@ class KnowledgeServer(ShareableModel):
                     structure_xml_stream = response.read()
                     ei_structure = DataSet()
                     ei_structure = ei_structure.import_dataset(structure_xml_stream)
-                    ei_structure.dataset_structure = DataSetStructure.objects.get(name=DataSetStructure.dataset_structure_name)
+                    ei_structure.dataset_structure = DataSetStructure.objects.get(name=DataSetStructure.dataset_structure_DSN)
                     ei_structure.materialize_dataset()
                     # the dataset is retrieved with api #36 api_dataset that serializes
                     # the DataSet and also the complete actual instance 
