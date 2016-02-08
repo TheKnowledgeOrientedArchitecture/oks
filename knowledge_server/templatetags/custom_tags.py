@@ -21,15 +21,19 @@ def version_instance_info(dataset, instances, *args, **kwargs):
     DataSet_URIInstance = urllib.urlencode({'':dataset.URIInstance})[1:]
     ret_string = ''
     for instance in instances:
-        ret_string +=  '<p>"' + instance.name + '" (<a href="' + reverse('api_dataset', args=(DataSet_URIInstance,"html")) + '">browse the data</a> or'
-        ret_string += ' get it in <a href="' + reverse('api_dataset', args=(DataSet_URIInstance,"XML")) + '">XML</a> or '
-        ret_string += '<a href="' + reverse('api_dataset', args=(DataSet_URIInstance,"JSON")) + '">JSON</a>)<br>'
-        ret_string += 'Version ' + ('' if dataset.version_released else '(<font color="red">not released</font>) ') + str(dataset.version_major) + '.' + str(dataset.version_minor) + '.' + str(dataset.version_patch) + ' - ' + str(dataset.version_date)
+        html_url = reverse('api_dataset_view', args=(DataSet_URIInstance,instance.pk,"html")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_URIInstance,"html"))
+        xml_url = reverse('api_dataset_view', args=(DataSet_URIInstance,instance.pk,"XML")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_URIInstance,"XML"))
+        json_url = reverse('api_dataset_view', args=(DataSet_URIInstance,instance.pk,"JSON")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_URIInstance,"JSON"))
+        ret_string +=  '<p>"' + instance.name + '" (<a href="' + html_url + '">browse the data</a> or'
+        ret_string += ' get it in <a href="' + xml_url + '">XML</a> or '
+        ret_string += '<a href="' + json_url + '">JSON</a>)<br>'
+        if not dataset.dataset_structure.is_a_view:
+            ret_string += 'Version ' + ('' if dataset.version_released else '(<font color="red">not released</font>) ') + str(dataset.version_major) + '.' + str(dataset.version_minor) + '.' + str(dataset.version_patch) + ' - ' + str(dataset.version_date)
         if not dataset.licenses is None:
             ret_string += '<br>Licenses: '
         for l in dataset.licenses.all():
             ret_string += '<br> ' + l.name
-        if dataset.version_released:
+        if dataset.version_released or dataset.dataset_structure.is_a_view:
             ret_string += '</p>'
         else:  
             ret_string += '<br>Click <a href="' + reverse('release_dataset', args=(DataSet_URIInstance,)) + '" target="_blank">here</a> to release it.</p>'

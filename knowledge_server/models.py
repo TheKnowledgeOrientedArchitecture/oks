@@ -407,6 +407,9 @@ class ShareableModel(SerializableModel):
         # TODO: UGLY PATCH: see #143
         if self.__class__.__name__ == 'DataSet':
             self.first_version = None
+            # if it is a view root_instance_id could be set to "" but it should be None
+            if self.root_instance_id == "": 
+                self.root_instance_id = None
         # I can save now
         self.save()
         # TODO: UGLY PATCH: see #143
@@ -598,7 +601,7 @@ class ShareableModel(SerializableModel):
         for key in self._meta.fields:
             if key.__class__.__name__ != "ForeignKey" and self._meta.pk != key:
                 setattr(new_instance, key.name, eval("self." + key.name))
-        
+
         # I have added all attributes corresponding to ForeignKey, I can save it so that I can use it as a parent for the other attributes
         new_instance.save(using='materialized')
         if len(list_of_self_relationships_pointing_to_self) > 0:
@@ -1494,7 +1497,7 @@ class KnowledgeServer(ShareableModel):
         events = Event.objects.filter(processed=False, type="New version")
         message += "Found " + str(len(events)) + " events<br>"
         for event in events:
-            subs = SubscriptionToThis.objects.filter(first_version_URIInstance=event.dataset.root.URIInstance)
+            subs = SubscriptionToThis.objects.filter(first_version_URIInstance=event.dataset.first_version.URIInstance)
             try:
                 with transaction.atomic():
                     for sub in subs:

@@ -19,11 +19,12 @@ urlpatterns = patterns('',
     url(r'^release_dataset/(?P<Dataset_URIInstance>[\w|=|%|.]+)/$', views.release_dataset, name='release_dataset'),
 
                        ###################   API   ####################
-    url(r'^api/root_uri/(?P<URIInstance>[\w|=|%|.]+)/$', views.api_root_uri, name='api_root_uri'),
+    url(r'^api/first_version_uri/(?P<URIInstance>[\w|=|%|.]+)/$', views.api_first_version_uri, name='api_first_version_uri'),
     #33:
     url(r'^api/simple_entity_definition/(?P<ModelMetadata_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_simple_entity_definition, name='api_simple_entity_definition'), 
     #36:
     url(r'^api/dataset/(?P<DataSet_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_dataset, name='api_dataset'),
+    url(r'^api/dataset_view/(?P<DataSet_URIInstance>[\w|=|%|.]+)/(?P<root_id>[0-9]+)/(?P<format>.*)/$', views.api_dataset_view, name='api_dataset_view'),
     #64: 
     url(r'^api/datasets/(?P<DataSetStructure_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_datasets, name='api_datasets'),
     #46:

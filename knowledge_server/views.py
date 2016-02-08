@@ -42,6 +42,36 @@ def api_simple_entity_definition(request, ModelMetadata_URIInstance, format):
         exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
         return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
 
+def api_dataset_view(request, DataSet_URIInstance, root_id, format):
+    '''
+    if we are browsing a view there is not just one single root that we can explore
+    but a list of instances that match the criteria; root_id tells us which one to browse
+    '''
+    format = format.upper()
+    DataSet_URIInstance_decoded = urllib.unquote(DataSet_URIInstance)
+    dataset = DataSet.retrieve(DataSet_URIInstance_decoded)
+    actual_instance = ""
+    actual_instance_json = ""
+    # this dataset is a view; I shall use root_id to retrieve the actual instance
+    module_name = dataset.dataset_structure.root_node.model_metadata.module
+    actual_instance_class = utils.load_class(module_name + ".models", dataset.dataset_structure.root_node.model_metadata.name) 
+    actual_instance = actual_instance_class.objects.get(pk=root_id)
+    
+    if format == 'HTML' or format == 'BROWSE':
+        actual_instance_json = '{' + actual_instance.serialize(dataset.dataset_structure.root_node, export_format='json', exported_instances = []) + '}'
+    if format == 'JSON':
+        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSet" : ' + dataset.export(export_format = 'JSON') + ' } }'
+        return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
+    if format == 'XML':
+        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\">" + dataset.export(export_format = format) + "</Export>"
+        xmldoc = minidom.parseString(exported_xml)
+        exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
+        return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
+    if format == 'HTML' or format == 'BROWSE':
+        this_ks = KnowledgeServer.this_knowledge_server()
+        cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.root_node, 'DataSet_URIInstance': DataSet_URIInstance, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
+        return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
+
 def api_dataset(request, DataSet_URIInstance, format):
     '''
         #36
@@ -60,8 +90,8 @@ def api_dataset(request, DataSet_URIInstance, format):
     dataset = DataSet.retrieve(DataSet_URIInstance_decoded)
     actual_instance = ""
     actual_instance_json = ""
-    if not dataset.dataset_structure.is_a_view:
-        actual_instance = dataset.root
+    #this dataset is not a view; if not dataset.dataset_structure.is_a_view:
+    actual_instance = dataset.root
     
     if format == 'HTML' or format == 'BROWSE':
         actual_instance_json = '{' + actual_instance.serialize(dataset.dataset_structure.root_node, export_format='json', exported_instances = []) + '}'
@@ -386,7 +416,7 @@ def api_ks_info(request, format):
     ei = DataSet.objects.get(dataset_structure=es, root_instance_id=this_ks.organization.id)
     return api_dataset(request, ei.URIInstance, format)
     
-def api_root_uri(request, URIInstance):
+def api_first_version_uri(request, URIInstance):
     '''
     URIInstance is the URI of an DataSet
     Simply return the URIinstance of the root
@@ -402,13 +432,14 @@ def this_ks_unsubscribes_to(request, URIInstance):
     '''
     pass
 
-def release_dataset(request, DataSet_URIInstance):
+def release_dataset(request, Dataset_URIInstance):
     '''
     '''
     try:
-        dataset = DataSet.objects.get(URIInstance = DataSet_URIInstance)
+        Dataset_URIInstance = urllib.unquote(Dataset_URIInstance)
+        dataset = DataSet.objects.get(URIInstance = Dataset_URIInstance)
         dataset.set_released()
-        return render(request, 'knowledge_server/export.json', {'json': ApiResponse("success", dataset_URIInstance + " successfully released.").json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse("success", Dataset_URIInstance + " successfully released.").json()}, content_type="application/json")
     except Exception as ex:
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse("failure", ex.message).json()}, content_type="application/json")
         
@@ -452,7 +483,7 @@ def this_ks_subscribes_to(request, URIInstance):
             # am I already subscribed? We check also whether we have subscribed to another version 
             # (with an API to get the root URIInstance and the attribute first_version_URIInstance of SubscriptionToOther)
             encoded_URIInstance = urllib.urlencode({'':URIInstance})[1:]
-            local_url = reverse('api_root_uri', args=(encoded_URIInstance,))
+            local_url = reverse('api_first_version_uri', args=(encoded_URIInstance,))
             response = urllib2.urlopen(other_ks_uri + local_url)
             first_version_URIInstance_json = json.loads(response.read())
             first_version_URIInstance = first_version_URIInstance_json['URI']
