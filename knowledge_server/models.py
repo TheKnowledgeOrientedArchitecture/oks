@@ -1539,7 +1539,7 @@ class KnowledgeServer(ShareableModel):
                 response = urllib2.urlopen(req)
                 ar = ApiResponse()
                 ar.parse(response.read())
-                if ar.status == "success":
+                if ar.status == ApiResponse.success:
                     notification.sent = True
                     notification.save()
                 else:
@@ -1652,23 +1652,26 @@ class ApiResponse():
     '''
     
     '''
-    def __init__(self, status="", message=""): #, deprecated=False, deprecation_message=""):
+    success = "success"
+    failure = "failure"
+    
+    def __init__(self, status="", message="", content=""): #, deprecated=False, deprecation_message=""):
         self.status = status
         self.message = message
+        self.content = content
 #         self.deprecation_message = deprecation_message
 #         self.deprecated = deprecated
         
     def json(self):
-        ret_str = '{ "status" : "' + self.status + '", "message" : "' + self.message
 #         if self.deprecated:
 #             ret_str +=  '", "deprecated" : "' + self.deprecation_message
-        ret_str +=  '"}'
-        return ret_str
+        return json.dump ({"status" : self.status, "message" : self.message, "content" : self.content}, sort_keys=False)
     
     def parse(self, json_response):
         decoded = json.loads(json_response)
         self.status = decoded['status']
         self.message = decoded['message']
+        self.content = decoded['content']
 #         if decoded.has_key("deprecated"):
 #             self.deprecated = True
 #             self.deprecation_message = decoded['deprecation_message']
@@ -1730,12 +1733,6 @@ class KsUri(object):
                         self.pk_value = temp_path
                         self.is_sintactically_correct = True
 
-    def base64(self):
-        '''
-        deprecated
-        '''
-        return base64.encodestring(self.uri).replace('\n', '')
-        
     def encoded(self):
         return urllib.urlencode({'':self.uri})[1:]
         

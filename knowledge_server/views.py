@@ -22,7 +22,7 @@ import forms as myforms
 
 logger = logging.getLogger(__name__)
 
-def api_simple_entity_definition(request, ModelMetadata_URIInstance, format):
+def api_model_metadata(request, ModelMetadata_URIInstance, format):
     '''
         #33
     '''
@@ -44,6 +44,7 @@ def api_simple_entity_definition(request, ModelMetadata_URIInstance, format):
 
 def api_dataset_view(request, DataSet_URIInstance, root_id, format):
     '''
+    it returns the data of the istance with pk=root_id in the dataset (which is a view)
     if we are browsing a view there is not just one single root that we can explore
     but a list of instances that match the criteria; root_id tells us which one to browse
     '''
@@ -75,7 +76,7 @@ def api_dataset_view(request, DataSet_URIInstance, root_id, format):
 def api_dataset(request, DataSet_URIInstance, format):
     '''
         #36
-        It returns the dataset with the URIInstance in the parameter 
+        It returns the data in the dataset with the URIInstance in the parameter 
         
         parameter:
         * DataSet_URIInstance: URIInstance of the DataSet 
@@ -416,17 +417,6 @@ def api_ks_info(request, format):
     ei = DataSet.objects.get(dataset_structure=es, root_instance_id=this_ks.organization.id)
     return api_dataset(request, ei.URIInstance, format)
     
-def api_first_version_uri(request, URIInstance):
-    '''
-    URIInstance is the URI of an DataSet
-    Simply return the URIinstance of the root
-    '''
-    try:
-        ei = DataSet.objects.get(URIInstance=urllib.unquote(URIInstance))
-        return HttpResponse('{ "URI" : "' + ei.first_version.URIInstance + '" }')
-    except:
-        return HttpResponse('{ "URI" : "" }')
-
 def this_ks_unsubscribes_to(request, URIInstance):
     '''
     '''
@@ -439,20 +429,10 @@ def release_dataset(request, Dataset_URIInstance):
         Dataset_URIInstance = urllib.unquote(Dataset_URIInstance)
         dataset = DataSet.objects.get(URIInstance = Dataset_URIInstance)
         dataset.set_released()
-        return render(request, 'knowledge_server/export.json', {'json': ApiResponse("success", Dataset_URIInstance + " successfully released.").json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, Dataset_URIInstance + " successfully released.").json()}, content_type="application/json")
     except Exception as ex:
-        return render(request, 'knowledge_server/export.json', {'json': ApiResponse("failure", ex.message).json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, ex.message).json()}, content_type="application/json")
         
-# def redirect_to_base64_oks_url(request, base64_oks_URIInstance):
-#     '''
-#     Used in templates to redirect to a KS URIInstance when I have just the base64 encoding
-#     '''
-#     ks_uri = KsUri(base64.decodestring(base64_oks_URIInstance))
-#     if ks_uri.is_sintactically_correct:
-#         return redirect(ks_uri.scheme + "://" + ks_uri.netloc)
-#     else:
-#         return HttpResponse("The URI is not sintactically correct: " + base64.decodestring(base64_oks_URIInstance))
-
 def this_ks_subscribes_to(request, URIInstance):
     '''
     This ks is subscribing to a data set in another ks
@@ -480,27 +460,24 @@ def this_ks_subscribes_to(request, URIInstance):
     
     try:
         with transaction.atomic():
-            # am I already subscribed? We check also whether we have subscribed to another version 
-            # (with an API to get the root URIInstance and the attribute first_version_URIInstance of SubscriptionToOther)
             encoded_URIInstance = urllib.urlencode({'':URIInstance})[1:]
-            local_url = reverse('api_first_version_uri', args=(encoded_URIInstance,))
-            response = urllib2.urlopen(other_ks_uri + local_url)
-            first_version_URIInstance_json = json.loads(response.read())
-            first_version_URIInstance = first_version_URIInstance_json['URI']
-            others = SubscriptionToOther.objects.filter(first_version_URIInstance=first_version_URIInstance)
-            if len(others) > 0:
-                return render(request, 'knowledge_server/export.json', {'json': ApiResponse("failure", "Already subscribed").json()}, content_type="application/json")
-            # save locally
-            sto = SubscriptionToOther()
-            sto.URI = URIInstance
-            sto.first_version_URIInstance = first_version_URIInstance
-            sto.save()
             # invoke remote API to subscribe
             this_ks = KnowledgeServer.this_knowledge_server()
             url_to_invoke = urllib.urlencode({'':this_ks.uri() + reverse('api_notify')})[1:]
             local_url = reverse('api_subscribe', args=(encoded_URIInstance,url_to_invoke,))
             response = urllib2.urlopen(other_ks_uri + local_url)
-            return render(request, 'knowledge_server/export.json', {'json': response.read()}, content_type="application/json")
+            response_text = response.read()
+            ar = ApiResponse()
+            ar.parse(response_text)
+            if ar.status == ApiResponse.success:
+                # save locally
+                sto = SubscriptionToOther()
+                sto.URI = URIInstance
+                sto.first_version_URIInstance = ar.content # it contains the URIInstance of the first version
+                sto.save()
+                return render(request, 'knowledge_server/export.json', {'json': response_text}, content_type="application/json")
+            else:
+                return render(request, 'knowledge_server/export.json', {'json': response_text}, content_type="application/json")
     except Exception as ex:
         return HttpResponse(ex.message)
     
@@ -518,12 +495,12 @@ def api_subscribe(request, URIInstance, remote_url):
     first_version_URIInstance = ei.first_version.URIInstance
     existing_subscriptions = SubscriptionToThis.objects.filter(first_version_URIInstance=first_version_URIInstance, remote_url=remote_url)
     if len(existing_subscriptions) > 0:
-        return render(request, 'knowledge_server/export.json', {'json': ApiResponse("failure", "Already subscribed").json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, "Already subscribed").json()}, content_type="application/json")
     stt = SubscriptionToThis()
     stt.first_version_URIInstance=first_version_URIInstance
     stt.remote_url=remote_url
     stt.save()
-    return render(request, 'knowledge_server/export.json', {'json': ApiResponse("success", "Subscribed sucessfully").json()}, content_type="application/json")
+    return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, "Subscribed sucessfully", first_version_URIInstance).json()}, content_type="application/json")
     
 def api_unsubscribe(request, URIInstance, remote_URL):
     '''
@@ -557,9 +534,9 @@ def api_notify(request):
         nr.URL_dataset = URL_dataset
         nr.URL_structure = URL_structure
         nr.save()
-        ar.status = "success"
+        ar.status = ApiResponse.success
     else:
-        ar.status = "failure"
+        ar.status = ApiResponse.failure
         ar.message = "Not subscribed to this"
     return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
         

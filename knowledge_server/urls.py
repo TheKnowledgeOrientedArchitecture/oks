@@ -15,13 +15,11 @@ urlpatterns = patterns('',
     url(r'^subscriptions/$', views.subscriptions, name="subscriptions"),
     url(r'^this_ks_subscribes_to/(?P<URIInstance>[\w|=|%|.]+)/$', views.this_ks_subscribes_to, name='this_ks_subscribes_to'),
     url(r'^this_ks_unsubscribes_to/(?P<URIInstance>[\w|=|%|.]+)/$', views.this_ks_unsubscribes_to, name='this_ks_unsubscribes_to'),
-#     url(r'^redirect_to_base64_oks_url/(?P<base64_oks_URIInstance>[\w|=|%|.]+)/$', views.redirect_to_base64_oks_url, name='redirect_to_base64_oks_url'),
     url(r'^release_dataset/(?P<Dataset_URIInstance>[\w|=|%|.]+)/$', views.release_dataset, name='release_dataset'),
 
                        ###################   API   ####################
-    url(r'^api/first_version_uri/(?P<URIInstance>[\w|=|%|.]+)/$', views.api_first_version_uri, name='api_first_version_uri'),
-    #33:
-    url(r'^api/simple_entity_definition/(?P<ModelMetadata_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_simple_entity_definition, name='api_simple_entity_definition'), 
+    #33:  see #146 it will be deprecated
+    url(r'^api/model_metadata/(?P<ModelMetadata_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_model_metadata, name='api_model_metadata'), 
     #36:
     url(r'^api/dataset/(?P<DataSet_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_dataset, name='api_dataset'),
     url(r'^api/dataset_view/(?P<DataSet_URIInstance>[\w|=|%|.]+)/(?P<root_id>[0-9]+)/(?P<format>.*)/$', views.api_dataset_view, name='api_dataset_view'),
