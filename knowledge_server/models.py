@@ -5,10 +5,12 @@
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
 import json
-from lxml import etree
 import utils
 import urllib
 import urllib2
+
+from datetime import datetime
+from lxml import etree
 from urlparse import urlparse
 from xml.dom import minidom
 
@@ -125,6 +127,9 @@ class ShareableModel(SerializableModel):
             return ' URIModelMetadata="' + self.get_model_metadata().URIInstance + '" '  
         if export_format == 'JSON':
             return ' "URIModelMetadata" : "' + self.get_model_metadata().URIInstance + '" '
+        if export_format == 'DICT':
+            return { "URIModelMetadata": self.get_model_metadata().URIInstance }
+        
         
     def shallow_structure(self, db_alias='default'):
         '''
@@ -188,8 +193,8 @@ class ShareableModel(SerializableModel):
 
     def serialize(self, node=None, exported_instances=[], export_format='XML'):
         '''
-        formats so far: {'XML' | 'JSON'}
-
+        formats so far: {'XML' | 'JSON' | 'DICT'}
+            dict is a python dictionary that can be easily inserted in other dictionaries and serialized at a later stage
             If within a structure I have already exported this instance I don't want to duplicate all details hence I just export it's 
             URIInstance, name and ModelMetadata URI. Then I need to add an attribute so that when importing it I will recognize that 
             its details are somewhere else in the file
@@ -198,6 +203,8 @@ class ShareableModel(SerializableModel):
         '''
         export_format = export_format.upper()
         serialized = ""
+        tmp_dict = {}
+        export_dict = {}
         # if there is no node I export just this object creating a shallow DataSetStructure 
         if node is None:
             node = self.shallow_structure().root_node
@@ -212,12 +219,21 @@ class ShareableModel(SerializableModel):
                 xml_name = " " + node.model_metadata.name_field + "=\"" + getattr(self, node.model_metadata.name_field) + "\""
                 return '<' + tag_name + ' REFERENCE_IN_THIS_FILE=\"\"' + self.serialized_URI_MM(export_format) + xml_name + ' URIInstance="' + self.URIInstance + '"/>'  
             if export_format == 'JSON':
-                xml_name = ' "' + node.model_metadata.name_field + '" : "' + getattr(self, node.model_metadata.name_field) + '"'
+                json_name = ' "' + node.model_metadata.name_field + '" : "' + getattr(self, node.model_metadata.name_field) + '"'
                 if node.is_many:
-                    return ' { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + xml_name + ', "URIInstance": "' + self.URIInstance + '"} '
+                    return ' { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + json_name + ', "URIInstance": "' + self.URIInstance + '"} '
                 else:
-                    return '"' + tag_name + '" : { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + xml_name + ', "URIInstance": "' + self.URIInstance + '"}'  
-        
+                    return '"' + tag_name + '" : { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + json_name + ', "URIInstance": "' + self.URIInstance + '"}'  
+            if export_format == 'DICT':
+                tmp_dict[node.model_metadata.name_field] = getattr(self, node.model_metadata.name_field)
+                tmp_dict["REFERENCE_IN_THIS_FILE"] = ""
+                tmp_dict.update(self.serialized_URI_MM(export_format))
+                tmp_dict["URIInstance"] = self.URIInstance
+                if node.is_many:
+                    export_dict = tmp_dict
+                else:
+                    export_dict[tag_name] = tmp_dict
+                return export_dict
         exported_instances.append(self.URIInstance) 
         if not node.external_reference:
             try:
@@ -230,24 +246,33 @@ class ShareableModel(SerializableModel):
                         if export_format == 'JSON':
                             serialized += outer_comma + ' "' + child_node.attribute + '" : ['
                         innner_comma = ''
+                        children_list = []
                         for child_instance in child_instances:
                             # let's prevent infinite loops if self relationships
                             if (child_instance.__class__.__name__ != self.__class__.__name__) or (self.pk != child_node.pk):
                                 if export_format == 'JSON':
                                     serialized += innner_comma
-                                serialized += child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format)
+                                if export_format == 'DICT':
+                                    children_list.append(child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format))
+                                else:
+                                    serialized += child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format)
                             innner_comma = ", "
                         if export_format == 'XML':
                             serialized += "</" + child_node.attribute + ">"
                         if export_format == 'JSON':
                             serialized += "]"
+                        if export_format == 'DICT':
+                            tmp_dict[child_node.attribute] = children_list
                     else:
                         child_instance = eval("self." + child_node.attribute)
                         if not child_instance is None:
                             child_serialized = ""
                             if export_format == 'JSON':
                                 child_serialized = outer_comma
-                            child_serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
+                            if export_format == 'DICT':
+                                tmp_dict.update(child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances))
+                            else:
+                                child_serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
                             serialized += child_serialized
                     outer_comma = ", "
             except Exception as ex:
@@ -259,6 +284,14 @@ class ShareableModel(SerializableModel):
                     return ' { ' + self.serialized_URI_MM(export_format) + ', ' + self.serialized_attributes(export_format) + outer_comma + serialized + ' }'
                 else:
                     return '"' + tag_name + '" : { ' + self.serialized_URI_MM(export_format) + ', ' + self.serialized_attributes(export_format) + outer_comma + serialized + ' }'
+            if export_format == 'DICT':
+                tmp_dict.update(self.serialized_URI_MM(export_format))
+                tmp_dict.update(self.serialized_attributes(export_format))
+                if node.is_many:
+                    export_dict = tmp_dict
+                else:
+                    export_dict[tag_name] = tmp_dict
+                return export_dict
         else:
             # node.external_reference = True
             xml_name = ''
@@ -268,6 +301,8 @@ class ShareableModel(SerializableModel):
                     xml_name = " " + node.model_metadata.name_field + "=\"" + getattr(self, node.model_metadata.name_field) + "\""
                 if export_format == 'JSON':
                     json_name = ', "' + node.model_metadata.name_field + '": "' + getattr(self, node.model_metadata.name_field) + '"'
+                if export_format == 'DICT':
+                    tmp_dict[node.model_metadata.name_field] = getattr(self, node.model_metadata.name_field)
             if export_format == 'XML':
                 return '<' + tag_name + self.serialized_URI_MM() + 'URIInstance="' + self.URIInstance + '" ' + self._meta.pk.attname + '="' + str(self.pk) + '"' + xml_name + '/>'
             if export_format == 'JSON':
@@ -275,6 +310,15 @@ class ShareableModel(SerializableModel):
                     return '{ ' + self.serialized_URI_MM(export_format) + ', "URIInstance" : "' + self.URIInstance + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
                 else:
                     return '"' + tag_name + '" :  { ' + self.serialized_URI_MM(export_format) + ', "URIInstance" : "' + self.URIInstance + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
+            if export_format == 'DICT':
+                tmp_dict.update(self.serialized_URI_MM(export_format))
+                tmp_dict["URIInstance"] = self.URIInstance
+                tmp_dict[self._meta.pk.attname] = self.pk
+                if node.is_many:
+                    export_dict = tmp_dict
+                else:
+                    export_dict[tag_name] = tmp_dict
+                return export_dict
             
     def from_xml(self, xmldoc, structure_node, parent=None):
         '''
@@ -1032,29 +1076,45 @@ class DataSet(ShareableModel):
         parameters:
         force_external_reference: if True if will force the root to be serialized like an external reference e.g. only the pk
         '''
-        serialized_head = ''
         export_format = export_format.upper()
-        if export_format == 'XML':
-            serialized_head = "<DataSet " + self.serialized_attributes(export_format) + " >"
-        if export_format == 'JSON':
-            serialized_head = ' { ' + self.serialized_attributes(export_format)
+        export_dict = {}
+        serialized_head = ''
         comma = ""    
+
+        tmp = self.serialized_attributes(export_format)
+        if export_format == 'XML':
+            serialized_head = "<DataSet " + tmp + " >"
         if export_format == 'JSON':
+            serialized_head = ' { ' + tmp
             comma = ", "
+        if export_format == 'DICT':
+            export_dict.update(tmp)
 
         e_model_metadata = ModelMetadata.objects.get(name="DataSetStructure")
         temp_etn = StructureNode(model_metadata=e_model_metadata, external_reference=True, is_many=False, attribute="dataset_structure")
-        serialized_head += comma + self.dataset_structure.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        tmp = self.dataset_structure.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        if export_format == 'DICT':
+            export_dict.update(tmp)
+        else:
+            serialized_head += comma + tmp
         
         ks_model_metadata = ModelMetadata.objects.get(name="KnowledgeServer")
         temp_etn = StructureNode(model_metadata=ks_model_metadata, external_reference=True, is_many=False, attribute="owner_knowledge_server")
-        serialized_head += comma + self.owner_knowledge_server.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        tmp = self.owner_knowledge_server.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        if export_format == 'DICT':
+            export_dict.update(tmp)
+        else:
+            serialized_head += comma + tmp
         
         if not self.dataset_structure.is_a_view:
             #if it is a view there is no first_version
             ei_model_metadata = ModelMetadata.objects.get(name="DataSet")
             temp_etn = StructureNode(model_metadata=ei_model_metadata, external_reference=True, is_many=False, attribute="first_version")
-            serialized_head += comma + self.first_version.serialize(temp_etn, exported_instances=[], export_format=export_format)
+            tmp = self.first_version.serialize(temp_etn, exported_instances=[], export_format=export_format)
+            if export_format == 'DICT':
+                export_dict.update(tmp)
+            else:
+                serialized_head += comma + tmp
 
         if force_external_reference:
             self.dataset_structure.root_node.external_reference = True
@@ -1062,10 +1122,13 @@ class DataSet(ShareableModel):
 #         if self.root_instance_id:
         if not self.dataset_structure.is_a_view:
             instance = self.root
+            tmp = instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format)
             if export_format == 'XML':
-                serialized_head += "<ActualInstance>" + instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format) + "</ActualInstance>"
+                serialized_head += "<ActualInstance>" + tmp + "</ActualInstance>"
             if export_format == 'JSON':
-                serialized_head += ', "ActualInstance" : { ' + instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format) + " } "
+                serialized_head += ', "ActualInstance" : { ' + tmp + " } "
+            if export_format == 'DICT':
+                export_dict["ActualInstance"] = tmp
         elif self.filter_text:
             instances = self.get_instances()
             if export_format == 'XML':
@@ -1073,21 +1136,30 @@ class DataSet(ShareableModel):
             if export_format == 'JSON':
                 serialized_head += ', "ActualInstances" : [ '
             comma = ""
+            instance_list = []
             for instance in instances:
+                tmp = instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format)
                 if export_format == 'XML':
-                    serialized_head += "<ActualInstance>" + instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format) + "</ActualInstance>"
+                    serialized_head += "<ActualInstance>" + tmp + "</ActualInstance>"
                 if export_format == 'JSON':
-                    serialized_head += comma + ' { ' + instance.serialize(self.dataset_structure.root_node, exported_instances=[], export_format=export_format) + " } "
+                    serialized_head += comma + ' { ' + tmp + " } "
                     comma = ', '
+                if export_format == 'DICT':
+                    instance_list.append(tmp)
             if export_format == 'XML':
                 serialized_head += "</ActualInstances>"
             if export_format == 'JSON':
                 serialized_head += ' ] '
+            if export_format == 'DICT':
+                export_dict["ActualInstances"] = instance_list
         if export_format == 'XML':
             serialized_tail = "</DataSet>"
         if export_format == 'JSON':
             serialized_tail = " }"
-        return serialized_head + serialized_tail
+        if export_format == 'DICT':
+            return export_dict
+        else:
+            return serialized_head + serialized_tail
 
 
     def import_dataset(self, dataset_xml_stream):
@@ -1655,17 +1727,23 @@ class ApiResponse():
     success = "success"
     failure = "failure"
     
-    def __init__(self, status="", message="", content=""): #, deprecated=False, deprecation_message=""):
+    def __init__(self, status="", message="", content="", datetime_generated_utc=datetime.utcnow()): #, deprecated=False, deprecation_message=""):
         self.status = status
         self.message = message
         self.content = content
+        self.datetime_generated_utc = datetime_generated_utc
 #         self.deprecation_message = deprecation_message
 #         self.deprecated = deprecated
         
+    def xml(self):
+        exported_xml = "<Export ExportDateTime=\"" + self.datetime_generated_utc.isoformat() + "\" Status=\"" + self.status + "\" Message=\"" + self.message + "\">" + self.content + "</Export>"
+        xmldoc = minidom.parseString(exported_xml)
+        return xmldoc.toprettyxml(indent="    ")
+
     def json(self):
 #         if self.deprecated:
 #             ret_str +=  '", "deprecated" : "' + self.deprecation_message
-        return json.dump ({"status" : self.status, "message" : self.message, "content" : self.content}, sort_keys=False)
+        return json.dumps({"status" : self.status, "message" : self.message, "datetime_generated_utc" : self.datetime_generated_utc.isoformat(), "content" : self.content}, sort_keys=False, default=json_serial)
     
     def parse(self, json_response):
         decoded = json.loads(json_response)
@@ -1675,6 +1753,15 @@ class ApiResponse():
 #         if decoded.has_key("deprecated"):
 #             self.deprecated = True
 #             self.deprecation_message = decoded['deprecation_message']
+
+def json_serial(obj):
+    """
+        JSON serializer for objects not serializable by default json code
+    """
+    if isinstance(obj, datetime):
+        serial = obj.isoformat()
+        return serial
+    raise TypeError ("Type not serializable")
         
 class KsUri(object):
     '''

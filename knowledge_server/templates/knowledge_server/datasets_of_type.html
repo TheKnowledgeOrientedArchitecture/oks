@@ -19,8 +19,8 @@
 	                	{% endif %}
 	                {% endif %}
 	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.URIInstance "html" %}">{{ entity.actual_instance_name }}</a>
-	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset' entity.URIInstance "json" %}">json</a>
-	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset' entity.URIInstance "xml" %}">xml</a>
+	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.URIInstance "json" %}">json</a>
+	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.URIInstance "xml" %}">xml</a>
 	                
 	            </li>
 	        {% endfor %}

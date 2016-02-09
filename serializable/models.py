@@ -32,7 +32,8 @@ class SerializableModel(models.Model):
     def serialized_attributes(self, format='XML'):
         attributes = ""
         comma = ""
-
+        tmp_dict = {}
+        
         for key in self._meta.fields: 
             if key.__class__.__name__ != "ForeignKey":
                 value = getattr(self, key.name)
@@ -43,10 +44,15 @@ class SerializableModel(models.Model):
                 if format == 'JSON':
                     attributes += comma + '"' + key.name + '" : "' + str(value) + '"'
                     comma = ", "
+                if format == 'DICT':
+                    tmp_dict[key.name] = value
                 if format == 'HTML':
                     attributes += comma + '"' + key.name + '" : "' + str(value) + '"'
                     comma = "<br>"
-        return attributes
+        if format == 'DICT':
+            return tmp_dict
+        else:
+            return attributes
 
     def SetNotNullFields(self):
         '''

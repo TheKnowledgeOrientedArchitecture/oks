@@ -6,11 +6,9 @@ import urllib, urllib2, urlparse
 from xml.dom import minidom
 
 from django.db import transaction
-from django.conf import settings
 from django.core.urlresolvers import reverse
-from django.db.models import F, Min
 from django.http import HttpResponse
-from django.shortcuts import render, get_object_or_404, render_to_response, redirect
+from django.shortcuts import render, render_to_response
 from django.template import RequestContext
 from django.views.decorators.csrf import csrf_exempt
 
@@ -51,7 +49,7 @@ def api_dataset_view(request, DataSet_URIInstance, root_id, format):
     if format == 'HTML' or format == 'BROWSE':
         this_ks = KnowledgeServer.this_knowledge_server()
         cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.root_node, 'DataSet_URIInstance': DataSet_URIInstance, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
-        return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
+        return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
 
 def api_dataset(request, DataSet_URIInstance, format):
     '''
@@ -87,7 +85,7 @@ def api_dataset(request, DataSet_URIInstance, format):
     if format == 'HTML' or format == 'BROWSE':
         this_ks = KnowledgeServer.this_knowledge_server()
         cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.root_node, 'DataSet_URIInstance': DataSet_URIInstance, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
-        return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
+        return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
         
 
 def api_catch_all(request, uri_instance):
@@ -148,8 +146,8 @@ def api_dataset_types(request, format):
             None
         
         Implementation:
-            Invoking api_datasets #64 with parameter "DataSetStructure-StructureNode-Application"
-            so that I get all the EntitieStructures in this_ks in a shallow export
+            Invoking api_datasets #64 with parameter "DataSetStructure"
+            so that I get all the Structures in this_ks in a shallow export
     '''
     # Look for all DataSetStructure of type "DataSetStructure-StructureNode-Application" ...
     entities_id = DataSetStructure.objects.filter(name=DataSetStructure.dataset_structure_DSN).values("id")
@@ -185,21 +183,24 @@ def api_dataset_info(request, DataSet_URIInstance, format):
     dataset = DataSet.retrieve(DataSet_URIInstance)
     all_versions = DataSet.objects.filter(first_version = dataset.first_version)
     all_versions_serialized = ""
-    comma = ""
+    all_versions_list = []
     if format != 'HTML' and format != 'BROWSE':
         for v in all_versions:
             if format == 'JSON':
-                all_versions_serialized += comma
-            all_versions_serialized += v.export(export_format = format, force_external_reference=True)
-            comma = ", "
+                # note I am using DICT as a format so that I can merge the dict (.update) and then convert it to json
+                all_versions_list.append(v.export(export_format = 'DICT', force_external_reference=True))
+            else:
+                all_versions_serialized += v.export(export_format = format, force_external_reference=True)
     if format == 'XML':
-        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\"><DataSet>" + dataset.export(export_format = format, force_external_reference=True) + "</DataSet><Versions>" + all_versions_serialized + "</Versions></Export>"
-        xmldoc = minidom.parseString(exported_xml)
-        exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
-        return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
+        ar = ApiResponse()
+        ar.status = ApiResponse.success
+        ar.content = "<DataSet>" + dataset.export(export_format = format, force_external_reference=True) + "</DataSet><Versions>" + all_versions_serialized + "</Versions>"
+        return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
     if format == 'JSON':
-        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSet" : ' + dataset.export(export_format = format, force_external_reference=True) + ', "Versions" : [' + all_versions_serialized + '] } }'
-        return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
+        ar = ApiResponse()
+        ar.content = { "DataSet": dataset.export(export_format = format, force_external_reference=True), "Versions": all_versions_list }
+        ar.status = ApiResponse.success 
+        return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
     if format == 'HTML' or format == 'BROWSE':
         if dataset.dataset_structure.is_a_view:
             instances = dataset.get_instances()
@@ -307,7 +308,7 @@ def ks_explorer_form(request):
     cont = RequestContext(request, {'form':form, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
     return render_to_response('knowledge_server/ks_explorer_form.html', context_instance=cont)
 
-def browse_dataset(request, ks_url, URIInstance, format):
+def datasets_of_type(request, ks_url, URIInstance, format):
     this_ks = KnowledgeServer.this_knowledge_server()
     format = format.upper()
     ks_url = urllib.unquote(ks_url)
@@ -373,7 +374,7 @@ def browse_dataset(request, ks_url, URIInstance, format):
                 entity['subscribed'] = True
             entities.append(entity)
         cont = RequestContext(request, {'entities':entities, 'organization': organization, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True), 'external_ks': external_ks, 'es_info_json': es_info_json})
-        return render_to_response('knowledge_server/list_dataset.html', context_instance=cont)
+        return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
     
 def home(request):
     this_ks = KnowledgeServer.this_knowledge_server()
@@ -556,7 +557,7 @@ def debug(request):
     created to debug code
     '''
     try:
-        from knowledge_server.models import Organization, KnowledgeServer, DataSet, DataSetStructure, ModelMetadata, StructureNode
+        from knowledge_server.models import Organization, KnowledgeServer, DataSet, DataSetStructure, StructureNode
         from licenses.models import License
         with transaction.atomic():
             test_license_org = Organization();test_license_org.name = "A test Organization hosting license information";test_license_org.website = 'http://license_org.example.com';test_license_org.description = "This is just a test Organization.";
