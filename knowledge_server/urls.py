@@ -18,8 +18,6 @@ urlpatterns = patterns('',
     url(r'^release_dataset/(?P<Dataset_URIInstance>[\w|=|%|.]+)/$', views.release_dataset, name='release_dataset'),
 
                        ###################   API   ####################
-    #33:  see #146 it will be deprecated
-    url(r'^api/model_metadata/(?P<ModelMetadata_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_model_metadata, name='api_model_metadata'), 
     #36:
     url(r'^api/dataset/(?P<DataSet_URIInstance>[\w|=|%|.]+)/(?P<format>.*)/$', views.api_dataset, name='api_dataset'),
     url(r'^api/dataset_view/(?P<DataSet_URIInstance>[\w|=|%|.]+)/(?P<root_id>[0-9]+)/(?P<format>.*)/$', views.api_dataset_view, name='api_dataset_view'),

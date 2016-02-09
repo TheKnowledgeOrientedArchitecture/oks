@@ -22,26 +22,6 @@ import forms as myforms
 
 logger = logging.getLogger(__name__)
 
-def api_model_metadata(request, ModelMetadata_URIInstance, format):
-    '''
-        #33
-    '''
-    format = format.upper()
-    actual_class = ModelMetadata
-
-    se = actual_class.retrieve(ModelMetadata_URIInstance)
-    
-    instance = get_object_or_404(actual_class, pk=se.id)
-    dss = DataSetStructure.objects.get(name = DataSetStructure.model_metadata_DSN)
-    if format == 'JSON':
-        exported_json = '{ "Export" : { "DataSetStructureName" : "' + dss.name + '", "DataSetStructureURI" : "' + dss.URIInstance + '", "ExportDateTime" : "' + str(datetime.now()) + '", ' + instance.serialize(dss.root_node, export_format=format, exported_instances = []) + ' } }'
-        return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
-    if format == 'XML':
-        exported_xml = "<Export DataSetStructureName=\"" + dss.name + "\" DataSetStructureURI=\"" + dss.URIInstance + "\" ExportDateTime=\"" + str(datetime.now()) + "\">" + instance.serialize(dss.root_node, export_format=format, exported_instances = []) + "</Export>"
-        xmldoc = minidom.parseString(exported_xml)
-        exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
-        return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
-
 def api_dataset_view(request, DataSet_URIInstance, root_id, format):
     '''
     it returns the data of the istance with pk=root_id in the dataset (which is a view)
