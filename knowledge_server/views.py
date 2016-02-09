@@ -39,17 +39,19 @@ def api_dataset_view(request, DataSet_URIInstance, root_id, format):
     if format == 'HTML' or format == 'BROWSE':
         actual_instance_json = '{' + actual_instance.serialize(dataset.dataset_structure.root_node, export_format='json', exported_instances = []) + '}'
     if format == 'JSON':
-        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSet" : ' + dataset.export(export_format = 'JSON') + ' } }'
-        return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
+        ar = ApiResponse()
+        ar.content = { "DataSet": dataset.export(export_format = 'DICT') }
+        ar.status = ApiResponse.success
+        return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
     if format == 'XML':
-        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\">" + dataset.export(export_format = format) + "</Export>"
-        xmldoc = minidom.parseString(exported_xml)
-        exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
-        return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
+        ar = ApiResponse()
+        ar.status = ApiResponse.success
+        ar.content = dataset.export(export_format = format)
+        return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
     if format == 'HTML' or format == 'BROWSE':
         this_ks = KnowledgeServer.this_knowledge_server()
         cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.root_node, 'DataSet_URIInstance': DataSet_URIInstance, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
-        return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
+        return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
 
 def api_dataset(request, DataSet_URIInstance, format):
     '''
@@ -75,17 +77,19 @@ def api_dataset(request, DataSet_URIInstance, format):
     if format == 'HTML' or format == 'BROWSE':
         actual_instance_json = '{' + actual_instance.serialize(dataset.dataset_structure.root_node, export_format='json', exported_instances = []) + '}'
     if format == 'JSON':
-        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSet" : ' + dataset.export(export_format = 'JSON') + ' } }'
-        return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
+        ar = ApiResponse()
+        ar.content = { "DataSet": dataset.export(export_format = 'DICT') }
+        ar.status = ApiResponse.success
+        return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
     if format == 'XML':
-        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\">" + dataset.export(export_format = format) + "</Export>"
-        xmldoc = minidom.parseString(exported_xml)
-        exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
-        return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
+        ar = ApiResponse()
+        ar.status = ApiResponse.success
+        ar.content = dataset.export(export_format = format)
+        return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
     if format == 'HTML' or format == 'BROWSE':
         this_ks = KnowledgeServer.this_knowledge_server()
         cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.root_node, 'DataSet_URIInstance': DataSet_URIInstance, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
-        return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
+        return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
         
 
 def api_catch_all(request, uri_instance):
@@ -198,7 +202,7 @@ def api_dataset_info(request, DataSet_URIInstance, format):
         return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
     if format == 'JSON':
         ar = ApiResponse()
-        ar.content = { "DataSet": dataset.export(export_format = format, force_external_reference=True), "Versions": all_versions_list }
+        ar.content = { "DataSet": dataset.export(export_format = "DICT", force_external_reference=True), "Versions": all_versions_list }
         ar.status = ApiResponse.success 
         return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
     if format == 'HTML' or format == 'BROWSE':
@@ -246,19 +250,22 @@ def api_datasets(request, DataSetStructure_URIInstance, format):
         released_dataset = DataSet.objects.filter(dataset_structure = dss, version_released=True)
     serialized = ""
     comma = ""
+    dataset_list = []
     for ei in released_dataset:
         if format == 'JSON':
-            serialized += comma
-        serialized += ei.export(export_format = format, force_external_reference=True)
-        comma = ", "
+            dataset_list.append(ei.export(export_format = "DICT", force_external_reference=True))
+        else:
+            serialized += ei.export(export_format = format, force_external_reference=True)
     if format == 'XML':
-        exported_xml = "<Export ExportDateTime=\"" + str(datetime.now()) + "\"><DataSets>" + serialized + "</DataSets></Export>"
-        xmldoc = minidom.parseString(exported_xml)
-        exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
-        return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
+        ar = ApiResponse()
+        ar.status = ApiResponse.success
+        ar.content = "<DataSets>" + serialized + "</DataSets>"
+        return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
     if format == 'JSON':
-        exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", "DataSets" : [' + serialized + '] } }'
-        return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
+        ar = ApiResponse()
+        ar.content = { "DataSets": dataset_list }
+        ar.status = ApiResponse.success 
+        return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
 
 def ks_explorer(request):
     try:
@@ -273,9 +280,9 @@ def ks_explorer(request):
         ks_info_json_stream = response.read()
         # parsing json
         ks_info_json = json.loads(ks_info_json_stream)
-        organization = ks_info_json['Export']['DataSet']['ActualInstance']['Organization']
+        organization = ks_info_json['content']['DataSet']['ActualInstance']['Organization']
         for ks in organization['knowledgeserver_set']:
-            if ks['this_ks'] == 'True':
+            if ks['this_ks']:
                 explored_ks = ks
             
         # info about structures on the remote ks
@@ -286,7 +293,7 @@ def ks_explorer(request):
         decoded = json.loads(entities_json)
         owned_structures = []
         other_structures = []
-        for ei in decoded['Export']['DataSets']:
+        for ei in decoded['content']['DataSets']:
             entity = {}
             entity['actual_instance_name'] = ei['ActualInstance']['DataSetStructure']['name']
             entity['URIInstance'] = urllib.urlencode({'':ei['ActualInstance']['DataSetStructure']['URIInstance']})[1:]
@@ -319,9 +326,9 @@ def datasets_of_type(request, ks_url, URIInstance, format):
     ks_info_json_stream = response.read()
     # parsing json
     ks_info_json = json.loads(ks_info_json_stream)
-    organization = ks_info_json['Export']['DataSet']['ActualInstance']['Organization']
+    organization = ks_info_json['content']['DataSet']['ActualInstance']['Organization']
     for ks in organization['knowledgeserver_set']:
-        if ks['this_ks'] == 'True':
+        if ks['this_ks']:
             external_ks_json = ks
     external_ks = KnowledgeServer()
     external_ks.name = external_ks_json['name']
@@ -350,7 +357,7 @@ def datasets_of_type(request, ks_url, URIInstance, format):
         decoded = json.loads(entities)
         # I prepare a list of URIInstance of root so that I can check which I have subscribed to
         first_version_URIInstances = []
-        for ei in decoded['Export']['DataSets']:
+        for ei in decoded['content']['DataSets']:
             if ei.has_key('first_version'):
                 first_version_URIInstances.append(ei['first_version']['URIInstance'])
             else:
@@ -360,7 +367,7 @@ def datasets_of_type(request, ks_url, URIInstance, format):
         for s in subscribed:
             subscribed_first_version_URIInstances.append(s.first_version_URIInstance)
         entities = []
-        for ei in decoded['Export']['DataSets']:
+        for ei in decoded['content']['DataSets']:
             entity = {}
             if 'ActualInstance' in ei.keys():
                 actual_instance_class = ei['ActualInstance'].keys()[0]
