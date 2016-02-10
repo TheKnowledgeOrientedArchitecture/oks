@@ -130,7 +130,6 @@ class ShareableModel(SerializableModel):
         if export_format == 'DICT':
             return { "URIModelMetadata": self.get_model_metadata().URIInstance }
         
-        
     def shallow_structure(self, db_alias='default'):
         '''
         It creates a DataSetStructure, saves it on the database and returns it.
@@ -278,15 +277,15 @@ class ShareableModel(SerializableModel):
             except Exception as ex:
                 print(str(ex))
             if export_format == 'XML':
-                return '<' + tag_name + self.serialized_URI_MM(export_format) + self.serialized_attributes(export_format) + '>' + serialized + '</' + tag_name + '>'
+                return '<' + tag_name + self.serialized_URI_MM(export_format) + self.serialized_attributes(parent_class=ShareableModel, format=export_format) + '>' + self.serialized_tags(parent_class=ShareableModel) + serialized + '</' + tag_name + '>'
             if export_format == 'JSON':
                 if node.is_many:
-                    return ' { ' + self.serialized_URI_MM(export_format) + ', ' + self.serialized_attributes(export_format) + outer_comma + serialized + ' }'
+                    return ' { ' + self.serialized_URI_MM(export_format) + ', ' + self.serialized_attributes(format=export_format) + outer_comma + serialized + ' }'
                 else:
-                    return '"' + tag_name + '" : { ' + self.serialized_URI_MM(export_format) + ', ' + self.serialized_attributes(export_format) + outer_comma + serialized + ' }'
+                    return '"' + tag_name + '" : { ' + self.serialized_URI_MM(export_format) + ', ' + self.serialized_attributes(format=export_format) + outer_comma + serialized + ' }'
             if export_format == 'DICT':
                 tmp_dict.update(self.serialized_URI_MM(export_format))
-                tmp_dict.update(self.serialized_attributes(export_format))
+                tmp_dict.update(self.serialized_attributes(format=export_format))
                 if node.is_many:
                     export_dict = tmp_dict
                 else:
@@ -383,6 +382,9 @@ class ShareableModel(SerializableModel):
             '''
             if key.__class__.__name__ != "ForeignKey" and (not parent or key.name != field_name):
                 try:
+                    if key.__class__.__name__ in SerializableModel.classes_serialized_as_tags and (not key.name in list(key.name for key in ShareableModel._meta.fields)):
+                        child_tag = xmldoc.getElementsByTagName(key.name)[0]
+                        setattr(self, key.name, child_tag.firstChild.data)
                     if key.__class__.__name__ == "BooleanField":
                         setattr(self, key.name, xmldoc.attributes[key.name].firstChild.data.lower() == "true") 
                     elif key.__class__.__name__ == "IntegerField":
@@ -412,7 +414,7 @@ class ShareableModel(SerializableModel):
                     # ASSERT: in the XML there is exactly at most one child tag
                     child_tag = xmldoc.getElementsByTagName(child_node.attribute)
                     if len(child_tag) == 1:
-                        xml_child_node = xmldoc.getElementsByTagName(child_node.attribute)[0] 
+                        xml_child_node = child_tag[0] 
                         # I search for the corresponding ModelMetadata
                          
                         se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
@@ -459,7 +461,7 @@ class ShareableModel(SerializableModel):
         # TODO: UGLY PATCH: see #143
         if self.__class__.__name__ == 'DataSet':
             '''
-            if the first_version has been imported hfirstere then I use it, otherwise self
+            if the first_version has been imported here then I use it, otherwise self
             '''
             self.first_version = self
             try:
@@ -516,7 +518,7 @@ class ShareableModel(SerializableModel):
                     actual_class = utils.load_class(module_name + ".models", child_node.model_metadata.name)
                     if child_node.external_reference:
                         instance = actual_class.retrieve(xml_child_node.attributes["URIInstance"].firstChild.data)
-                        # TODO: il test succesivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
+                        # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
                         if child_node.attribute in self._meta.fields:
                             setattr(instance, child_node.attribute, self)
                             instance.save()
@@ -1081,14 +1083,13 @@ class DataSet(ShareableModel):
         serialized_head = ''
         comma = ""    
 
-        tmp = self.serialized_attributes(export_format)
         if export_format == 'XML':
-            serialized_head = "<DataSet " + tmp + " >"
+            serialized_head = "<DataSet " + self.serialized_attributes(parent_class=ShareableModel, format=export_format) + " >" + self.serialized_tags(parent_class=ShareableModel)
         if export_format == 'JSON':
-            serialized_head = ' { ' + tmp
+            serialized_head = ' { ' + self.serialized_attributes(format=export_format)
             comma = ", "
         if export_format == 'DICT':
-            export_dict.update(tmp)
+            export_dict.update(self.serialized_attributes(format=export_format))
 
         e_model_metadata = ModelMetadata.objects.get(name="DataSetStructure")
         temp_etn = StructureNode(model_metadata=e_model_metadata, external_reference=True, is_many=False, attribute="dataset_structure")

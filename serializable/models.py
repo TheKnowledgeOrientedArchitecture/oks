@@ -7,6 +7,7 @@
 from django.db import models
 
 class SerializableModel(models.Model):
+    classes_serialized_as_tags = ["CharField"]
 
     def foreign_key_attributes(self): 
         attributes = []
@@ -29,10 +30,48 @@ class SerializableModel(models.Model):
                 attributes += ' ' + key.name + '="' + str(getattr(self, key.name)) + '"'
         return attributes
      
-    def serialized_attributes(self, format='XML'):
+    def serialized_tags(self, parent_class=None):
+        '''
+        invoked only for XML
+        we serialize using tags instead of attributes so that we can add CDATA and have any content in strings
+            <KnowledgeServer .....    html_home="<strong>Welcome!</strong>" .... />  wouldn't work
+        will do this instead:
+            <KnowledgeServer .....  > ....   <html_home><![CDATA[<strong>Welcome!</strong>]]></html_home>  ... </KnowledgeServer>
+        
+        ###########################################################################
+        Current policy is to have CharField as tags; see classes_serialized_as_tags
+        ###########################################################################
+        '''
+        attributes = ""
+        parent_class_attributes = []
+        if parent_class:
+            parent_class_attributes = list(key.name for key in parent_class._meta.fields)
+        
+        for key in self._meta.fields: 
+            if key.__class__.__name__ != "ForeignKey":
+                value = getattr(self, key.name)
+                if value is None:
+                    value = ""
+                # if it is an instance of a class that has to be serialized as tags and it is not an 
+                # attribute of the parent_class I serialize it as a tag with CDATA
+                if key.__class__.__name__ in SerializableModel.classes_serialized_as_tags and (not key.name in parent_class_attributes):
+                    attributes += '<' + key.name + '><![CDATA[' + str(value) + ']]></' + key.name + '>'
+        return attributes
+    
+
+    def serialized_attributes(self, parent_class=None, format='XML'):
+        '''
+        parent_class is used only if format is XML; see comment above on serialized_tags
+        parent_class is the parent class of the object being serialized; it is a class
+        with standard attributes that do not need to be serialized as tags
+        Currently parent_class is always ShareableModel
+        '''
         attributes = ""
         comma = ""
         tmp_dict = {}
+        parent_class_attributes = []
+        if parent_class:
+            parent_class_attributes = list(key.name for key in parent_class._meta.fields)
         
         for key in self._meta.fields: 
             if key.__class__.__name__ != "ForeignKey":
@@ -40,7 +79,12 @@ class SerializableModel(models.Model):
                 if value is None:
                     value = ""
                 if format == 'XML':
-                    attributes += ' ' + key.name + '="' + str(value) + '"'  
+                    # if it is an instance of a class that has to be serialized as tags I do not serialize it
+                    # as attribute unless it is an attribute of the parent_class ( that is a normally 
+                    # ShareableModel class whose attributes should not contain characters that need to be
+                    # put into CDATA tags ) 
+                    if (not key.__class__.__name__ in SerializableModel.classes_serialized_as_tags) or key.name in parent_class_attributes:
+                        attributes += ' ' + key.name + '="' + str(value) + '"'  
                 if format == 'JSON':
                     attributes += comma + '"' + key.name + '" : "' + str(value) + '"'
                     comma = ", "
@@ -75,7 +119,7 @@ class SerializableModel(models.Model):
                 
     @staticmethod
     def compare(first, second):
-        return first.serialized_attributes() == second.serialized_attributes()
+        return first.serialized_attributes(format='JSON') == second.serialized_attributes(format='JSON')
 
     @staticmethod
     def get_parent_field_name(parent, attribute):
