@@ -11,7 +11,6 @@ import urllib2
 
 from datetime import datetime
 from lxml import etree
-from urlparse import urlparse
 from xml.dom import minidom
 
 from django.db import models, transaction
@@ -86,7 +85,7 @@ class ShareableModel(SerializableModel):
             db_alias = self._state.db
             this_ks = KnowledgeServer.this_knowledge_server()
 
-            # removing tail ".models"from_xml
+            # removing tail ".models"
             namespace = self.__class__.__module__[:-7]
             try:
                 se = self.get_model_metadata(db_alias=db_alias)
@@ -208,7 +207,7 @@ class ShareableModel(SerializableModel):
         if node is None:
             node = self.shallow_structure().root_node
         if node.is_many:
-            # the attribute correspond to a list of instances of the model_metadata 
+            # the attribute corresponds to a list of instances of the model_metadata 
             tag_name = node.model_metadata.name
         else:
             tag_name = self.__class__.__name__ if node.attribute == "" else node.attribute
@@ -238,41 +237,45 @@ class ShareableModel(SerializableModel):
             try:
                 outer_comma = ""
                 for child_node in node.child_nodes.all():
-                    if child_node.is_many:
-                        child_instances = eval("self." + child_node.attribute + ".all()")
-                        if export_format == 'XML':
-                            serialized += "<" + child_node.attribute + ">"
-                        if export_format == 'JSON':
-                            serialized += outer_comma + ' "' + child_node.attribute + '" : ['
-                        innner_comma = ''
-                        children_list = []
-                        for child_instance in child_instances:
-                            # let's prevent infinite loops if self relationships
-                            if (child_instance.__class__.__name__ != self.__class__.__name__) or (self.pk != child_node.pk):
-                                if export_format == 'JSON':
-                                    serialized += innner_comma
-                                if export_format == 'DICT':
-                                    children_list.append(child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format))
-                                else:
-                                    serialized += child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format)
-                            innner_comma = ", "
-                        if export_format == 'XML':
-                            serialized += "</" + child_node.attribute + ">"
-                        if export_format == 'JSON':
-                            serialized += "]"
-                        if export_format == 'DICT':
-                            tmp_dict[child_node.attribute] = children_list
+                    if child_node.method_to_retrieve:
+                        # there is no attribute but a method to access the child(ren)
+                        
                     else:
-                        child_instance = eval("self." + child_node.attribute)
-                        if not child_instance is None:
-                            child_serialized = ""
+                        if child_node.is_many:
+                            child_instances = eval("self." + child_node.attribute + ".all()")
+                            if export_format == 'XML':
+                                serialized += "<" + child_node.attribute + ">"
                             if export_format == 'JSON':
-                                child_serialized = outer_comma
+                                serialized += outer_comma + ' "' + child_node.attribute + '" : ['
+                            innner_comma = ''
+                            children_list = []
+                            for child_instance in child_instances:
+                                # let's prevent infinite loops if self relationships
+                                if (child_instance.__class__.__name__ != self.__class__.__name__) or (self.pk != child_node.pk):
+                                    if export_format == 'JSON':
+                                        serialized += innner_comma
+                                    if export_format == 'DICT':
+                                        children_list.append(child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format))
+                                    else:
+                                        serialized += child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format)
+                                innner_comma = ", "
+                            if export_format == 'XML':
+                                serialized += "</" + child_node.attribute + ">"
+                            if export_format == 'JSON':
+                                serialized += "]"
                             if export_format == 'DICT':
-                                tmp_dict.update(child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances))
-                            else:
-                                child_serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
-                            serialized += child_serialized
+                                tmp_dict[child_node.attribute] = children_list
+                        else:
+                            child_instance = eval("self." + child_node.attribute)
+                            if not child_instance is None:
+                                child_serialized = ""
+                                if export_format == 'JSON':
+                                    child_serialized = outer_comma
+                                if export_format == 'DICT':
+                                    tmp_dict.update(child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances))
+                                else:
+                                    child_serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
+                                serialized += child_serialized
                     outer_comma = ", "
             except Exception as ex:
                 print(str(ex))
@@ -319,9 +322,9 @@ class ShareableModel(SerializableModel):
                     export_dict[tag_name] = tmp_dict
                 return export_dict
             
-    def from_xml(self, xmldoc, structure_node, parent=None):
+    def save_from_xml(self, xmldoc, structure_node, parent=None):
         '''
-        from_xml gets from xmldoc the attributes of self and saves it; it searches for child nodes according
+        save_from_xml gets from xmldoc the attributes of self and saves it; it searches for child nodes according
         to structure_node.child_nodes, creates instances of child objects and calls itself recursively
         Every tag corresponds to a MetatadaModel, hence it
             contains a tag URIMetadataModel which points to the KS managing the MetadataModel
@@ -330,7 +333,7 @@ class ShareableModel(SerializableModel):
         
         external_reference
             the first ShareableModel in the XML cannot be marked as an external_reference in the structure_node
-            from_xml doesn't get called recursively for external_references which are to be found in the database
+            save_from_xml doesn't get called recursively for external_references which are to be found in the database
             or to remain dangling references
         '''
         logger = utils.poor_mans_logger()
@@ -442,12 +445,12 @@ class ShareableModel(SerializableModel):
                                     raise Exception("\"" + module_name + ".models " + se.name + "\" has no instance with URIInstance \"" + xml_child_node.attributes["URIInstance"].firstChild.data + " " + ex.message)
                         else:
                             instance = actual_class()
-                            # from_xml takes care of saving instance with a self.save() at the end
-                            instance.from_xml(xml_child_node, child_node)  # the fourth parameter, "parent" shouldn't be necessary in this case as this is a ForeignKey
+                            # save_from_xml takes care of saving instance with a self.save() at the end
+                            instance.save_from_xml(xml_child_node, child_node)  # the fourth parameter, "parent" shouldn't be necessary in this case as this is a ForeignKey
                         setattr(self, child_node.attribute, instance)
                 except Exception as ex:
-                    logger.error("from_xml: " + ex.message)
-                    raise Exception("from_xml: " + ex.message)
+                    logger.error("save_from_xml: " + ex.message)
+                    raise Exception("save_from_xml: " + ex.message)
                  
         # I have added all attributes corresponding to ForeignKey, I can save it so that I can use it as a parent for the other attributes
         # TODO: UGLY PATCH: see #143
@@ -474,7 +477,7 @@ class ShareableModel(SerializableModel):
                 pass
             self.save()
         # TODO: CHECK maybe the following comment is wrong and  URIInstance is always set 
-        # from_xml can be invoked on an instance retrieved from the database (where URIInstance is set)
+        # save_from_xml can be invoked on an instance retrieved from the database (where URIInstance is set)
         # or created on the fly (and URIInstance is not set); in the latter case, only now I can generate URIInstance
         # as I have just saved it and I have a local ID
         
@@ -501,7 +504,7 @@ class ShareableModel(SerializableModel):
                         else:
                             instance = actual_class()
                             # is_many = True, I need to add this instance to self
-                            instance.from_xml(xml_child_node, child_node, self)
+                            instance.save_from_xml(xml_child_node, child_node, self)
                             related_parent = getattr(self._meta.concrete_model, child_node.attribute)
                             related_list = getattr(self, child_node.attribute)
                             # if it is not there yet ...
@@ -527,7 +530,7 @@ class ShareableModel(SerializableModel):
                             self.save()
                     else:
                         instance = actual_class()
-                        instance.from_xml(xml_child_node, child_node, self)
+                        instance.save_from_xml(xml_child_node, child_node, self)
         
     def new_version(self, sn, processed_instances, parent=None):
         '''
@@ -798,7 +801,7 @@ class ModelMetadata(ShareableModel):
     # this name corresponds to the class name
     name = models.CharField(max_length=100L)
     # for Django it corresponds to the module which contains the class 
-    module = models.CharField(max_length=100L)
+    module = models.CharField(max_length=500L)
     description = models.CharField(max_length=2000L, default="")
     table_name = models.CharField(max_length=255L, db_column='tableName', default="")
     id_field = models.CharField(max_length=255L, db_column='idField', default="id")
@@ -837,22 +840,24 @@ class ModelMetadata(ShareableModel):
             print ("visited_nodes_ids : " + str(visited_nodes_ids))
         return types
 
-class AttributeType(ShareableModel):
-    name = models.CharField(max_length=255L, blank=True)
-
-class Attribute(ShareableModel):
-    name = models.CharField(max_length=255L, blank=True)
-    model_metadata = models.ForeignKey('ModelMetadata', null=True, blank=True)
-    type = models.ForeignKey('AttributeType')
-    def __str__(self):
-        return self.model_metadata.name + "." + self.name
-
 class StructureNode(ShareableModel):
     model_metadata = models.ForeignKey('ModelMetadata')
-    # attribute is blank for the entry point
+    # attribute is blank for the entry point as it is available as dataset.root
     attribute = models.CharField(max_length=255L, blank=True)
-    # "parent" assert: there is only one parent so we should change to 
-    # TODO: parent = models.ForeignKey('StructureNode', null=True, blank=True)
+    '''
+       method_to_retrieve is a method that can be invoked to retrieve
+       the value of the instance or instances corresponding to this 
+       node of the structure. It is an alternative to the attribute,
+       they can't be both present.
+       Use case: the structure of a SerializableModel(models.Model) <<==>> ModelMetadata
+       has a list of fields; there is no need to store them in the database as
+       they are *somehow* available using reflection; when we serialize an instance
+       of ModelMetadata we use a method of the instance (inherited from SerializableModel) 
+       to retrieve the list of fields of the class corresponding to that instance.
+    '''
+    method_to_retrieve = models.CharField(max_length=255L, null=True, blank=True)
+    
+    # there is only one parent so we should change to 
     child_nodes = models.ManyToManyField('self', blank=True, symmetrical=False, related_name="parent")
     # if not external_reference all attributes are exported, otherwise only the id
     external_reference = models.BooleanField(default=False, db_column='externalReference')
@@ -997,6 +1002,21 @@ class DataSetStructure(ShareableModel):
             instance = dataset.root
             self.root_node.navigate(instance, instance_method_name, node_method_name, status, children_before)
         return status['output']
+    
+    @staticmethod
+    def retrieve_remotely(DataSetStructureURI):
+        '''
+        # I have retrieve e complete structure that is
+        # - all models described by ModelMetadata; for each model 
+        #   - gather the info from the XML
+        #   - create the app if not there
+        #   - create the model
+        #   - migrate the model e.g. create the database tables to store the data
+        # - the structure itself, i.e. all the nodes StructureNode with their relation
+        # - 
+        # 
+        '''
+        pass
     
 class DataSet(ShareableModel):
     '''
@@ -1162,7 +1182,6 @@ class DataSet(ShareableModel):
         else:
             return serialized_head + serialized_tail
 
-
     def import_dataset(self, dataset_xml_stream):
         '''
         '''
@@ -1176,7 +1195,10 @@ class DataSet(ShareableModel):
         DataSetStructureURI = dataset_xml.getElementsByTagName("dataset_structure")[0].attributes["URIInstance"].firstChild.data
 
         # assert: the structure is present locally
-        es = DataSetStructure.retrieve(DataSetStructureURI)
+        try:
+            es = DataSetStructure.retrieve(DataSetStructureURI)
+        except:
+            es = DataSetStructure.retrieve_remotely(DataSetStructureURI)
         self.dataset_structure = es
         
         try:
@@ -1199,8 +1221,8 @@ class DataSet(ShareableModel):
 #?????                        return DataSet.objects.get(dataset_structure=es, entry_point_instance_id=actual_instance_on_db.pk)
                     except:  # I didn't find it on this db, no problem
                         actual_instance = actual_class()
-                        actual_instance.from_xml(actual_instance_xml, es.root_node)
-                        # from_xml saves actual_instance on the database
+                        actual_instance.save_from_xml(actual_instance_xml, es.root_node)
+                        # save_from_xml saves actual_instance on the database
                 
                 # I create the DataSet if not already imported
                 dataset_URIInstance = dataset_xml.attributes["URIInstance"].firstChild.data
@@ -1214,7 +1236,7 @@ class DataSet(ShareableModel):
                     # In the next call the KnowledgeServer owner of this DataSet must exist
                     # So it must be imported while subscribing; it is imported by this very same method
                     # Since it is in the actual instance the next method will find it
-                    self.from_xml(dataset_xml, self.shallow_structure().root_node)
+                    self.save_from_xml(dataset_xml, self.shallow_structure().root_node)
                     if not es.is_a_view:
                         self.root = actual_instance
                         self.save()
@@ -1223,7 +1245,6 @@ class DataSet(ShareableModel):
             raise ex
         return self
 
-        
     def get_instances(self, db_alias='materialized'):
         '''
         Used for views only
@@ -1616,6 +1637,7 @@ class KnowledgeServer(ShareableModel):
                     notification.sent = True
                     notification.save()
                 else:
+                    # TODO: set some numeric error codes in APIResponse and if not subscribed delete subscription
                     message += "send_notifications " + notification.remote_url + " responded: " + ar.message + "<br>"
         except Exception as e:
             message += "send_notifications error: " + e.message
@@ -1634,19 +1656,19 @@ class KnowledgeServer(ShareableModel):
                     # Let's retrieve the structure
                     response = urllib2.urlopen(notification.URL_structure)
                     structure_xml_stream = response.read()
-                    ei_structure = DataSet()
-                    ei_structure = ei_structure.import_dataset(structure_xml_stream)
-                    ei_structure.dataset_structure = DataSetStructure.objects.get(name=DataSetStructure.dataset_structure_DSN)
-                    ei_structure.materialize_dataset()
+                    ds_structure = DataSet()
+                    ds_structure = ds_structure.import_dataset(structure_xml_stream)
+                    ds_structure.dataset_structure = DataSetStructure.objects.get(name=DataSetStructure.dataset_structure_DSN)
+                    ds_structure.materialize_dataset()
                     # the dataset is retrieved with api #36 api_dataset that serializes
                     # the DataSet and also the complete actual instance 
                     # import_dataset will create the DataSet and the actual instance
                     response = urllib2.urlopen(notification.URL_dataset)
                     dataset_xml_stream = response.read()
-                    ei = DataSet()
-                    ei = ei.import_dataset(dataset_xml_stream)
-                    ei.dataset_structure = ei_structure.root
-                    ei.materialize_dataset()
+                    actual_dataset = DataSet()
+                    actual_dataset = actual_dataset.import_dataset(dataset_xml_stream)
+                    actual_dataset.dataset_structure = ds_structure.root
+                    actual_dataset.materialize_dataset()
                     notification.processed = True
                     notification.save()
             except Exception as ex:
@@ -1668,6 +1690,39 @@ class KnowledgeServer(ShareableModel):
             return KnowledgeServer.objects.using('default').get(URIInstance=materialized_ks.URIInstance)
         else:
             return materialized_ks
+
+    @staticmethod
+    def get_remote_ks(remote_url):
+        '''
+        I get the domain from the remote_url which can be anything like 
+            http://lisences.thekoa.org
+        or
+            http://lisences.thekoa.org/knowledge_server/DataSet/17
+        it tries to invoke api_ks_info from the remote_ks 
+        if it gets the info it imports the dataset locally and returns the corresponding KnowledgeServer object
+        otherwise it might be a different system and it returns None
+        '''
+        remote_ks = None
+        try:
+            local_url = reverse('api_ks_info', args=("XML",))
+            response = urllib2.urlopen(utils.KsUri(remote_url).home() + local_url)
+            ks_info_xml_stream = response.read()
+            # import_dataset creates the entity instance and the actual instance
+            ei = DataSet()
+            local_ei = ei.import_dataset(ks_info_xml_stream)
+            # I have imported a KnowledgeServer with this_ks = True; must set it to False (see this_knowledge_server())
+            external_org = local_ei.root
+            for ks in external_org.knowledgeserver_set.all():
+                if ks.this_ks:
+                    remote_ks = ks
+                    ks.this_ks = False
+                    ks.save()
+            # Now I can materialize it; I can use set released as I have certainly retrieved a released DataSet
+            local_ei.set_released()
+        except:
+            pass
+        
+        return remote_ks
 
 class Event(ShareableModel):
     '''
@@ -1693,6 +1748,8 @@ class SubscriptionToThis(ShareableModel):
     remote_url = models.CharField(max_length=200L)
     # I send a first notification that can be used to get the data the first time
     first_notification_prepared = models.BooleanField(default=False)
+    # when I get a subscription I try to see whether on the other side there is a KnowledgeServer correctly responding to api/ks_info
+    remote_ks = models.ForeignKey(KnowledgeServer, null=True, blank=True)
 
 class Notification(ShareableModel):
     '''
@@ -1764,88 +1821,3 @@ def json_serial(obj):
         return serial
     raise TypeError ("Type not serializable")
         
-class KsUri(object):
-    '''
-    This class is responsible for the good quality of all URIs generated by a KS
-    in terms of syntax and for their coherent use throughout the whole application
-    '''
-
-    def __init__(self, uri):
-        '''
-        only syntactic check
-        uu= urlunparse([o.scheme, o.netloc, o.path, o.params, o.query, o.fragment])
-        uu= urlunparse([o.scheme, o.netloc, o.path, o.params, o.query, ''])
-        così possiamo rimuovere il fragment e params query in modo da ripulire l'url ed essere più forgiving sulle api; da valutare
-        '''
-        self.uri = uri
-        self.parsed = urlparse(self.uri)
-        # I remove format options if any, e.g.
-        # http://rootks.thekoa.org/entity/ModelMetadata/1/json/  --> http://rootks.thekoa.org/entity/ModelMetadata/1/json/
-        self.clean_uri = uri
-        # remove the trailing slash
-        if self.clean_uri[-1:] == "/":
-            self.clean_uri = self.clean_uri[:-1]
-        # remove the format the slash before it and set self.format
-        self.format = ""
-        for format in utils.Choices.FORMAT:
-            if self.clean_uri[-(len(format) + 1):].lower() == "/" + format:
-                self.clean_uri = self.clean_uri[:-(len(format) + 1)]
-                self.format = format
-
-        # I check whether it's structure i well formed according to the GenerateURIInstance method
-        self.is_sintactically_correct = False
-        # not it looks something like: http://rootks.thekoa.org/entity/ModelMetadata/1
-        self.clean_parsed = urlparse(self.clean_uri)
-        self.scheme = ""
-        for scheme in utils.Choices.SCHEME:
-            if self.clean_parsed.scheme.lower() == scheme:
-                self.scheme = self.clean_parsed.scheme.lower()
-        self.netloc = self.clean_parsed.netloc.lower()
-        self.path = self.clean_parsed.path
-        if self.scheme and self.netloc and self.path:
-            # the path should have the format: "/entity/ModelMetadata/1"
-            # where "entity" is the module, "ModelMetadata" is the class name and "1" is the id or pk
-            temp_path = self.path
-            if temp_path[0] == "/":
-                temp_path = temp_path[1:]
-            # "entity/ModelMetadata/1"
-            if temp_path.find('/'):
-                self.namespace = temp_path[:temp_path.find('/')]
-                temp_path = temp_path[temp_path.find('/') + 1:]
-                # 'ModelMetadata/1'
-                if temp_path.find('/'):
-                    self.class_name = temp_path[:temp_path.find('/')]
-                    temp_path = temp_path[temp_path.find('/') + 1:]
-                    print(temp_path)
-                    if temp_path.find('/') < 0:
-                        self.pk_value = temp_path
-                        self.is_sintactically_correct = True
-
-    def encoded(self):
-        return urllib.urlencode({'':self.uri})[1:]
-        
-    def home(self):
-        return self.scheme + '://' + self.netloc 
-
-    def __repr__(self):
-        return self.scheme + '://' + self.netloc + '/' + self.namespace + '/' + self.class_name + '/' + str(self.pk_value)
-    
-    def search_on_db(self):
-        '''
-        Database check
-        I do not put this in the __init__ so the class can be used only for syntactic check or functionalities
-        '''
-        if self.is_sintactically_correct:
-            # I search the ks by netloc and scheme on materialized
-            try:
-                self.knowledge_server = KnowledgeServer.objects.using('materialized').get(scheme=self.schem, netloc=self.netloc)
-                self.is_ks_known = True
-            except:
-                self.is_ks_known = False
-            if self.is_ks_known:
-                # I search for its module and class and set relevant flags
-                pass
-        self.is_present = False
-        # I search on this database
-        #  on URIInstance
-            

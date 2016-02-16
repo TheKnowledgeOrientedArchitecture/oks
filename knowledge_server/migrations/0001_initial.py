@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+# Subject to the terms of the GNU AFFERO GENERAL PUBLIC LICENSE, v. 3.0. If a copy of the AGPL was not
+# distributed with this file, You can obtain one at http://www.gnu.org/licenses/agpl.txt
+#
+# Author: Davide Galletti                davide   ( at )   c4k.it
+
 from __future__ import unicode_literals
 
 from django.db import models, migrations
@@ -12,32 +17,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='Attribute',
-            fields=[
-                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('URIInstance', models.CharField(default='', max_length=2000L)),
-                ('URI_imported_instance', models.CharField(max_length=2000L)),
-                ('URI_previous_version', models.CharField(max_length=2000L, null=True, blank=True)),
-                ('name', models.CharField(max_length=255L, blank=True)),
-            ],
-            options={
-                'abstract': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='AttributeType',
-            fields=[
-                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('URIInstance', models.CharField(default='', max_length=2000L)),
-                ('URI_imported_instance', models.CharField(max_length=2000L)),
-                ('URI_previous_version', models.CharField(max_length=2000L, null=True, blank=True)),
-                ('name', models.CharField(max_length=255L, blank=True)),
-            ],
-            options={
-                'abstract': False,
-            },
-        ),
         migrations.CreateModel(
             name='DataSet',
             fields=[
@@ -121,7 +100,7 @@ class Migration(migrations.Migration):
                 ('URI_imported_instance', models.CharField(max_length=2000L)),
                 ('URI_previous_version', models.CharField(max_length=2000L, null=True, blank=True)),
                 ('name', models.CharField(max_length=100L)),
-                ('module', models.CharField(max_length=100L)),
+                ('module', models.CharField(max_length=500L)),
                 ('description', models.CharField(default='', max_length=2000L)),
                 ('table_name', models.CharField(default='', max_length=255L, db_column=b'tableName')),
                 ('id_field', models.CharField(default=b'id', max_length=255L, db_column=b'idField')),
@@ -187,6 +166,7 @@ class Migration(migrations.Migration):
                 ('URI_imported_instance', models.CharField(max_length=2000L)),
                 ('URI_previous_version', models.CharField(max_length=2000L, null=True, blank=True)),
                 ('attribute', models.CharField(max_length=255L, blank=True)),
+                ('method_to_retrieve', models.CharField(max_length=255L, null=True, blank=True)),
                 ('external_reference', models.BooleanField(default=False, db_column=b'externalReference')),
                 ('is_many', models.BooleanField(default=False, db_column=b'isMany')),
                 ('child_nodes', models.ManyToManyField(related_name='parent', to='knowledge_server.StructureNode', blank=True)),
@@ -220,6 +200,7 @@ class Migration(migrations.Migration):
                 ('first_version_URIInstance', models.CharField(default='', max_length=2000L)),
                 ('remote_url', models.CharField(max_length=200L)),
                 ('first_notification_prepared', models.BooleanField(default=False)),
+                ('remote_ks', models.ForeignKey(blank=True, to='knowledge_server.KnowledgeServer', null=True)),
             ],
             options={
                 'abstract': False,
@@ -264,15 +245,5 @@ class Migration(migrations.Migration):
             model_name='dataset',
             name='root_content_type',
             field=models.ForeignKey(blank=True, to='contenttypes.ContentType', null=True),
-        ),
-        migrations.AddField(
-            model_name='attribute',
-            name='model_metadata',
-            field=models.ForeignKey(blank=True, to='knowledge_server.ModelMetadata', null=True),
-        ),
-        migrations.AddField(
-            model_name='attribute',
-            name='type',
-            field=models.ForeignKey(to='knowledge_server.AttributeType'),
         ),
     ]

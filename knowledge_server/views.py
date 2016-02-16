@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
+# Subject to the terms of the GNU AFFERO GENERAL PUBLIC LICENSE, v. 3.0. If a copy of the AGPL was not
+# distributed with this file, You can obtain one at http://www.gnu.org/licenses/agpl.txt
+#
+# Author: Davide Galletti                davide   ( at )   c4k.it
+
+import json
+import socket
+import urllib, urllib2, urlparse
 
 from datetime import datetime
-import json
-import urllib, urllib2, urlparse
 from xml.dom import minidom
 
 from django.db import transaction
@@ -13,10 +19,11 @@ from django.template import RequestContext
 from django.views.decorators.csrf import csrf_exempt
 
 from knowledge_server.models import ModelMetadata, DataSetStructure, DataSet, KnowledgeServer
-from knowledge_server.models import SubscriptionToOther, SubscriptionToThis, ApiResponse, NotificationReceived, KsUri, Notification, Event
+from knowledge_server.models import SubscriptionToOther, SubscriptionToThis, ApiResponse, NotificationReceived, Notification, Event
 import knowledge_server.utils as utils
 import logging
 import forms as myforms 
+from utils import KsUri
 
 logger = logging.getLogger(__name__)
 
@@ -429,22 +436,9 @@ def this_ks_subscribes_to(request, URIInstance):
     If it works I commit locally
     '''
     URIInstance = str(urllib.unquote(URIInstance).replace("%2F","/"))
-    other_ks_uri = URIInstance[:str.find(URIInstance, '/', str.find(URIInstance, '/', str.find(URIInstance, '/')+1)+1)]
-    # TODO: make the above a method of a helper class to find the URL of the KS from a URIInstance
+    other_ks_uri = KsUri(URIInstance).home()
 
-    local_url = reverse('api_ks_info', args=("XML",))
-    response = urllib2.urlopen(other_ks_uri + local_url)
-    ks_info_xml_stream = response.read()
-    # import_dataset creates the entity instance and the actual instance
-    ei = DataSet()
-    local_ei = ei.import_dataset(ks_info_xml_stream)
-    # I have imported a KnowledgeServer with this_ks = True; must set it to False (see this_knowledge_server())
-    external_org = local_ei.root
-    for ks in external_org.knowledgeserver_set.all():
-        ks.this_ks = False
-        ks.save()
-    # Now I can materialize it; I can use set released as I have certainly retrieved a released DataSet
-    local_ei.set_released()
+    remote_ks = KnowledgeServer.get_remote_ks(other_ks_uri)
     
     try:
         with transaction.atomic():
@@ -476,17 +470,37 @@ def api_subscribe(request, URIInstance, remote_url):
         URIInstance is the one to which I want to subscribe
         remote_url the URL this KS has to invoke to notify
     '''
-    # check the client KS has already subscribed
+    # check the client KS has already subscribed; the check is done using the remote_ks (if any), remote URL otherwise
     URIInstance = urllib.unquote(URIInstance)
     remote_url = urllib.unquote(remote_url)
+
+    # I want to check the request comes from the same domain as the remote_url
+    # I do this checking that the IP address is the same
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')    
+
+    ip_notification = socket.gethostbyname(KsUri(remote_url).netloc)
+    if ip_notification != ip:
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, "Trying to subscribe from a different IP address", "").json()}, content_type="application/json")
+    
+    # I try to get the remote ks info (if it is a ks) locally
+    remote_ks = KnowledgeServer.get_remote_ks(remote_url)
+
     ei = DataSet.objects.get(URIInstance=URIInstance)
     first_version_URIInstance = ei.first_version.URIInstance
-    existing_subscriptions = SubscriptionToThis.objects.filter(first_version_URIInstance=first_version_URIInstance, remote_url=remote_url)
+    if remote_ks:
+        existing_subscriptions = SubscriptionToThis.objects.filter(first_version_URIInstance=first_version_URIInstance, remote_ks=remote_ks)
+    else:
+        existing_subscriptions = SubscriptionToThis.objects.filter(first_version_URIInstance=first_version_URIInstance, remote_url=remote_url)
     if len(existing_subscriptions) > 0:
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, "Already subscribed").json()}, content_type="application/json")
     stt = SubscriptionToThis()
     stt.first_version_URIInstance=first_version_URIInstance
     stt.remote_url=remote_url
+    stt.remote_ks = remote_ks
     stt.save()
     return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, "Subscribed sucessfully", first_version_URIInstance).json()}, content_type="application/json")
     
@@ -564,6 +578,35 @@ def debug(request):
     created to debug code
     '''
     try:
+        import os
+        from subprocess import Popen, PIPE
+        
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#         proc = Popen("python manage.py startapp deleteme", shell=True, cwd=BASE_DIR)
+#         return_code = proc.wait()
+#         the above commands create it correctly
+        
+        from django.core import management
+        new_app_name = "deleteme3"
+
+        os.makedirs(BASE_DIR + "/" + new_app_name)
+        management.call_command('startapp', new_app_name, 'oks/' + new_app_name, interactive=False)
+#         the above 2 lines work fine
+
+        from django.conf import settings
+        settings.INSTALLED_APPS += (new_app_name, )
+        # I load the app
+        from django.apps import apps
+        from collections import OrderedDict
+        apps.app_configs = OrderedDict()
+        apps.ready = False
+        apps.populate(settings.INSTALLED_APPS)
+        
+#         management.call_command('makemigrations', new_app_name, interactive=False)
+        management.call_command('migrate', new_app_name, interactive=False)
+
+
+    
         return HttpResponse("OK ")
     except Exception as ex:
         return HttpResponse(ex.message)

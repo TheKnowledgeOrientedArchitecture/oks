@@ -6,7 +6,7 @@
 
 from __future__ import unicode_literals
 from django.db import migrations
-from knowledge_server.models import Organization, KnowledgeServer, ModelMetadata, AttributeType, Attribute, StructureNode, DataSetStructure, DataSet
+from knowledge_server.models import Organization, KnowledgeServer, ModelMetadata, StructureNode, DataSetStructure, DataSet
 
 def forwards_func(apps, schema_editor):
     
@@ -27,8 +27,7 @@ def forwards_func(apps, schema_editor):
     the_koa_org.URIInstance="";    the_koa_org.save(using=db_alias)
     #ModelMetadata
     mmModelMetadata=ModelMetadata();mmModelMetadata.name="ModelMetadata";mmModelMetadata.module="knowledge_server";mmModelMetadata.save(using=db_alias)
-    mmAttribute=ModelMetadata();mmAttribute.name="Attribute";mmAttribute.module="knowledge_server";mmAttribute.description_field="";mmAttribute.save(using=db_alias)
-    mmAttributeType=ModelMetadata();mmAttributeType.name="AttributeType";mmAttributeType.module="knowledge_server";mmAttributeType.description_field="";mmAttributeType.save(using=db_alias)
+    mmField=ModelMetadata();mmField.name="Field";mmField.module="django.db.models.fields";mmField.description_field="";mmField.save(using=db_alias)
     mmStructureNode=ModelMetadata();mmStructureNode.name="StructureNode";mmStructureNode.module="knowledge_server";mmStructureNode.name_field="attribute";mmStructureNode.description_field="";mmStructureNode.save(using=db_alias)
     mmDataSetStructure=ModelMetadata();mmDataSetStructure.name="DataSetStructure";mmDataSetStructure.module="knowledge_server";mmDataSetStructure.description_field;mmDataSetStructure.save(using=db_alias)
     mmOrganization=ModelMetadata();mmOrganization.name="Organization";mmOrganization.module="knowledge_server";mmOrganization.save(using=db_alias)
@@ -36,50 +35,29 @@ def forwards_func(apps, schema_editor):
     mmKnowledgeServer=ModelMetadata();mmKnowledgeServer.name="KnowledgeServer";mmKnowledgeServer.module="knowledge_server";mmKnowledgeServer.save(using=db_alias)
     mmLicense=ModelMetadata();mmLicense.name="License";mmLicense.module="licenses";mmLicense.save(using=db_alias)
  
-#     # AttributeType
-#     atText=AttributeType();atText.name="Text";atText.save(using=db_alias)
-#     atDate=AttributeType();atDate.name="Date";atDate.save(using=db_alias)
-#     atForeignKey=AttributeType();atForeignKey.name="ForeignKey";atForeignKey.save(using=db_alias)
-#  
-#     # Attributes for ModelMetadata
-#     aname=Attribute();aname.name="name";aname.type=atText;aname.model_metadata=mmModelMetadata;aname.save(using=db_alias)
-#     aURIInstance=Attribute();aURIInstance.name="URIInstance";aURIInstance.type=atText;aURIInstance.model_metadata=mmModelMetadata;aURIInstance.save(using=db_alias)
-#     amodule=Attribute();amodule.name="module";amodule.type=atText;amodule.model_metadata=mmModelMetadata;amodule.save(using=db_alias)
-#     atable_name=Attribute();atable_name.name="table_name";atable_name.type=atText;atable_name.model_metadata=mmModelMetadata;atable_name.save(using=db_alias)
-#     aid_field=Attribute();aid_field.name="id_field";aid_field.type=atText;aid_field.model_metadata=mmModelMetadata;aid_field.save(using=db_alias)
-#     aname_field=Attribute();aname_field.name="name_field";aname_field.type=atText;aname_field.model_metadata=mmModelMetadata;aname_field.save(using=db_alias)
-#     adescription_field=Attribute();adescription_field.name="description_field";adescription_field.type=atText;adescription_field.model_metadata=mmModelMetadata;adescription_field.save(using=db_alias)
-#     adescription=Attribute();adescription.name="description";adescription.type=atText;adescription.model_metadata=mmModelMetadata;adescription.save(using=db_alias)
-     
-    # StructureNode for "ModelMetadata-attributes"     root_node=en1
+    # StructureNode for "ModelMetadata-fields"
     en1=StructureNode();en1.model_metadata=mmModelMetadata;en1.save(using=db_alias) 
-    en2=StructureNode();en2.model_metadata=mmAttribute;en2.attribute="attribute_set";en2.is_many=True;en2.save(using=db_alias)
-    en3=StructureNode();en3.model_metadata=mmAttributeType;en3.attribute="type";en3.save(using=db_alias)
-    # StructureNode for "DataSetStructure-StructureNode"    root_node=en22
+    en2=StructureNode();en2.model_metadata=mmField;en2.method_to_retrieve="BOOOOOOOOOO";en2.is_many=True;en2.save(using=db_alias)
+    # StructureNode for "DataSetStructure-StructureNode"
     en4=StructureNode();en4.model_metadata=mmDataSetStructure;en4.save(using=db_alias)
     en5=StructureNode();en5.model_metadata=mmStructureNode;en5.attribute="root_node";en5.save(using=db_alias)
     en6=StructureNode();en6.model_metadata=mmModelMetadata;en6.attribute="model_metadata";en6.external_reference=True;en6.save(using=db_alias)
     en7=StructureNode();en7.model_metadata=mmStructureNode;en7.attribute="child_nodes";en7.is_many=True;en7.save(using=db_alias)
-    # StructureNode for "Organization-KS"     root_node=en18
+    # StructureNode for "Organization-KS"
     en18=StructureNode();en18.model_metadata=mmOrganization;en18.save(using=db_alias)
     en19=StructureNode();en19.model_metadata=mmKnowledgeServer;en19.attribute="knowledgeserver_set";en19.is_many=True;en19.save(using=db_alias)
     
-    # DATASETSTRUCTURE dssModelMetadataAttributes
+    # DATASETSTRUCTURE dssModelMetadataFields
     en1.child_nodes.add(en2); en1.save(using=db_alias)
-    en2.child_nodes.add(en3); en2.save(using=db_alias)
-    dssModelMetadataAttributes=DataSetStructure();dssModelMetadataAttributes.multiple_releases=False;
-    dssModelMetadataAttributes.root_node=en1;dssModelMetadataAttributes.name=DataSetStructure.model_metadata_DSN;
-    dssModelMetadataAttributes.description="Metadata describing a model in the ORM, i.e. something closely related to what is stored in a database table, and its attributes.";
-    dssModelMetadataAttributes.namespace="knowledge_server";dssModelMetadataAttributes.save(using=db_alias)
+    dssModelMetadataFields=DataSetStructure();dssModelMetadataFields.multiple_releases=False;
+    dssModelMetadataFields.root_node=en1;dssModelMetadataFields.name=DataSetStructure.model_metadata_DSN;
+    dssModelMetadataFields.description="Metadata describing a model in the ORM, i.e. something closely related to what is stored in a database table, and its fields.";
+    dssModelMetadataFields.namespace="knowledge_server";dssModelMetadataFields.save(using=db_alias)
 
-    mmModelMetadata.dataset_structure = dssModelMetadataAttributes; mmModelMetadata.save(using=db_alias)
-     
-#     mmAttribute.dataset_structure = dssModelMetadataAttributes; mmAttribute.save(using=db_alias)
-#     aname.save(using=db_alias);aURIInstance.save(using=db_alias);amodule.save(using=db_alias);atable_name.save(using=db_alias);aid_field.save(using=db_alias);aname_field.save(using=db_alias);adescription_field.save(using=db_alias);adescription.save(using=db_alias)
-#      
-#     mmAttributeType.dataset_structure = dssModelMetadataAttributes; mmAttributeType.save(using=db_alias)
-#     atText.save(using=db_alias);atDate.save(using=db_alias);atForeignKey.save(using=db_alias); #saving again to create URIInstance via the post_save signal
-     
+    mmModelMetadata.dataset_structure = dssModelMetadataFields; mmModelMetadata.save(using=db_alias)
+    mmField.dataset_structure = dssModelMetadataFields; mmField.save(using=db_alias)
+    
+
     # DATASETSTRUCTURE  dssDataSetStructureStructureNode
     en4.child_nodes.add(en5); en4.save(using=db_alias)
     en5.child_nodes.add(en6); en5.child_nodes.add(en7); en5.save(using=db_alias)
@@ -90,10 +68,10 @@ def forwards_func(apps, schema_editor):
                                                                 namespace="knowledge_server")
     dssDataSetStructureStructureNode.save(using=db_alias)
     mmDataSetStructure.dataset_structure = dssDataSetStructureStructureNode; mmDataSetStructure.save(using=db_alias)
-    dssModelMetadataAttributes.save(using=db_alias);dssDataSetStructureStructureNode.save(using=db_alias); #saving again to create URIInstance via the post_save signal
+    dssModelMetadataFields.save(using=db_alias);dssDataSetStructureStructureNode.save(using=db_alias); #saving again to create URIInstance via the post_save signal
      
     mmStructureNode.dataset_structure = dssDataSetStructureStructureNode; mmStructureNode.save(using=db_alias)
-    en1.save(using=db_alias);en2.save(using=db_alias);en3.save(using=db_alias);en4.save(using=db_alias);
+    en1.save(using=db_alias);en2.save(using=db_alias);en4.save(using=db_alias);
     en5.save(using=db_alias);en6.save(using=db_alias);en7.save(using=db_alias);en18.save(using=db_alias);en19.save(using=db_alias)
      
      
@@ -106,7 +84,7 @@ def forwards_func(apps, schema_editor):
     mmKnowledgeServer.dataset_structure = eOrganizationKS; mmKnowledgeServer.save(using=db_alias)
      
     # DataSet
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,
+    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,
                  root = mmModelMetadata,
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
@@ -119,36 +97,36 @@ def forwards_func(apps, schema_editor):
     mmDataSet.save(using=db_alias)
     ei.save(using=db_alias)
      
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
-                 root=mmAttribute,                                   
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
-                 root=mmAttributeType,                               
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
+#     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+#                  root=mmAttribute,                                   
+#                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+#     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
+#     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+#                  root=mmAttributeType,                               
+#                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+#     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
+    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmStructureNode,                         
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
+    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmDataSetStructure,                             
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
+    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmOrganization,                                
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
+    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmDataSet,                              
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataAttributes,       
+    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmKnowledgeServer,                             
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
-                 root=dssModelMetadataAttributes,                       
+                 root=dssModelMetadataFields,                       
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.save(using=db_alias)
     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 

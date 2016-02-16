@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Subject to the terms of the GNU AFFERO GENERAL PUBLIC LICENSE, v. 3.0. If a copy of the AGPL was not
+# distributed with this file, You can obtain one at http://www.gnu.org/licenses/agpl.txt
+#
+# Author: Davide Galletti                davide   ( at )   c4k.it
 
 from django.conf.urls import patterns, url
 
 from knowledge_server import views
 
-urlpatterns = patterns('',
+urlpatterns = [
     url(r'^debug/$', views.debug),
     url(r'^cron/$', views.cron, name='cron'),
     url(r'^ks_explorer_form/$', views.ks_explorer_form, name='ks_explorer_form'),
@@ -36,5 +40,4 @@ urlpatterns = patterns('',
     #37 
     url(r'^api/notify/$', views.api_notify, name='api_notify'),
                        ###################   API ^ ####################
-    
-)
+]

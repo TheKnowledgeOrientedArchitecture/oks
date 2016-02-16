@@ -46,7 +46,7 @@ def forwards_func(apps, schema_editor):
     
     en1 = StructureNode();en1.model_metadata = seLicense;en1.save(using='default')
     esLicense = DataSetStructure();esLicense.multiple_releases = True;esLicense.is_shallow = True;
-    esLicense.root_node = en1;esLicense.name = "License";esLicense.description = "License information";esLicense.namespace = "license";
+    esLicense.root_node = en1;esLicense.name = "License";esLicense.description = "License information";esLicense.namespace = "licenses";
     esLicense.save(using='default')
     m_es = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_DSN)
     es = DataSetStructure.objects.using('default').get(URIInstance=m_es.URIInstance)
@@ -60,7 +60,7 @@ def forwards_func(apps, schema_editor):
     # DataSetStructure di tipo view per la lista di licenze;  
     en1 = StructureNode();en1.model_metadata = seLicense;en1.save(using='default')
     esLicenseList = DataSetStructure();esLicenseList.is_a_view = True;
-    esLicenseList.root_node = en1;esLicenseList.name = "List of licenses";esLicenseList.description = "List of all released licenses";esLicenseList.namespace = "license";
+    esLicenseList.root_node = en1;esLicenseList.name = "List of licenses";esLicenseList.description = "List of all released licenses";esLicenseList.namespace = "licenses";
     esLicenseList.save(using='default')
     # DataSet of the above DataSetStructure
     ei = DataSet(description='-List of licenses- data set structure', owner_knowledge_server=this_ks, dataset_structure=es, 
