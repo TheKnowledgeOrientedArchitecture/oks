@@ -4,6 +4,8 @@
 #
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
+import importlib
+import inspect
 import json
 import utils
 import urllib
@@ -13,14 +15,20 @@ from datetime import datetime
 from lxml import etree
 from xml.dom import minidom
 
+from django.apps.registry import apps
 from django.db import models, transaction
+from django.db.migrations.autodetector import MigrationAutodetector
+from django.db.migrations.graph import MigrationGraph
+from django.db.migrations.state import ModelState, ProjectState
 from django.db.models import Max, Q
+from django.db.models.manager import ManagerDescriptor
 from django.core.urlresolvers import reverse
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.core.exceptions import ObjectDoesNotExist
 
 from serializable.models import SerializableModel
+from _mysql import NULL
 
 
 class CustomModelManager(models.Manager):
@@ -52,6 +60,7 @@ def model_post_save(sender, **kwargs):
                 kwargs['instance'].save()
         except Exception as e:
             print ("model_post_save kwargs['instance'].URIInstance: " + kwargs['instance'].URIInstance + "  -  " + e.message)
+
 
 class ShareableModel(SerializableModel):
     '''
@@ -239,7 +248,15 @@ class ShareableModel(SerializableModel):
                 for child_node in node.child_nodes.all():
                     if child_node.method_to_retrieve:
                         # there is no attribute but a method to access the child(ren)
-                        
+                        method_to_retrieve = getattr(self, child_node.method_to_retrieve)
+                        o = method_to_retrieve(export_format)
+                        if export_format == 'XML':
+                            serialized += o
+                        if export_format == 'JSON':
+                            serialized += o
+                        if export_format == 'DICT':
+                            tmp_dict.update(o)
+#                         source_code = inspect.getsource(self)
                     else:
                         if child_node.is_many:
                             child_instances = eval("self." + child_node.attribute + ".all()")
@@ -794,6 +811,23 @@ class ShareableModel(SerializableModel):
     class Meta:
         abstract = True
 
+
+class DanglingReference(ShareableModel):
+    '''
+    Moving data chunks across OKSs means ending up having external_reference to data that is not available in the same db
+    Such references or FK will point to an instance of this class which holds all the info neeeded to resolve the 
+    dangling reference; an OKS' admin will be able to instruct the OKS to resolve some reference e.g. all those coming from
+    an OKS, all those of a specific type/structure, all those depending on a specific dataset ...
+    Importing new data structures will attempt the resolution of existing dangling references
+    '''
+    URI_actual_instance = models.CharField(max_length=2000L, default='')
+    # the uri of the structure could be obtained invoking the api dataset_info on URI_actual_instance
+    # but we need it to group DRs that depend on the same structure
+    URI_structure = models.CharField(max_length=2000L, default='')
+    # same as URI_structure; we need it to group DRs depending on the same dataset
+    URI_dataset = models.CharField(max_length=2000L, default='')
+
+
 class ModelMetadata(ShareableModel):
     '''
     A ModelMetadata roughly contains the meta-data describing a table in a database or a class if we have an ORM
@@ -839,6 +873,7 @@ class ModelMetadata(ShareableModel):
             print ("dataset_structures type(self): " + str(type(self)) + " self.id " + str(self.id) + ex.message)
             print ("visited_nodes_ids : " + str(visited_nodes_ids))
         return types
+
 
 class StructureNode(ShareableModel):
     model_metadata = models.ForeignKey('ModelMetadata')
@@ -903,6 +938,23 @@ class StructureNode(ShareableModel):
             status['output'][self.model_metadata] = []
         if not instance in status['output'][self.model_metadata]:
             status['output'][self.model_metadata].append(instance)
+
+    def app_models(self, processed_instances={}, ):
+        if self in processed_instances.keys():
+            return None
+        processed_instances[self] = ""
+        l = []
+        if self.method_to_retrieve == None:
+            l = [{"app": self.model_metadata.module, "model": self.model_metadata.name}]
+        for cn in self.child_nodes.all():
+            child_app_models = cn.app_models(processed_instances)
+            if child_app_models:
+                l.append(child_app_models)
+        if len(l) == 0:
+            return None
+        else:
+            return l
+
 
 class DataSetStructure(ShareableModel):
     # DSN = DataSet Structure Name
@@ -1002,21 +1054,94 @@ class DataSetStructure(ShareableModel):
             instance = dataset.root
             self.root_node.navigate(instance, instance_method_name, node_method_name, status, children_before)
         return status['output']
-    
-    @staticmethod
-    def retrieve_remotely(DataSetStructureURI):
+
+
+    def classes_code(self):
         '''
-        # I have retrieve e complete structure that is
-        # - all models described by ModelMetadata; for each model 
-        #   - gather the info from the XML
-        #   - create the app if not there
-        #   - create the model
-        #   - migrate the model e.g. create the database tables to store the data
-        # - the structure itself, i.e. all the nodes StructureNode with their relation
-        # - 
+        '''
+        app_models = self.root_node.app_models()
+        code_per_app = {}
+        for app_model in app_models:
+            c = utils.load_class(app_model['app'] + ".models", app_model['model'])
+            # I need the list of methods to guarantee I am not injecting code into another OKS
+            c_methods  = list({x: c.__dict__[x]} for x in c.__dict__.keys() if inspect.isroutine(c.__dict__[x]))
+            # let's exclude instances of ManagerDescriptor from the list
+            c_methods  = list(m for m in c_methods if not isinstance(m.values()[0], ManagerDescriptor))
+            if len(c_methods) > 0:
+                raise Exception("Methods found in " + str(app_model) + ": " + str(str(list(m.keys([0] for m in c_methods))) + ". It is unsafe to export class' code to another OKS."))
+            if not app_model['app'] in code_per_app.keys():
+                code_per_app[app_model['app']] = {}
+            if not app_model['model'] in code_per_app[app_model['app']].keys():
+                code_per_app[app_model['app']][app_model['model']] = inspect.getsource(c)
+        return code_per_app
+
+
+    def make_persistable(self):
+        # If the owner of this structure is not this OKS I must check that I can persist each instance on each node.
+        # I loop through all classes and check if they are present locally; if at least 
+        # one is not I fetch classes_code via api_dataset_structure_code remotely, then I:
+        #  - create the APP/MODULE if needed
+        #  - create the needed data-layer classes present in the structure (if not already present here)
+        #  - create the migrations
+        #  - run the migrations which create the tables on the database
+        #  - #########
+        app_models = self.root_node.app_models()
+        persistable = True
+        for app_model in app_models:
+            try:
+                utils.load_class(app_model['app'] + ".models", app_model['model'])
+            except:
+                persistable = False
+        if not persistable:
+            # I must go to the owner_knowledge_server of the DataSet
+            local_url = reverse('api_dataset_structure_code', args=(urllib.urlencode({'':self.URIInstance})[1:],))
+            ds = DataSet.objects.get(root=self)
+            response = urllib2.urlopen(ds.owner_knowledge_server.uri() + local_url)
+            ar = ApiResponse()
+            ar.parse(response.read())
+            if ar.status == ApiResponse.success:
+                apps_code = ar.content
+                for app in apps_code:
+                    # is the app missing?
+                    if app in self.app_configs.keys():
+                        # must add it
+                        pass 
+                    module = importlib.import_module(app + ".models")
+                    for model_class in apps_code[app]:
+                        # is the class missing?
+                        if not hasattr(module, model_class):
+                            # must add it
+                            pass
+
+
+                persistable = True
+            
+        return persistable
+
+    def models_and_migration(self):
+        '''
+        '''
+        # Create a list of (app, model) that are in the structure not including external references
         # 
-        '''
-        pass
+        # navigate structure to populate app_models
+        app_models = self.root_node.app_models()
+        
+        project_state = ProjectState()
+        for app_model in app_models:
+            model = apps.get_model(app_model['app'], app_model['model'])
+            model_state = ModelState.from_model(model)
+            project_state.add_model(model_state)
+            
+        autodetector = MigrationAutodetector(ProjectState(), project_state)
+        autodetector.generated_operations = {}
+        graph = MigrationGraph()
+        keep_going = True
+        while keep_going:
+            try:
+                changes = autodetector.changes(graph)
+                keep_going = False
+            except ValueError as ve:
+                pass
     
 class DataSet(ShareableModel):
     '''
@@ -1194,11 +1319,9 @@ class DataSet(ShareableModel):
         dataset_xml = xmldoc.childNodes[0].childNodes[0]
         DataSetStructureURI = dataset_xml.getElementsByTagName("dataset_structure")[0].attributes["URIInstance"].firstChild.data
 
-        # assert: the structure is present locally
-        try:
-            es = DataSetStructure.retrieve(DataSetStructureURI)
-        except:
-            es = DataSetStructure.retrieve_remotely(DataSetStructureURI)
+        # the structure is present locally
+        es = DataSetStructure.retrieve(DataSetStructureURI)
+        es.make_persistable()
         self.dataset_structure = es
         
         try:

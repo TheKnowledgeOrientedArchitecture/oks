@@ -27,6 +27,8 @@ from utils import KsUri
 
 logger = logging.getLogger(__name__)
 
+
+
 def api_dataset_view(request, DataSet_URIInstance, root_id, format):
     '''
     it returns the data of the istance with pk=root_id in the dataset (which is a view)
@@ -59,6 +61,7 @@ def api_dataset_view(request, DataSet_URIInstance, root_id, format):
         this_ks = KnowledgeServer.this_knowledge_server()
         cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.root_node, 'DataSet_URIInstance': DataSet_URIInstance, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
         return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
+
 
 def api_dataset(request, DataSet_URIInstance, format):
     '''
@@ -151,6 +154,7 @@ def api_catch_all(request, uri_instance):
             exported_pretty_xml = xmldoc.toprettyxml(indent="    ")
             return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
 
+
 def api_dataset_types(request, format):
     '''
         parameters:
@@ -169,6 +173,7 @@ def api_dataset_types(request, format):
     dss = DataSetStructure.objects.get(pk=ei.root_instance_id)
     
     return api_datasets(request, DataSetStructure_URIInstance = dss.URIInstance, format=format)
+
 
 def api_dataset_info(request, DataSet_URIInstance, format):
     '''
@@ -233,6 +238,7 @@ def api_dataset_info(request, DataSet_URIInstance, format):
         cont = RequestContext(request, {'DataSet_URIInstance': DataSet_URIInstance, 'dataset': dataset, 'all_versions_with_instances': all_versions_with_instances, 'ks': dataset.owner_knowledge_server, 'instances': instances, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True) })
         return render_to_response('knowledge_server/api_dataset_info.html', context_instance=cont)
     
+    
 def api_datasets(request, DataSetStructure_URIInstance, format):
     '''
         http://redmine.davide.galletti.name/issues/64
@@ -273,6 +279,7 @@ def api_datasets(request, DataSetStructure_URIInstance, format):
         ar.content = { "DataSets": dataset_list }
         ar.status = ApiResponse.success 
         return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
+
 
 def ks_explorer(request):
     try:
@@ -316,13 +323,18 @@ def ks_explorer(request):
     cont = RequestContext(request, {'owned_structures':owned_structures, 'other_structures':other_structures, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True), 'organization': organization, 'explored_ks': explored_ks, 'ks_url':urllib.urlencode({'':ks_url})[1:]})
     return render_to_response('knowledge_server/ks_explorer_entities.html', context_instance=cont)
 
+
 def ks_explorer_form(request):
     form = myforms.ExploreOtherKSForm()
     this_ks = KnowledgeServer.this_knowledge_server()
     cont = RequestContext(request, {'form':form, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
     return render_to_response('knowledge_server/ks_explorer_form.html', context_instance=cont)
 
+
 def datasets_of_type(request, ks_url, URIInstance, format):
+    '''
+    returns the list of datasets of a specific type/structure
+    '''
     this_ks = KnowledgeServer.this_knowledge_server()
     format = format.upper()
     ks_url = urllib.unquote(ks_url)
@@ -390,10 +402,12 @@ def datasets_of_type(request, ks_url, URIInstance, format):
         cont = RequestContext(request, {'entities':entities, 'organization': organization, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True), 'external_ks': external_ks, 'es_info_json': es_info_json})
         return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
     
+    
 def home(request):
     this_ks = KnowledgeServer.this_knowledge_server()
     cont = RequestContext(request, {'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
     return render(request, 'knowledge_server/home.html', context_instance=cont)
+
 
 def api_ks_info(request, format):
     '''
@@ -412,10 +426,12 @@ def api_ks_info(request, format):
     ei = DataSet.objects.get(dataset_structure=es, root_instance_id=this_ks.organization.id)
     return api_dataset(request, ei.URIInstance, format)
     
+    
 def this_ks_unsubscribes_to(request, URIInstance):
     '''
     '''
     pass
+
 
 def release_dataset(request, Dataset_URIInstance):
     '''
@@ -427,6 +443,7 @@ def release_dataset(request, Dataset_URIInstance):
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, Dataset_URIInstance + " successfully released.").json()}, content_type="application/json")
     except Exception as ex:
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, ex.message).json()}, content_type="application/json")
+        
         
 def this_ks_subscribes_to(request, URIInstance):
     '''
@@ -462,6 +479,7 @@ def this_ks_subscribes_to(request, URIInstance):
                 return render(request, 'knowledge_server/export.json', {'json': response_text}, content_type="application/json")
     except Exception as ex:
         return HttpResponse(ex.message)
+    
     
 def api_subscribe(request, URIInstance, remote_url):
     '''
@@ -503,6 +521,7 @@ def api_subscribe(request, URIInstance, remote_url):
     stt.remote_ks = remote_ks
     stt.save()
     return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, "Subscribed sucessfully", first_version_URIInstance).json()}, content_type="application/json")
+   
     
 def api_unsubscribe(request, URIInstance, remote_URL):
     '''
@@ -512,6 +531,24 @@ def api_unsubscribe(request, URIInstance, remote_URL):
         remote_url the URL this KS has to invoke to notify
     '''
     
+    
+def api_dataset_structure_code(request, DataSetStructure_URIInstance):
+    '''
+    This API is needed just by another OKS and it is not meant to be public
+    It's goal is to provide another OKS with the information needed to generate
+    and migrate the models within a structure. TODO: Models that are external references
+    are not included.
+    The information is provided in the form of the code of the classes in a dictionary
+    that groups them by APP/MODULE
+    '''
+    dss = DataSetStructure.retrieve(urllib.unquote(DataSetStructure_URIInstance).replace("%2F","/"))
+    try:
+        classes_code = dss.classes_code()
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, "", classes_code).json()}, content_type="application/json")
+    except Exception as ex:
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, ex.message).json()}, content_type="application/json")
+
+
 @csrf_exempt
 def api_notify(request):
     '''
@@ -541,6 +578,7 @@ def api_notify(request):
         ar.status = ApiResponse.failure
         ar.message = "Not subscribed to this"
     return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
+
         
 def cron(request):
     '''
@@ -553,12 +591,14 @@ def cron(request):
     response = this_ks.run_cron()
     return HttpResponse(response)
 
+
 def disclaimer(request):
     '''
     '''
     this_ks = KnowledgeServer.this_knowledge_server()
     cont = RequestContext(request, {'this_ks': this_ks})
     return render_to_response('knowledge_server/disclaimer.html', context_instance=cont)
+
 
 def subscriptions(request):
     '''
@@ -573,37 +613,75 @@ def subscriptions(request):
     
     return render_to_response('knowledge_server/subscriptions.html', context_instance=cont)
 
+
 def debug(request):
     '''
     created to debug code
     '''
     try:
-        import os
-        from subprocess import Popen, PIPE
-        
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-#         proc = Popen("python manage.py startapp deleteme", shell=True, cwd=BASE_DIR)
-#         return_code = proc.wait()
-#         the above commands create it correctly
-        
-        from django.core import management
-        new_app_name = "deleteme3"
+#         import inspect
+#         import types
+#         l  = list({x: DataSetStructure.__dict__[x]} for x in DataSetStructure.__dict__.keys() if 
+#                   ( inspect.isfunction(DataSetStructure.__dict__[x])
+#                     or inspect.ismethod(DataSetStructure.__dict__[x])
+#                     or inspect.ismethoddescriptor(DataSetStructure.__dict__[x]) )
+#                   )
+#         l  = list({x: DataSetStructure.__dict__[x]} for x in DataSetStructure.__dict__.keys() if 
+#                   ( inspect.isroutine(DataSetStructure.__dict__[x]) )
+#                   )
+#         
+#         sl = inspect.getsource(Notification)
+#         print (sl)
 
-        os.makedirs(BASE_DIR + "/" + new_app_name)
-        management.call_command('startapp', new_app_name, 'oks/' + new_app_name, interactive=False)
-#         the above 2 lines work fine
-
-        from django.conf import settings
-        settings.INSTALLED_APPS += (new_app_name, )
-        # I load the app
-        from django.apps import apps
-        from collections import OrderedDict
-        apps.app_configs = OrderedDict()
-        apps.ready = False
-        apps.populate(settings.INSTALLED_APPS)
+        try:
+            dss1 = DataSetStructure.objects.get(pk=6)
+            c= dss1.classes_code()
+        except:
+            pass
+        try:
+            dss2 = DataSetStructure.objects.get(pk=7)
+            c= dss2.classes_code()
+        except:
+            pass
+        try:
+            dss2 = DataSetStructure.objects.get(pk=3)
+            c= dss2.classes_code()
+        except:
+            pass
+        try:
+            dss2 = DataSetStructure.objects.get(pk=4)
+            c= dss2.classes_code()
+        except:
+            pass
         
+
+
+#         import os
+#         from subprocess import Popen, PIPE
+#         
+#         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# #         proc = Popen("python manage.py startapp deleteme", shell=True, cwd=BASE_DIR)
+# #         return_code = proc.wait()
+# #         the above commands create it correctly
+#         
+#         from django.core import management
+#         new_app_name = "deleteme3"
+# 
+#         os.makedirs(BASE_DIR + "/" + new_app_name)
+#         management.call_command('startapp', new_app_name, 'oks/' + new_app_name, interactive=False)
+# #         the above 2 lines work fine
+# 
+#         from django.conf import settings
+#         settings.INSTALLED_APPS += (new_app_name, )
+#         # I load the app
+#         from django.apps import apps
+#         from collections import OrderedDict
+#         apps.app_configs = OrderedDict()
+#         apps.ready = False
+#         apps.populate(settings.INSTALLED_APPS)
+#         
 #         management.call_command('makemigrations', new_app_name, interactive=False)
-        management.call_command('migrate', new_app_name, interactive=False)
+#         management.call_command('migrate', new_app_name, interactive=False)
 
 
     

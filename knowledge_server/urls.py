@@ -37,7 +37,8 @@ urlpatterns = [
     url(r'^api/subscribe/(?P<URIInstance>[\w|=|%|.]+)/(?P<remote_url>[\w|=|%|.]+)/$', views.api_subscribe, name='api_subscribe'),
     #123
     url(r'^api/unsubscribe/(?P<URIInstance>[\w|=|%|.]+)/(?P<URL>[\w|=|%|.]+)/$', views.api_unsubscribe, name='api_unsubscribe'),
-    #37 
+    #37
     url(r'^api/notify/$', views.api_notify, name='api_notify'),
+    url(r'^api/dataset_structure_code/(?P<DataSetStructure_URIInstance>[\w|=|%|.]+)/$', views.api_dataset_structure_code, name='api_dataset_structure_code'),
                        ###################   API ^ ####################
 ]

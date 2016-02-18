@@ -4,7 +4,14 @@
 #
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
+from django.apps.registry import apps
 from django.db import models
+from django.db.models.fields import NOT_PROVIDED
+from django.db.migrations import operations
+from django.db.migrations.autodetector import MigrationAutodetector
+from django.db.migrations.migration import Migration
+from django.db.migrations.state import ModelState, ProjectState
+
 
 class SerializableModel(models.Model):
     classes_serialized_as_tags = ["CharField"]
@@ -57,7 +64,6 @@ class SerializableModel(models.Model):
                 if key.__class__.__name__ in SerializableModel.classes_serialized_as_tags and (not key.name in parent_class_attributes):
                     attributes += '<' + key.name + '><![CDATA[' + str(value) + ']]></' + key.name + '>'
         return attributes
-    
 
     def serialized_attributes(self, parent_class=None, format='XML'):
         '''
@@ -91,13 +97,114 @@ class SerializableModel(models.Model):
                 if format == 'DICT':
                     tmp_dict[key.name] = value
                 if format == 'HTML':
-                    attributes += comma + '"' + key.name + '" : "' + str(value) + '"'
+                    attributes += comma + key.name + ' : "' + str(value) + '"'
                     comma = "<br>"
         if format == 'DICT':
             return tmp_dict
         else:
             return attributes
 
+    def orm_metadata(self, export_format):
+        '''
+        
+        '''
+        model = apps.get_model(self.module, self.name)
+        model_opts = model._meta
+        old_project_state = ProjectState()
+        new_project_state = ProjectState()
+#         new_project_state.add_model(model)
+        autodetector = MigrationAutodetector(old_project_state, new_project_state)
+        autodetector.generated_operations = {}
+
+        # code from MigrationAutodetector.generate_created_models
+        # Gather related fields
+        related_fields = {}
+        primary_key_rel = None
+        for field in model_opts.local_fields:
+            if field.rel:
+                if field.rel.to:
+                    if field.primary_key:
+                        primary_key_rel = field.rel.to
+                    elif not field.rel.parent_link:
+                        related_fields[field.name] = field
+                # through will be none on M2Ms on swapped-out models;
+                # we can treat lack of through as auto_created=True, though.
+                if getattr(field.rel, "through", None) and not field.rel.through._meta.auto_created:
+                    related_fields[field.name] = field
+        for field in model_opts.local_many_to_many:
+            if field.rel.to:
+                related_fields[field.name] = field
+            if getattr(field.rel, "through", None) and not field.rel.through._meta.auto_created:
+                related_fields[field.name] = field
+        # Are there unique/index_together to defer?
+#         unique_together = model_state.options.pop('unique_together', None)
+#         index_together = model_state.options.pop('index_together', None)
+#         order_with_respect_to = model_state.options.pop('order_with_respect_to', None)
+        # Depend on the deletion of any possible proxy version of us
+        dependencies = [
+            (self.module, self.name, None, False),
+        ]
+        # Depend on all bases
+#         for base in model_state.bases:
+#             if isinstance(base, six.string_types) and "." in base:
+#                 base_app_label, base_name = base.split(".", 1)
+#                 dependencies.append((base_app_label, base_name, None, True))
+        # Depend on the other end of the primary key if it's a relation
+        if primary_key_rel:
+            dependencies.append((
+                primary_key_rel._meta.app_label,
+                primary_key_rel._meta.object_name,
+                None,
+                True
+            ))
+        # Generate creation operation
+        autodetector.add_operation(
+            self.module,
+            operations.CreateModel(
+                name=self.name,
+                fields=[d for d in model_opts.fields if d not in related_fields.values()],
+                options=model_opts,
+                bases=self.__class__.__bases__,
+                managers=model_opts.managers,
+            ),
+            dependencies=dependencies,
+            beginning=True,
+        )
+     
+        # autodetector.generated_operations
+        metadata = None
+        fields = []
+        if export_format == 'XML':
+            metadata = "<Fields>"
+        if export_format == 'JSON':
+            metadata = '"Fields": ['
+        if export_format == 'DICT':
+            metadata = {}
+        for field in autodetector.generated_operations[self.module][0].fields:
+            if export_format == 'XML':
+                sf = '<Field name="' + field.name + '">'
+                sf += "</Field>"
+            if export_format == 'JSON':
+                sf = '{"name": "' + field.name + '", "type": "' + field.__class__.__name__ + '", "null": "' + str(field.null) + '"'
+                if field.max_length != None:
+                    sf += ', "max_length": "' + str(field.max_length) + '"'
+                sf += ', "is_relation": "' + str(field.is_relation) + '", "column": "' + field.column + '"'
+                if field.default not in {None, NOT_PROVIDED}:
+                    sf += ', "default": "' + str(field.default) + '"'
+                sf += '}'
+            if export_format == 'DICT':
+                sf = {"name": field.name}
+            fields.append(sf)
+            field.many_to_many
+            field.many_to_one
+        if export_format == 'XML':
+            metadata += " ".join(fields) + "</Fields>"
+        if export_format == 'JSON':
+            metadata += ", ".join(fields) + "]"
+        if export_format == 'DICT':
+            metadata['Fields'] = fields
+        return metadata
+    
     def SetNotNullFields(self):
         '''
         I need to make sure that every SerializableModel can be saved on the database right after being created (*)

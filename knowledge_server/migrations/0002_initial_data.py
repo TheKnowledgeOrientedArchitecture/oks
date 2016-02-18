@@ -37,7 +37,7 @@ def forwards_func(apps, schema_editor):
  
     # StructureNode for "ModelMetadata-fields"
     en1=StructureNode();en1.model_metadata=mmModelMetadata;en1.save(using=db_alias) 
-    en2=StructureNode();en2.model_metadata=mmField;en2.method_to_retrieve="BOOOOOOOOOO";en2.is_many=True;en2.save(using=db_alias)
+    en2=StructureNode();en2.model_metadata=mmField;en2.method_to_retrieve="orm_metadata";en2.is_many=True;en2.save(using=db_alias)
     # StructureNode for "DataSetStructure-StructureNode"
     en4=StructureNode();en4.model_metadata=mmDataSetStructure;en4.save(using=db_alias)
     en5=StructureNode();en5.model_metadata=mmStructureNode;en5.attribute="root_node";en5.save(using=db_alias)
