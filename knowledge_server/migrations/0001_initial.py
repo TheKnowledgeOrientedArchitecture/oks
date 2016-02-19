@@ -34,6 +34,7 @@ class Migration(migrations.Migration):
                 ('release_date', models.DateTimeField(auto_now_add=True)),
                 ('version_date', models.DateTimeField(auto_now_add=True)),
                 ('version_released', models.BooleanField(default=False)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -52,6 +53,7 @@ class Migration(migrations.Migration):
                 ('is_a_view', models.BooleanField(default=False)),
                 ('multiple_releases', models.BooleanField(default=False)),
                 ('namespace', models.CharField(max_length=500L, blank=True)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -68,6 +70,7 @@ class Migration(migrations.Migration):
                 ('timestamp', models.DateTimeField(auto_now_add=True)),
                 ('processed', models.BooleanField(default=False)),
                 ('dataset', models.ForeignKey(to='knowledge_server.DataSet')),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -87,6 +90,7 @@ class Migration(migrations.Migration):
                 ('netloc', models.CharField(max_length=200L)),
                 ('html_home', models.CharField(default='', max_length=4000L)),
                 ('html_disclaimer', models.CharField(default='', max_length=4000L)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -107,6 +111,7 @@ class Migration(migrations.Migration):
                 ('name_field', models.CharField(default=b'name', max_length=255L, db_column=b'nameField')),
                 ('description_field', models.CharField(default=b'description', max_length=255L, db_column=b'descriptionField')),
                 ('dataset_structure', models.ForeignKey(blank=True, to='knowledge_server.DataSetStructure', null=True)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -122,6 +127,7 @@ class Migration(migrations.Migration):
                 ('sent', models.BooleanField(default=False)),
                 ('remote_url', models.CharField(max_length=200L)),
                 ('event', models.ForeignKey(to='knowledge_server.Event')),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -138,6 +144,7 @@ class Migration(migrations.Migration):
                 ('URL_structure', models.CharField(max_length=200L)),
                 ('processed', models.BooleanField(default=False)),
                 ('timestamp', models.DateTimeField(auto_now_add=True)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -153,6 +160,7 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=500L, blank=True)),
                 ('description', models.CharField(max_length=2000L, blank=True)),
                 ('website', models.CharField(max_length=500L, blank=True)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -171,6 +179,7 @@ class Migration(migrations.Migration):
                 ('is_many', models.BooleanField(default=False, db_column=b'isMany')),
                 ('child_nodes', models.ManyToManyField(related_name='parent', to='knowledge_server.StructureNode', blank=True)),
                 ('model_metadata', models.ForeignKey(to='knowledge_server.ModelMetadata')),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -185,6 +194,7 @@ class Migration(migrations.Migration):
                 ('URI_previous_version', models.CharField(max_length=2000L, null=True, blank=True)),
                 ('URI', models.CharField(max_length=200L)),
                 ('first_version_URIInstance', models.CharField(max_length=200L)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -201,6 +211,23 @@ class Migration(migrations.Migration):
                 ('remote_url', models.CharField(max_length=200L)),
                 ('first_notification_prepared', models.BooleanField(default=False)),
                 ('remote_ks', models.ForeignKey(blank=True, to='knowledge_server.KnowledgeServer', null=True)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='DanglingReference',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('URIInstance', models.CharField(default=b'', max_length=2000L)),
+                ('URI_imported_instance', models.CharField(max_length=2000L)),
+                ('URI_previous_version', models.CharField(max_length=2000L, null=True, blank=True)),
+                ('URI_actual_instance', models.CharField(default=b'', max_length=2000L)),
+                ('URI_structure', models.CharField(default=b'', max_length=2000L)),
+                ('URI_dataset', models.CharField(default=b'', max_length=2000L)),
+                ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
                 'abstract': False,
@@ -224,7 +251,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='dataset',
             name='filter_dataset',
-            field=models.ForeignKey(blank=True, to='knowledge_server.DataSet', null=True),
+            field=models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True),
         ),
         migrations.AddField(
             model_name='dataset',

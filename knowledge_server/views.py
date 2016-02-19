@@ -77,27 +77,39 @@ def api_dataset(request, DataSet_URIInstance, format):
         # it runs to_xml of the ModelMetadata using DataSet.dataset_structure.root_node
     '''
     format = format.upper()
+    ar = ApiResponse()
     DataSet_URIInstance_decoded = urllib.unquote(DataSet_URIInstance)
     
-    dataset = DataSet.retrieve(DataSet_URIInstance_decoded)
-    actual_instance = ""
+    uri = KsUri(DataSet_URIInstance_decoded)
+    # If it is not a DataSet we try to find the dataset it is in
+    uri.search_on_db()
+    if uri.actual_instance:
+        if isinstance(uri.actual_instance, DataSet):
+            dataset = uri.actual_instance
+        else:
+            dataset = uri.actual_instance.dataset_I_belong_to
+    if (not uri.actual_instance) and (not dataset):
+        ar.message = "Either the URI requested is not on this database or it is not part of a released dataset."
+        if format == 'JSON':
+            return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
+        if format == 'XML':
+            ar.status = ApiResponse.failure
+            return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
+    
     actual_instance_json = ""
     #this dataset is not a view; if not dataset.dataset_structure.is_a_view:
     actual_instance = dataset.root
     
-    if format == 'HTML' or format == 'BROWSE':
-        actual_instance_json = '{' + actual_instance.serialize(dataset.dataset_structure.root_node, export_format='json', exported_instances = []) + '}'
     if format == 'JSON':
-        ar = ApiResponse()
         ar.content = { "DataSet": dataset.export(export_format = 'DICT') }
         ar.status = ApiResponse.success
         return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
     if format == 'XML':
-        ar = ApiResponse()
         ar.status = ApiResponse.success
         ar.content = dataset.export(export_format = format)
         return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
     if format == 'HTML' or format == 'BROWSE':
+        actual_instance_json = '{' + actual_instance.serialize(dataset.dataset_structure.root_node, export_format='json', exported_instances = []) + '}'
         this_ks = KnowledgeServer.this_knowledge_server()
         cont = RequestContext(request, {'dataset': dataset, 'actual_instance': actual_instance, 'actual_instance_json': actual_instance_json, 'sn': dataset.dataset_structure.root_node, 'DataSet_URIInstance': DataSet_URIInstance, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True)})
         return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)

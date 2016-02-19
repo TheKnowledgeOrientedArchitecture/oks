@@ -83,6 +83,11 @@ class ShareableModel(SerializableModel):
     '''
     URI_previous_version = models.CharField(max_length=2000L, null=True, blank=True)
     objects = CustomModelManager()
+    '''
+    Each instance of a ShareableModel should, sooner or later, be part of a dataset that is not a view neither shallow
+    e.g. has version information. DataSet.set_released sets this attribute for each instance in the dataset
+    '''
+    dataset_I_belong_to = models.ForeignKey("DataSet", null=True, blank=True, related_name='+')
 
     def generate_URIInstance(self):
         '''
@@ -762,6 +767,12 @@ class ShareableModel(SerializableModel):
         except Exception as e:
             print(e.message)
 
+    def navigate_helper_set_dataset(self, instance, status):
+        if not 'output' in status.keys():
+            status['output'] = {}
+        instance.dataset_I_belong_to = status['dataset']
+        instance.save()
+
     @staticmethod
     def model_metadata_from_xml_tag(xml_child_node):
         URIInstance = xml_child_node.attributes["URIModelMetadata"].firstChild.data
@@ -913,17 +924,18 @@ class StructureNode(ShareableModel):
         # loop on children
 
         for child_node in self.child_nodes.all():
-            if child_node.is_many:
-                child_instances = eval("instance." + child_node.attribute + ".all()")
-                for child_instance in child_instances:
-                    # let's prevent infinite loops if self relationships
-                    if (child_instance.__class__.__name__ != instance.__class__.__name__) or (instance.pk != child_node.pk):
+            if child_node.attribute:
+                if child_node.is_many:
+                    child_instances = eval("instance." + child_node.attribute + ".all()")
+                    for child_instance in child_instances:
+                        # let's prevent infinite loops if self relationships
+                        if (child_instance.__class__.__name__ != instance.__class__.__name__) or (instance.pk != child_node.pk):
+                            child_node.navigate(child_instance, instance_method_name, node_method_name, status, children_before)
+                else:
+                    child_instance = eval("instance." + child_node.attribute)
+                    if not child_instance is None:
                         child_node.navigate(child_instance, instance_method_name, node_method_name, status, children_before)
-            else:
-                child_instance = eval("instance." + child_node.attribute)
-                if not child_instance is None:
-                    child_node.navigate(child_instance, instance_method_name, node_method_name, status, children_before)
-            
+            # else there's a method extracting information from other sources (e.g. Fields information from ORM model)
         if children_before and instance_method_name:
             instance_method(instance, status)
         if children_before and node_method_name:
@@ -1046,7 +1058,7 @@ class DataSetStructure(ShareableModel):
         by any instance of any node.
         If children_before the method is invoked on the children first
         '''
-        status = {}
+        status = {"dataset": dataset}
         if self.is_a_view:
             # I have to do it on all instances that match the dataset criteria
             for instance in dataset.get_instances():
@@ -1143,6 +1155,7 @@ class DataSetStructure(ShareableModel):
                 keep_going = False
             except ValueError as ve:
                 pass
+  
     
 class DataSet(ShareableModel):
     '''
@@ -1185,7 +1198,7 @@ class DataSet(ShareableModel):
     # data that will be in my view; there might be data belonging to different versions matching the 
     # criteria in the filter text; to prevent this I specify a DataSet (that has its own version) so 
     # that I will put in the view only those belonging to that version
-    filter_dataset = models.ForeignKey('self', null=True, blank=True)
+    filter_dataset = models.ForeignKey('self', null=True, blank=True, related_name="+")
     # NOT USED YET: TODO: it should be used in get_instances
 
     # following attributes used to be in a separate class VersionableDataSet
@@ -1480,6 +1493,11 @@ class DataSet(ShareableModel):
             raise ex
             print ("materialize_dataset (" + self.description + "): " + str(ex))
 
+
+    def set_dataset_on_instances(self):
+        self.dataset_structure.navigate(self, "navigate_helper_set_dataset", "")
+        
+
     def set_released(self):
         '''
         Sets this version as the (only) released (one)
@@ -1488,6 +1506,12 @@ class DataSet(ShareableModel):
         '''
         try:
             with transaction.atomic():
+                # I set for each instance the "dataset" attribute to this dataset
+                # doing so it will be easy to retrieve the dataset in which an instance
+                # is contained; useful to retrieve its version, to make the API forgiving, ...
+                self.set_dataset_on_instances()
+                
+                
                 currently_released = None
                 previously_released = None
                 if not self.dataset_structure.multiple_releases:
@@ -1639,11 +1663,13 @@ class DataSet(ShareableModel):
             version_minor__max = DataSet.objects.filter(version_released=released, first_version=self.first_version, version_major=version_major__max).aggregate(Max('version_minor'))['version_minor__max']
             version_patch__max = DataSet.objects.filter(version_released=released, first_version=self.first_version, version_major=version_major__max, version_minor=version_minor__max).aggregate(Max('version_patch'))['version_patch__max']
         return DataSet.objects.get(first_version=self.first_version, version_major=version_major__max, version_minor=version_minor__max, version_patch=version_patch__max)
+  
    
 class Organization(ShareableModel):
     name = models.CharField(max_length=500L, blank=True)
     description = models.CharField(max_length=2000L, blank=True)
     website = models.CharField(max_length=500L, blank=True)
+
 
 class KnowledgeServer(ShareableModel):
     name = models.CharField(max_length=500L, blank=True)
@@ -1879,6 +1905,7 @@ class KnowledgeServer(ShareableModel):
         
         return remote_ks
 
+
 class Event(ShareableModel):
     '''
     Something that has happened to a specific instance and you want to get notified about; 
@@ -1893,6 +1920,7 @@ class Event(ShareableModel):
     # if all notifications have been prepared e.g. relevant Notification instances are saved
     processed = models.BooleanField(default=False)
 
+
 class SubscriptionToThis(ShareableModel):
     '''
     The subscriptions other systems do to my data
@@ -1906,6 +1934,7 @@ class SubscriptionToThis(ShareableModel):
     # when I get a subscription I try to see whether on the other side there is a KnowledgeServer correctly responding to api/ks_info
     remote_ks = models.ForeignKey(KnowledgeServer, null=True, blank=True)
 
+
 class Notification(ShareableModel):
     '''
     When an event happens for an instance, for each corresponding subscription
@@ -1915,6 +1944,7 @@ class Notification(ShareableModel):
     sent = models.BooleanField(default=False)
     remote_url = models.CharField(max_length=200L)
 
+
 class SubscriptionToOther(ShareableModel):
     '''
     The subscriptions I make to other systems' data
@@ -1922,6 +1952,7 @@ class SubscriptionToOther(ShareableModel):
     # The URIInstance I am subscribing to 
     URI = models.CharField(max_length=200L)
     first_version_URIInstance = models.CharField(max_length=200L)
+
 
 class NotificationReceived(ShareableModel):
     '''
@@ -1932,6 +1963,7 @@ class NotificationReceived(ShareableModel):
     URL_structure = models.CharField(max_length=200L)
     processed = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
+    
     
 class ApiResponse():
     '''
@@ -1966,6 +1998,7 @@ class ApiResponse():
 #         if decoded.has_key("deprecated"):
 #             self.deprecated = True
 #             self.deprecation_message = decoded['deprecation_message']
+
 
 def json_serial(obj):
     """
