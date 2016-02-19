@@ -1511,7 +1511,6 @@ class DataSet(ShareableModel):
                 # is contained; useful to retrieve its version, to make the API forgiving, ...
                 self.set_dataset_on_instances()
                 
-                
                 currently_released = None
                 previously_released = None
                 if not self.dataset_structure.multiple_releases:

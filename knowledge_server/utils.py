@@ -155,15 +155,15 @@ class KsUri(object):
                 self.is_ks_known = True
             except:
                 self.is_ks_known = False
-            # TODO: I search for its module and class and set relevant flags
+            # I search for its class
             try:
-                self.actual_class = load_class(self.namespace, self.class_name)
+                self.actual_class = load_class(self.namespace + ".models", self.class_name)
             except:
                 pass
             # I search on this database
             try:
                 if self.actual_class:
-                    self.actual_instance = self.actual_class.objects.retrieve(self.clean_uri)
+                    self.actual_instance = self.actual_class.retrieve(self.clean_uri)
             except:
                 pass
                 

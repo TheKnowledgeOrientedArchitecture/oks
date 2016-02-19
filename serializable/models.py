@@ -64,6 +64,7 @@ class SerializableModel(models.Model):
                 if key.__class__.__name__ in SerializableModel.classes_serialized_as_tags and (not key.name in parent_class_attributes):
                     attributes += '<' + key.name + '><![CDATA[' + str(value) + ']]></' + key.name + '>'
         return attributes
+    
 
     def serialized_attributes(self, parent_class=None, format='XML'):
         '''

@@ -667,7 +667,17 @@ def debug(request):
         except:
             pass
         
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#         proc = Popen("python manage.py startapp deleteme", shell=True, cwd=BASE_DIR)
+#         return_code = proc.wait()
+#         the above commands create it correctly
+        
+        from django.core import management
+        new_app_name = "deleteme3"
 
+#         os.makedirs(BASE_DIR + "/" + new_app_name)
+#         management.call_command('startapp', new_app_name, 'oks/' + new_app_name, interactive=False)
+#         the above 2 lines work fine
 
 #         import os
 #         from subprocess import Popen, PIPE
