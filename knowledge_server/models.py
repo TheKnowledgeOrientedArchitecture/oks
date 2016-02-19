@@ -962,7 +962,7 @@ class StructureNode(ShareableModel):
         for cn in self.child_nodes.all():
             child_app_models = cn.app_models(processed_instances)
             if child_app_models:
-                l.append(child_app_models)
+                l += child_app_models
         if len(l) == 0:
             return None
         else:
@@ -1098,7 +1098,7 @@ class DataSetStructure(ShareableModel):
         #  - create the migrations
         #  - run the migrations which create the tables on the database
         #  - #########
-        app_models = self.root_node.app_models()
+        app_models = self.root_node.app_models(processed_instances={})
         persistable = True
         for app_model in app_models:
             try:
