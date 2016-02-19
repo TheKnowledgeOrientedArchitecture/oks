@@ -78,6 +78,7 @@ def api_dataset(request, DataSet_URIInstance, format):
     '''
     format = format.upper()
     DataSet_URIInstance_decoded = urllib.unquote(DataSet_URIInstance)
+    
     dataset = DataSet.retrieve(DataSet_URIInstance_decoded)
     actual_instance = ""
     actual_instance_json = ""

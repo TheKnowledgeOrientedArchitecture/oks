@@ -29,6 +29,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from serializable.models import SerializableModel
 from _mysql import NULL
+from knowledge_server.utils import KsUri
 
 
 class CustomModelManager(models.Manager):
@@ -1779,6 +1780,37 @@ class KnowledgeServer(ShareableModel):
                     # Let's retrieve the structure
                     response = urllib2.urlopen(notification.URL_structure)
                     structure_xml_stream = response.read()
+                    
+                    # Before importing the DataSet of the structure we must import all
+                    # the datasets of the ModelMetadata within the structure
+                    # otherwise we might get Dangling references
+                    
+                    # so we parse structure_xml_stream searching for all tags <model_metadata
+                    # http://stackoverflow.com/questions/3310614/remove-whitespaces-in-xml-string 
+                    p = etree.XMLParser(remove_blank_text=True)
+                    elem = etree.XML(structure_xml_stream, parser=p)
+                    dataset_xml_stream = etree.tostring(elem)
+                    xmldoc = minidom.parseString(dataset_xml_stream)
+                    model_metadata_tags = xmldoc.getElementsByTagName("model_metadata")
+                    model_metadata_URIs = []
+                    for mmt in model_metadata_tags:
+                        model_metadata_URIs.append(mmt.attributes["URIInstance"].firstChild.data)
+                    # let's make it unique
+                    model_metadata_URIs = list(set(model_metadata_URIs))
+                    # and we loop through the ModelMetadata
+                    for mmu in model_metadata_URIs:
+                        # if it is not here
+                        try:
+                            ModelMetadata.retrieve(mmu)
+                        except:
+                            # we import it; I rely on the forgiveness of api_dataset
+                            url_to_invoke = KsUri(mmu).home() + reverse('api_dataset', args=(urllib.urlencode({'':mmu})[1:], "XML",))
+                            response = urllib2.urlopen(url_to_invoke)
+                            mm_xml_stream = response.read()
+                            mm_structure = DataSet()
+                            mm_structure = mm_structure.import_dataset(mm_xml_stream)
+                            mm_structure.materialize_dataset()
+                    
                     ds_structure = DataSet()
                     ds_structure = ds_structure.import_dataset(structure_xml_stream)
                     ds_structure.dataset_structure = DataSetStructure.objects.get(name=DataSetStructure.dataset_structure_DSN)
