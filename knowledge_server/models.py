@@ -263,6 +263,7 @@ class ShareableModel(SerializableModel):
                         if export_format == 'DICT':
                             tmp_dict.update(o)
 #                         source_code = inspect.getsource(self)
+                        outer_comma = ", "
                     else:
                         if child_node.is_many:
                             child_instances = eval("self." + child_node.attribute + ".all()")
@@ -288,6 +289,8 @@ class ShareableModel(SerializableModel):
                                 serialized += "]"
                             if export_format == 'DICT':
                                 tmp_dict[child_node.attribute] = children_list
+
+                            outer_comma = ", "
                         else:
                             child_instance = eval("self." + child_node.attribute)
                             if not child_instance is None:
@@ -299,7 +302,7 @@ class ShareableModel(SerializableModel):
                                 else:
                                     child_serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
                                 serialized += child_serialized
-                    outer_comma = ", "
+                                outer_comma = ", "
             except Exception as ex:
                 print(str(ex))
             if export_format == 'XML':
