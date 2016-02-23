@@ -6,7 +6,9 @@
 
 import json
 import socket
-import urllib, urllib2, urlparse
+import urllib
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 from datetime import datetime
 from xml.dom import minidom
@@ -22,8 +24,8 @@ from knowledge_server.models import ModelMetadata, DataSetStructure, DataSet, Kn
 from knowledge_server.models import SubscriptionToOther, SubscriptionToThis, ApiResponse, NotificationReceived, Notification, Event
 import knowledge_server.utils as utils
 import logging
-import forms as myforms 
-from utils import KsUri
+import knowledge_server.forms as myforms 
+from knowledge_server.utils import KsUri
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,7 @@ def api_dataset_view(request, DataSet_URIInstance, root_id, format):
     but a list of instances that match the criteria; root_id tells us which one to browse
     '''
     format = format.upper()
-    DataSet_URIInstance_decoded = urllib.unquote(DataSet_URIInstance)
+    DataSet_URIInstance_decoded = urllib.parse.unquote(DataSet_URIInstance)
     dataset = DataSet.retrieve(DataSet_URIInstance_decoded)
     actual_instance = ""
     actual_instance_json = ""
@@ -78,7 +80,7 @@ def api_dataset(request, DataSet_URIInstance, format):
     '''
     format = format.upper()
     ar = ApiResponse()
-    DataSet_URIInstance_decoded = urllib.unquote(DataSet_URIInstance)
+    DataSet_URIInstance_decoded = urllib.parse.unquote(DataSet_URIInstance)
     
     uri = KsUri(DataSet_URIInstance_decoded)
     # If it is not a DataSet we try to find the dataset it is in
@@ -208,7 +210,7 @@ def api_dataset_info(request, DataSet_URIInstance, format):
 
     '''
     format = format.upper()
-    DataSet_URIInstance = urllib.unquote(DataSet_URIInstance).replace("%2F","/")
+    DataSet_URIInstance = urllib.parse.unquote(DataSet_URIInstance).replace("%2F","/")
     dataset = DataSet.retrieve(DataSet_URIInstance)
     all_versions = DataSet.objects.filter(first_version = dataset.first_version)
     all_versions_serialized = ""
@@ -266,7 +268,7 @@ def api_datasets(request, DataSetStructure_URIInstance, format):
         # with that structure; if it is not a view only those that are released; 
     '''
     format = format.upper()
-    dss = DataSetStructure.retrieve(urllib.unquote(DataSetStructure_URIInstance).replace("%2F","/"))
+    dss = DataSetStructure.retrieve(urllib.parse.unquote(DataSetStructure_URIInstance).replace("%2F","/"))
     
     # Now I need to get all the released DataSet of the DataSetStructure passed as a parameter
     if dss.is_a_view:
@@ -296,44 +298,41 @@ def api_datasets(request, DataSetStructure_URIInstance, format):
 
 def ks_explorer(request):
     try:
-        ks_url = urlparse.parse_qs('url=' + request.GET['ks_complete_url'])['url'][0]
+        ks_url = urllib.parse.parse_qs('url=' + request.GET['ks_complete_url'])['url'][0]
     except:
         ks_url = request.POST['ks_complete_url']
     try:
         this_ks = KnowledgeServer.this_knowledge_server()
         # info on the remote ks
-        local_url = reverse('api_ks_info', args=("JSON",))
-        response = urllib2.urlopen(ks_url + local_url)
-        ks_info_json_stream = response.read()
-        # parsing json
-        ks_info_json = json.loads(ks_info_json_stream)
-        organization = ks_info_json['content']['DataSet']['ActualInstance']['Organization']
-        for ks in organization['knowledgeserver_set']:
-            if ks['this_ks']:
-                explored_ks = ks
-            
-        # info about structures on the remote ks
-        local_url = reverse('api_dataset_types', args=("JSON",))
-        response = urllib2.urlopen(ks_url + local_url)
-        entities_json = response.read()
-        # parsing json
-        decoded = json.loads(entities_json)
-        owned_structures = []
-        other_structures = []
-        for ei in decoded['content']['DataSets']:
-            entity = {}
-            entity['actual_instance_name'] = ei['ActualInstance']['DataSetStructure']['name']
-            entity['URIInstance'] = urllib.urlencode({'':ei['ActualInstance']['DataSetStructure']['URIInstance']})[1:]
-            entity['oks_name'] = ei['owner_knowledge_server']['name']
-            external_oks_url = KsUri(ei['owner_knowledge_server']['URIInstance']).home()
-            entity['oks_home'] = urllib.urlencode({'':external_oks_url})[1:]
-            if ei['owner_knowledge_server']['URIInstance'] == explored_ks['URIInstance']:
-                owned_structures.append(entity)
-            else:
-                other_structures.append(entity)
+        ar_ks_info = ApiResponse()
+        ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info', args=("JSON",))
+        if ar_ks_info.status == ApiResponse.success:
+            organization = ar_ks_info.content['DataSet']['ActualInstance']['Organization']
+            for ks in organization['knowledgeserver_set']:
+                if ks['this_ks']:
+                    explored_ks = ks
+                
+            # info about structures on the remote ks
+            ar_ds_types = ApiResponse()
+            ar_ds_types.invoke_oks_api(ks_url, 'api_dataset_types', args=("JSON",))
+            owned_structures = []
+            other_structures = []
+            for ei in ar_ds_types.content['DataSets']:
+                entity = {}
+                entity['actual_instance_name'] = ei['ActualInstance']['DataSetStructure']['name']
+                entity['URIInstance'] = urllib.parse.urlencode({'':ei['ActualInstance']['DataSetStructure']['URIInstance']})[1:]
+                entity['oks_name'] = ei['owner_knowledge_server']['name']
+                external_oks_url = KsUri(ei['owner_knowledge_server']['URIInstance']).home()
+                entity['oks_home'] = urllib.parse.urlencode({'':external_oks_url})[1:]
+                if ei['owner_knowledge_server']['URIInstance'] == explored_ks['URIInstance']:
+                    owned_structures.append(entity)
+                else:
+                    other_structures.append(entity)
+        else:
+            HttpResponse("Error invoking api_ks_info on " + ks_url + " - " + ar_ks_info.message)
     except Exception as ex:
-        return HttpResponse(ex.message)
-    cont = RequestContext(request, {'owned_structures':owned_structures, 'other_structures':other_structures, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True), 'organization': organization, 'explored_ks': explored_ks, 'ks_url':urllib.urlencode({'':ks_url})[1:]})
+        return HttpResponse(str(ex))
+    cont = RequestContext(request, {'owned_structures':owned_structures, 'other_structures':other_structures, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.uri(True), 'organization': organization, 'explored_ks': explored_ks, 'ks_url':urllib.parse.urlencode({'':ks_url})[1:]})
     return render_to_response('knowledge_server/ks_explorer_entities.html', context_instance=cont)
 
 
@@ -350,15 +349,12 @@ def datasets_of_type(request, ks_url, URIInstance, format):
     '''
     this_ks = KnowledgeServer.this_knowledge_server()
     format = format.upper()
-    ks_url = urllib.unquote(ks_url)
-    URIInstance = urllib.unquote(URIInstance)
+    ks_url = urllib.parse.unquote(ks_url)
+    URIInstance = urllib.parse.unquote(URIInstance)
     # info on the remote ks{{  }}
-    local_url = reverse('api_ks_info', args=("JSON",))
-    response = urllib2.urlopen(ks_url + local_url)
-    ks_info_json_stream = response.read()
-    # parsing json
-    ks_info_json = json.loads(ks_info_json_stream)
-    organization = ks_info_json['content']['DataSet']['ActualInstance']['Organization']
+    ar_ks_info = ApiResponse()
+    ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info', args=("JSON",))
+    organization = ar_ks_info.content['DataSet']['ActualInstance']['Organization']
     for ks in organization['knowledgeserver_set']:
         if ks['this_ks']:
             external_ks_json = ks
@@ -367,19 +363,17 @@ def datasets_of_type(request, ks_url, URIInstance, format):
     external_ks.scheme = external_ks_json['scheme']
     external_ks.netloc = external_ks_json['netloc']
     external_ks.description = external_ks_json['description']
-    #info on the DataSetStructure
-    response = urllib2.urlopen(URIInstance + "/json")
-    es_info_json_stream = response.read()
-    # parsing json
-    es_info_json = json.loads(es_info_json_stream)
-    
+    # info on the DataSetStructure
+    # TODO: the following call relies on api_catch_all; use dataset_info instead
+    response = urlopen(URIInstance + "/json")
+    es_info_json = response.read().decode("utf-8")
     
     if format == 'XML':
-        local_url = reverse('api_datasets', args=(urllib.quote(URIInstance),format))
+        local_url = reverse('api_datasets', args=(urllib.parse.quote(URIInstance),format))
     if format == 'JSON' or format == 'BROWSE':
-        local_url = reverse ('api_datasets', args=(urllib.quote(URIInstance).replace("/","%252F"),'JSON'))
-    response = urllib2.urlopen(ks_url + local_url)
-    entities = response.read()
+        local_url = reverse ('api_datasets', args=(urllib.parse.quote(URIInstance).replace("/","%252F"),'JSON'))
+    response = urlopen(ks_url + local_url)
+    entities = response.read().decode("utf-8")
     if format == 'XML':
         return render(request, 'knowledge_server/export.xml', {'xml': entities}, content_type="application/xhtml+xml")
     if format == 'JSON':
@@ -390,7 +384,7 @@ def datasets_of_type(request, ks_url, URIInstance, format):
         # I prepare a list of URIInstance of root so that I can check which I have subscribed to
         first_version_URIInstances = []
         for ei in decoded['content']['DataSets']:
-            if ei.has_key('first_version'):
+            if 'first_version' in ei:
                 first_version_URIInstances.append(ei['first_version']['URIInstance'])
             else:
                 first_version_URIInstances.append(ei['URIInstance'])
@@ -402,13 +396,13 @@ def datasets_of_type(request, ks_url, URIInstance, format):
         for ei in decoded['content']['DataSets']:
             entity = {}
             if 'ActualInstance' in ei.keys():
-                actual_instance_class = ei['ActualInstance'].keys()[0]
+                actual_instance_class = list(ei['ActualInstance'].keys())[0]
                 entity['actual_instance_name'] = ei['ActualInstance'][actual_instance_class]['name']
             else: #is a view
                 entity['actual_instance_name'] = ei['description']
-            entity['encodedURIInstance'] = urllib.urlencode({'':ei['URIInstance']})[1:]
-            entity['URIInstance'] = urllib.quote(ei['URIInstance']).replace("/","%252F")
-            subscribed_URIInstance = ei['first_version']['URIInstance'] if ei.has_key('first_version') else ei['URIInstance']
+            entity['encodedURIInstance'] = urllib.parse.urlencode({'':ei['URIInstance']})[1:]
+            entity['URIInstance'] = urllib.parse.quote(ei['URIInstance']).replace("/","%252F")
+            subscribed_URIInstance = ei['first_version']['URIInstance'] if 'first_version' in ei else ei['URIInstance']
             if subscribed_URIInstance in subscribed_first_version_URIInstances:
                 entity['subscribed'] = True
             entities.append(entity)
@@ -450,12 +444,12 @@ def release_dataset(request, Dataset_URIInstance):
     '''
     '''
     try:
-        Dataset_URIInstance = urllib.unquote(Dataset_URIInstance)
+        Dataset_URIInstance = urllib.parse.unquote(Dataset_URIInstance)
         dataset = DataSet.objects.get(URIInstance = Dataset_URIInstance)
         dataset.set_released()
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, Dataset_URIInstance + " successfully released.").json()}, content_type="application/json")
     except Exception as ex:
-        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, ex.message).json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, str(ex)).json()}, content_type="application/json")
         
         
 def this_ks_subscribes_to(request, URIInstance):
@@ -465,33 +459,30 @@ def this_ks_subscribes_to(request, URIInstance):
     Then I invoke remotely api_subscribe
     If it works I commit locally
     '''
-    URIInstance = str(urllib.unquote(URIInstance).replace("%2F","/"))
+    URIInstance = str(urllib.parse.unquote(URIInstance).replace("%2F","/"))
     other_ks_uri = KsUri(URIInstance).home()
 
-    remote_ks = KnowledgeServer.get_remote_ks(other_ks_uri)
+    KnowledgeServer.get_remote_ks(other_ks_uri)
     
     try:
         with transaction.atomic():
-            encoded_URIInstance = urllib.urlencode({'':URIInstance})[1:]
+            encoded_URIInstance = urllib.parse.urlencode({'':URIInstance})[1:]
             # invoke remote API to subscribe
             this_ks = KnowledgeServer.this_knowledge_server()
-            url_to_invoke = urllib.urlencode({'':this_ks.uri() + reverse('api_notify')})[1:]
-            local_url = reverse('api_subscribe', args=(encoded_URIInstance,url_to_invoke,))
-            response = urllib2.urlopen(other_ks_uri + local_url)
-            response_text = response.read()
+            url_to_invoke = urllib.parse.urlencode({'':this_ks.uri() + reverse('api_notify')})[1:]
             ar = ApiResponse()
-            ar.parse(response_text)
+            ar.invoke_oks_api(other_ks_uri, 'api_subscribe', args=(encoded_URIInstance,url_to_invoke,))
             if ar.status == ApiResponse.success:
                 # save locally
                 sto = SubscriptionToOther()
                 sto.URI = URIInstance
                 sto.first_version_URIInstance = ar.content # it contains the URIInstance of the first version
                 sto.save()
-                return render(request, 'knowledge_server/export.json', {'json': response_text}, content_type="application/json")
+                return render(request, 'knowledge_server/export.json', {'json': ar.response}, content_type="application/json")
             else:
-                return render(request, 'knowledge_server/export.json', {'json': response_text}, content_type="application/json")
+                return render(request, 'knowledge_server/export.json', {'json': ar.response}, content_type="application/json")
     except Exception as ex:
-        return HttpResponse(ex.message)
+        return HttpResponse(str(ex))
     
     
 def api_subscribe(request, URIInstance, remote_url):
@@ -502,8 +493,8 @@ def api_subscribe(request, URIInstance, remote_url):
         remote_url the URL this KS has to invoke to notify
     '''
     # check the client KS has already subscribed; the check is done using the remote_ks (if any), remote URL otherwise
-    URIInstance = urllib.unquote(URIInstance)
-    remote_url = urllib.unquote(remote_url)
+    URIInstance = urllib.parse.unquote(URIInstance)
+    remote_url = urllib.parse.unquote(remote_url)
 
     # I want to check the request comes from the same domain as the remote_url
     # I do this checking that the IP address is the same
@@ -554,12 +545,12 @@ def api_dataset_structure_code(request, DataSetStructure_URIInstance):
     The information is provided in the form of the code of the classes in a dictionary
     that groups them by APP/MODULE
     '''
-    dss = DataSetStructure.retrieve(urllib.unquote(DataSetStructure_URIInstance).replace("%2F","/"))
+    dss = DataSetStructure.retrieve(urllib.parse.unquote(DataSetStructure_URIInstance).replace("%2F","/"))
     try:
         classes_code = dss.classes_code()
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, "", classes_code).json()}, content_type="application/json")
     except Exception as ex:
-        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, ex.message).json()}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, str(ex)).json()}, content_type="application/json")
 
 
 @csrf_exempt
@@ -632,6 +623,59 @@ def debug(request):
     created to debug code
     '''
     try:
+        import importlib
+        importlib.invalidate_caches()
+        mmm = importlib.import_module("knowledge_server.models")
+        print(mmm)
+#         mmm = importlib.import_module("licenses.models")
+#         reload(mmm)
+        
+        import os
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#         proc = Popen("python manage.py startapp deleteme", shell=True, cwd=BASE_DIR)
+#         return_code = proc.wait()
+#         the above commands create it correctly
+        
+        from django.core import management
+        new_app_name = "delme2"
+
+#         os.makedirs(BASE_DIR + "/" + new_app_name)
+        management.call_command('startapp', new_app_name, 'oks/' + new_app_name, interactive=False)
+        with open(BASE_DIR + "/" + new_app_name + "/models.py", "a") as myfile:
+            myfile.write("from knowledge_server.models import ShareableModel\n\n\n\n")
+        from django.apps.registry import apps as global_apps
+        from collections import OrderedDict
+        from django.conf import settings
+        from django.db.migrations.state import ModelState, ProjectState
+
+        print("11111111111111111111111111111111111111111111111111")
+        mm = global_apps.get_models(include_swapped=True)
+        ps = ProjectState.from_apps(global_apps)
+        for m in mm:
+            print(m)
+        print(ps.models)
+
+        with open(BASE_DIR + "/" + new_app_name + "/models.py", "a") as myfile:
+#             myfile.write("class aa(models.Model):\n    legalcode = models.TextField(default = \"\")")
+            myfile.write("class License(ShareableModel):\n    '''\n    Licenses from the list on http://opendefinition.org/licenses/\n    JUST THOSE WITH DOMAIN DATA\n    '''\n    name = models.CharField(max_length=200L)\n    short_name = models.CharField(max_length=50L)\n    # human_readable is a summary of the legal code;\n    human_readable = models.TextField(null = True, blank=True)\n    legalcode = models.TextField(default = \"\")\n    adaptation_shared = models.NullBooleanField(blank=True, null=True)\n    # requires to be shared with the attribution\n    attribution = models.NullBooleanField(blank=True, null=True)\n    # requires to be shared with the same license\n    share_alike = models.NullBooleanField(blank=True, null=True)\n    commercial_use = models.NullBooleanField(blank=True, null=True)\n    url_info = models.CharField(max_length=160L, null = True, blank=True)\n    reccomended_by_opendefinition = models.NullBooleanField(blank=True, null=True)\n    conformant_for_opendefinition = models.NullBooleanField(blank=True, null=True)\n    image = models.CharField(max_length=160L, null=True, blank=True)\n    image_small = models.CharField(max_length=160L, null=True, blank=True)\n")
+        settings.INSTALLED_APPS += (new_app_name, )
+        global_apps.app_configs = OrderedDict()
+        global_apps.ready = False
+        global_apps.populate(settings.INSTALLED_APPS)
+
+        print("2222222222222222222222222222222222222222222222222222")
+        mm = global_apps.get_models(include_swapped=True)
+        ps = ProjectState.from_apps(global_apps)
+        for m in mm:
+            print(m)
+        print(ps.models)
+        
+        
+        management.call_command('makemigrations', new_app_name, interactive=False)
+#         management.call_command('migrate', new_app_name, interactive=False)
+
+
+
 #         import inspect
 #         import types
 #         l  = list({x: DataSetStructure.__dict__[x]} for x in DataSetStructure.__dict__.keys() if 
@@ -646,63 +690,50 @@ def debug(request):
 #         sl = inspect.getsource(Notification)
 #         print (sl)
 
-        try:
-            dss1 = DataSetStructure.objects.get(pk=6)
-            c= dss1.classes_code()
-        except:
-            pass
-        try:
-            dss2 = DataSetStructure.objects.get(pk=7)
-            c= dss2.classes_code()
-        except:
-            pass
-        try:
-            dss2 = DataSetStructure.objects.get(pk=3)
-            c= dss2.classes_code()
-        except:
-            pass
-        try:
-            dss2 = DataSetStructure.objects.get(pk=4)
-            c= dss2.classes_code()
-        except:
-            pass
-        
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-#         proc = Popen("python manage.py startapp deleteme", shell=True, cwd=BASE_DIR)
-#         return_code = proc.wait()
-#         the above commands create it correctly
-        
-        from django.core import management
-        new_app_name = "deleteme3"
-
-#         os.makedirs(BASE_DIR + "/" + new_app_name)
-#         management.call_command('startapp', new_app_name, 'oks/' + new_app_name, interactive=False)
-#         the above 2 lines work fine
-
 #         import os
-#         from subprocess import Popen, PIPE
-#         
 #         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # #         proc = Popen("python manage.py startapp deleteme", shell=True, cwd=BASE_DIR)
 # #         return_code = proc.wait()
 # #         the above commands create it correctly
 #         
 #         from django.core import management
-#         new_app_name = "deleteme3"
+#         new_app_name = "deleteme7"
 # 
+# #         os.makedirs(BASE_DIR + "/" + new_app_name)
+# #         management.call_command('startapp', new_app_name, 'oks/' + new_app_name, interactive=False)
+# #         the above 2 lines work fine
+# 
+# #         import os
+# #         from subprocess import Popen, PIPE
+# #         
+# #         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# # #         proc = Popen("python manage.py startapp deleteme", shell=True, cwd=BASE_DIR)
+# # #         return_code = proc.wait()
+# # #         the above commands create it correctly
+# #         
+# #         from django.core import management
+# #         new_app_name = "deleteme3"
+# # 
 #         os.makedirs(BASE_DIR + "/" + new_app_name)
 #         management.call_command('startapp', new_app_name, 'oks/' + new_app_name, interactive=False)
 # #         the above 2 lines work fine
-# 
-#         from django.conf import settings
-#         settings.INSTALLED_APPS += (new_app_name, )
-#         # I load the app
+#  
 #         from django.apps import apps
 #         from collections import OrderedDict
+#         from django.conf import settings
+# 
+#         with open(BASE_DIR + "/" + new_app_name + "/models.py", "a") as myfile:
+#             myfile.write("from knowledge_server.models import ShareableModel\n\n\n\n")
+#             myfile.write("class aa(models.Model):\n    legalcode = models.TextField(default = \"\")")
+#         
+#     
+#         settings.INSTALLED_APPS += (new_app_name, )
+#         # I load the app
 #         apps.app_configs = OrderedDict()
 #         apps.ready = False
 #         apps.populate(settings.INSTALLED_APPS)
 #         
+# 
 #         management.call_command('makemigrations', new_app_name, interactive=False)
 #         management.call_command('migrate', new_app_name, interactive=False)
 
@@ -710,5 +741,5 @@ def debug(request):
     
         return HttpResponse("OK ")
     except Exception as ex:
-        return HttpResponse(ex.message)
+        return HttpResponse(str(ex))
 

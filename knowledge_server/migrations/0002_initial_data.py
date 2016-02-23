@@ -62,7 +62,7 @@ def forwards_func(apps, schema_editor):
     en4.child_nodes.add(en5); en4.save(using=db_alias)
     en5.child_nodes.add(en6); en5.child_nodes.add(en7); en5.save(using=db_alias)
     en7.child_nodes.add(en6); en7.child_nodes.add(en7); en7.save(using=db_alias)
-    dssDataSetStructureStructureNode=DataSetStructure(id=2,multiple_releases=False,root_node=en4,
+    dssDataSetStructureStructureNode=DataSetStructure(multiple_releases=False,root_node=en4,
                                                                 name=DataSetStructure.dataset_structure_DSN,
                                                                 description="A graph of simple entities that have relationships with one another and whose instances share the same version, status, ...",
                                                                 namespace="knowledge_server")
@@ -77,7 +77,7 @@ def forwards_func(apps, schema_editor):
      
     # DATASETSTRUCTURE  eOrganizationKS
     en18.child_nodes.add(en19); en18.save(using=db_alias)
-    eOrganizationKS=DataSetStructure(id=4,multiple_releases=False,root_node=en18,name=DataSetStructure.organization_DSN,
+    eOrganizationKS=DataSetStructure(multiple_releases=False,root_node=en18,name=DataSetStructure.organization_DSN,
                                      namespace="knowledge_server",description="An Organization and its Knowledge Servers",URIInstance="")
     eOrganizationKS.save(using=db_alias)
     mmOrganization.dataset_structure = eOrganizationKS; mmOrganization.save(using=db_alias)

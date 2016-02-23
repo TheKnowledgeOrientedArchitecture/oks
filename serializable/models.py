@@ -7,6 +7,7 @@
 from django.apps.registry import apps
 from django.db import models
 from django.db.models.fields import NOT_PROVIDED
+from django.db.models.fields.related_descriptors import ReverseManyToOneDescriptor
 from django.db.migrations import operations
 from django.db.migrations.autodetector import MigrationAutodetector
 from django.db.migrations.migration import Migration
@@ -235,13 +236,14 @@ class SerializableModel(models.Model):
         TODO: describe *ObjectsDescriptor or link to docs
               make sure it is complete (e.g. we are not missing any other *ObjectsDescriptor)
         '''
-        field_name = ""
         related_parent = getattr(parent._meta.concrete_model, attribute)
         if related_parent.__class__.__name__ == "ForeignRelatedObjectsDescriptor":
-            field_name = related_parent.related.field.name
+            return related_parent.related.field.name
         if related_parent.__class__.__name__ == "ReverseSingleRelatedObjectDescriptor":
-            field_name = related_parent.field.name
-        return field_name
+            return related_parent.field.name
+        if isinstance(related_parent, ReverseManyToOneDescriptor):
+            return related_parent.field.name
+        raise Exception("Error get_parent_field_name, parent: " + parent.__class__.__name__ + " " + parent.id + ", attribute:\"" + attribute + '"' )
 
     
     # Add a method to list all the relationships pointing at this model; find the comment below in delete_children

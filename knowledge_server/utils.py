@@ -8,7 +8,7 @@ import importlib
 import urllib
 import knowledge_server.models 
 from datetime import datetime
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 from django.conf import settings
 
@@ -132,7 +132,7 @@ class KsUri(object):
                         self.is_sintactically_correct = True
 
     def encoded(self):
-        return urllib.urlencode({'':self.uri})[1:]
+        return urllib.parse.urlencode({'':self.uri})[1:]
         
     def home(self):
         return self.scheme + '://' + self.netloc 
