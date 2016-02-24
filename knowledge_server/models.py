@@ -31,9 +31,9 @@ from django.db.migrations.state import ModelState, ProjectState
 from django.db.models import Max, Q
 from django.db.models.manager import ManagerDescriptor
 
+from knowledge_server.utils import KsUri, poor_mans_logger
+from knowledge_server.orm_wrapper import OrmWrapper
 from serializable.models import SerializableModel
-from knowledge_server.utils import KsUri, poor_mans_logger, load_class
-
 
 class CustomModelManager(models.Manager):
     '''
@@ -383,7 +383,7 @@ class ShareableModel(SerializableModel):
             xmldoc.attributes["REFERENCE_IN_THIS_FILE"]
             # if the TAG is not there an exception will be raised and the method will continue and expect to find all data
             module_name = structure_node.model_metadata.module
-            actual_class = load_class(module_name + ".models", structure_node.model_metadata.name) 
+            actual_class = OrmWrapper.load_class(module_name, structure_node.model_metadata.name) 
             try:
                 instance = actual_class.retrieve(xmldoc.attributes["URIInstance"].firstChild.data)
                 # It's in the database; I just need to set its parent; data is either already there or it will be updated later on
@@ -453,7 +453,7 @@ class ShareableModel(SerializableModel):
                         # TODO: I'd like the module name to be function of the organization and namespace
                         assert (child_node.model_metadata.name == se.name), "child_node.model_metadata.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
                         module_name = child_node.model_metadata.module
-                        actual_class = load_class(module_name + ".models", child_node.model_metadata.name)
+                        actual_class = OrmWrapper.load_class(module_name, child_node.model_metadata.name)
                         if child_node.external_reference:
                             '''
                             If it is an external reference I must search for it in the database first;  
@@ -520,7 +520,7 @@ class ShareableModel(SerializableModel):
                         se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
                         module_name = child_node.model_metadata.module
                         assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
-                        actual_class = load_class(module_name + ".models", child_node.model_metadata.name)
+                        actual_class = OrmWrapper.load_class(module_name, child_node.model_metadata.name)
                         if child_node.external_reference:
                             instance = actual_class.retrieve(xml_child_node.attributes["URIInstance"].firstChild.data)
                             # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
@@ -547,7 +547,7 @@ class ShareableModel(SerializableModel):
                     se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
                     module_name = child_node.model_metadata.module
                     assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
-                    actual_class = load_class(module_name + ".models", child_node.model_metadata.name)
+                    actual_class = OrmWrapper.load_class(module_name, child_node.model_metadata.name)
                     if child_node.external_reference:
                         instance = actual_class.retrieve(xml_child_node.attributes["URIInstance"].firstChild.data)
                         # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
@@ -1081,11 +1081,11 @@ class DataSetStructure(ShareableModel):
         app_models = self.root_node.app_models(processed_instances={})
         code_per_app = {}
         for app_model in app_models:
-            c = load_class(app_model['app'] + ".models", app_model['model'])
+            c = OrmWrapper.load_class(app_model['app'], app_model['model'])
             # I need the list of methods to guarantee I am not injecting code into another OKS
             c_methods  = list({x: c.__dict__[x]} for x in c.__dict__.keys() if inspect.isroutine(c.__dict__[x]))
             # let's exclude instances of ManagerDescriptor from the list
-            c_methods  = list(m for m in c_methods if not isinstance(m.values()[0], ManagerDescriptor))
+            c_methods  = list(m for m in c_methods if not isinstance(list(m.values())[0], ManagerDescriptor))
             if len(c_methods) > 0:
                 raise Exception("Methods found in " + str(app_model) + ": " + str(str(list(m.keys([0] for m in c_methods))) + ". It is unsafe to export class' code to another OKS."))
             if not app_model['app'] in code_per_app.keys():
@@ -1108,7 +1108,7 @@ class DataSetStructure(ShareableModel):
         persistable = True
         for app_model in app_models:
             try:
-                load_class(app_model['app'] + ".models", app_model['model'])
+                OrmWrapper.load_class(app_model['app'], app_model['model'])
             except:
                 persistable = False
         if not persistable:
@@ -1135,7 +1135,7 @@ class DataSetStructure(ShareableModel):
 #                         global_apps.populate(settings.INSTALLED_APPS)
                         settings.INSTALLED_APPS += (app, )
                     module = importlib.import_module(app + ".models")
-                    added_modules = {}
+#                     added_modules = {}
                     for model_class in apps_code[app]:
                         # is the class missing?
                         if not hasattr(module, model_class):
@@ -1149,7 +1149,6 @@ class DataSetStructure(ShareableModel):
 #                             if not app in added_modules.keys():
 #                                 added_modules[app] = {}
 #                             added_modules[app][model_class] = apps_code[app][model_class]
-
                     # I need to reload the apps as I modified the files
                     global_apps.app_configs = OrderedDict()
                     global_apps.ready = False
@@ -1171,6 +1170,7 @@ class DataSetStructure(ShareableModel):
                 management.call_command('makemigrations', app, interactive=False)
                 # and migrate it
                 management.call_command('migrate', app, interactive=False)                
+                management.call_command('migrate', "--database=materialized", app, interactive=False)
                 persistable = True
             
         return persistable
@@ -1392,7 +1392,7 @@ class DataSet(ShareableModel):
                 else:
                     # I create the actual instance
                     actual_instances_xml.append(dataset_xml.getElementsByTagName("ActualInstance")[0].childNodes[0])
-                actual_class = load_class(es.root_node.model_metadata.module + ".models", es.root_node.model_metadata.name)
+                actual_class = OrmWrapper.load_class(es.root_node.model_metadata.module, es.root_node.model_metadata.name)
                 for actual_instance_xml in actual_instances_xml:
                     # already imported ?
                     actual_instance_URIInstance = actual_instance_xml.attributes["URIInstance"].firstChild.data
@@ -1433,7 +1433,7 @@ class DataSet(ShareableModel):
         CHECK: default materialized? E' una view e quindi che senso ha andare su default dove ci sono anche le versioni vecchie?
         '''
         mm_model_metadata = self.dataset_structure.root_node.model_metadata
-        actual_class = load_class(mm_model_metadata.module + ".models", mm_model_metadata.name)
+        actual_class = OrmWrapper.load_class(mm_model_metadata.module, mm_model_metadata.name)
         q = eval("Q(" + self.filter_text + ")")
         return actual_class.objects.using(db_alias).filter(q)
     
