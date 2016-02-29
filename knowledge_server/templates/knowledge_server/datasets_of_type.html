@@ -20,14 +20,14 @@
 	            <li>
 	                {% if external_ks.scheme != this_ks.scheme or external_ks.netloc != this_ks.netloc %}
 	                	{% if entity.subscribed %}
-	                		<a href="{% url 'this_ks_unsubscribes_to' entity.URIInstance %}" target="_blank"></a>&nbsp;
+	                		<a href="{% url 'this_ks_unsubscribes_to' entity.UKCL %}" target="_blank"></a>&nbsp;
 	                	{% else %}
-	                		<a href="{% url 'this_ks_subscribes_to' entity.URIInstance %}" target="_blank">Subscribe</a>&nbsp;
+	                		<a href="{% url 'this_ks_subscribes_to' entity.UKCL %}" target="_blank">Subscribe</a>&nbsp;
 	                	{% endif %}
 	                {% endif %}
-	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.URIInstance "html" %}">{{ entity.actual_instance_name }}</a>
-	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.URIInstance "json" %}">json</a>
-	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.URIInstance "xml" %}">xml</a>
+	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.UKCL "html" %}">{{ entity.actual_instance_name }}</a>
+	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.UKCL "json" %}">json</a>
+	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.UKCL "xml" %}">xml</a>
 	                
 	            </li>
 	        {% endfor %}

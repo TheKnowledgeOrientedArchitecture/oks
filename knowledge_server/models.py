@@ -31,7 +31,7 @@ from django.db.migrations.state import ModelState, ProjectState
 from django.db.models import Max, Q
 from django.db.models.manager import ManagerDescriptor
 
-from knowledge_server.utils import KsUri, poor_mans_logger
+from knowledge_server.utils import KsUrl, poor_mans_logger
 from knowledge_server.orm_wrapper import OrmWrapper
 from serializable.models import SerializableModel
 
@@ -57,34 +57,29 @@ class CustomModelManager(models.Manager):
         models.signals.post_save.connect(model_post_save, model)
 
 def model_post_save(sender, **kwargs):
-    if kwargs['instance'].URIInstance == "":
+    if kwargs['instance'].UKCL == "":
         try:
-            kwargs['instance'].URIInstance = kwargs['instance'].generate_URIInstance()
-            if kwargs['instance'].URIInstance != "":
+            kwargs['instance'].UKCL = kwargs['instance'].generate_UKCL()
+            if kwargs['instance'].UKCL != "":
                 kwargs['instance'].save()
         except Exception as e:
-            print ("model_post_save kwargs['instance'].URIInstance: " + kwargs['instance'].URIInstance + "  -  " + str(e))
+            print ("ERROR in model_post_save kwargs['instance'].UKCL: " + kwargs['instance'].UKCL + "  -  " + str(e))
 
 
 class ShareableModel(SerializableModel):
     '''
-    URIInstance is the unique identifier of this ShareableModel in this KS
-    When a ShareableModel gets imported from XML of from a remote KS a new
-    URIInstance is generated using generate_URIInstance
+    UKCL Uniform Knowledge Chunk Locator
+    UKCL is the unique identifier of this ShareableModel in this KS
+    When a new instance of a ShareableModel is created within a dataset with the 
+    new_version method, a new UKCL is generated using generate_UKCL
     '''
-    URIInstance = models.CharField(max_length=2000, default='')
+    UKCL = models.CharField(max_length=2000, default='')
     '''
-    URI_imported_instance if the instance comes from XML (or a remote KS) this attribute
-    stores the URIInstance as it is in the XML. Doing so I can update an instance with data
-    from XML and still have a proper local URIInstance
-    '''
-    URI_imported_instance = models.CharField(max_length=2000)
-    '''
-    URI_previous_version is the URIInstance of the previous version if 
+    UKCL_previous_version is the UKCL of the previous version if 
     this record has been created with the new_version method.
     It is used when materializing to update the relationships from old to new records
     '''
-    URI_previous_version = models.CharField(max_length=2000, null=True, blank=True)
+    UKCL_previous_version = models.CharField(max_length=2000, null=True, blank=True)
     objects = CustomModelManager()
     '''
     Each instance of a ShareableModel should, sooner or later, be part of a dataset that is not a view neither shallow
@@ -92,7 +87,7 @@ class ShareableModel(SerializableModel):
     '''
     dataset_I_belong_to = models.ForeignKey("DataSet", null=True, blank=True, related_name='+')
 
-    def generate_URIInstance(self):
+    def generate_UKCL(self):
         '''
         *** method that works on the same database where self is saved ***
         This method is quite forgiving; there is no ModelMetadata? Then I use the class name and id_field="pk"
@@ -114,9 +109,9 @@ class ShareableModel(SerializableModel):
             except:
                 name = self.__class__.__name__
                 id_field = "pk"
-            return this_ks.uri() + "/" + namespace + "/" + name + "/" + str(getattr(self, id_field))
+            return this_ks.url() + "/" + namespace + "/" + name + "/" + str(getattr(self, id_field))
         except Exception as es:
-            print ("Exception 'generate_URIInstance' " + self.__class__.__name__ + "." + str(self.pk) + ":" + str(es))
+            print ("Exception 'generate_UKCL' " + self.__class__.__name__ + "." + str(self.pk) + ":" + str(es))
             return ""
     
     def get_model_metadata (self, class_name="", db_alias='materialized'):
@@ -141,11 +136,11 @@ class ShareableModel(SerializableModel):
 
     def serialized_URI_MM(self, export_format='XML'):
         if export_format == 'XML':
-            return ' URIModelMetadata="' + self.get_model_metadata().URIInstance + '" '  
+            return ' URIModelMetadata="' + self.get_model_metadata().UKCL + '" '  
         if export_format == 'JSON':
-            return ' "URIModelMetadata" : "' + self.get_model_metadata().URIInstance + '" '
+            return ' "URIModelMetadata" : "' + self.get_model_metadata().UKCL + '" '
         if export_format == 'DICT':
-            return { "URIModelMetadata": self.get_model_metadata().URIInstance }
+            return { "URIModelMetadata": self.get_model_metadata().UKCL }
         
     def shallow_structure(self, db_alias='default'):
         '''
@@ -164,7 +159,7 @@ class ShareableModel(SerializableModel):
             dss.model_metadata = self.get_model_metadata()
             dss.root_node = self.shallow_structure_node(db_alias)
             dss.save()
-            dss.URIInstance = dss.generate_URIInstance()
+            dss.UKCL = dss.generate_UKCL()
             dss.save(using=db_alias)
         return dss 
         
@@ -212,9 +207,9 @@ class ShareableModel(SerializableModel):
         formats so far: {'XML' | 'JSON' | 'DICT'}
             dict is a python dictionary that can be easily inserted in other dictionaries and serialized at a later stage
             If within a structure I have already exported this instance I don't want to duplicate all details hence I just export it's 
-            URIInstance, name and ModelMetadata URI. Then I need to add an attribute so that when importing it I will recognize that 
+            UKCL, name and ModelMetadata URL. Then I need to add an attribute so that when importing it I will recognize that 
             its details are somewhere else in the file
-            <..... URIModelMetadata="....." URIInstance="...." attribute="...." REFERENCE_IN_THIS_FILE=""
+            <..... URIModelMetadata="....." UKCL="...." attribute="...." REFERENCE_IN_THIS_FILE=""
             the TAG "REFERENCE_IN_THIS_FILE" is used to mark the fact that attributes values are somewhere else in the file
         '''
         export_format = export_format.upper()
@@ -229,28 +224,28 @@ class ShareableModel(SerializableModel):
             tag_name = node.model_metadata.name
         else:
             tag_name = self.__class__.__name__ if node.attribute == "" else node.attribute
-        # already exported, I just export a short reference with the URIInstance
-        if self.URIInstance and self.URIInstance in exported_instances and node.model_metadata.name_field:
+        # already exported, I just export a short reference with the UKCL
+        if self.UKCL and self.UKCL in exported_instances and node.model_metadata.name_field:
             if export_format == 'XML':
                 xml_name = " " + node.model_metadata.name_field + "=\"" + getattr(self, node.model_metadata.name_field) + "\""
-                return '<' + tag_name + ' REFERENCE_IN_THIS_FILE=\"\"' + self.serialized_URI_MM(export_format) + xml_name + ' URIInstance="' + self.URIInstance + '"/>'  
+                return '<' + tag_name + ' REFERENCE_IN_THIS_FILE=\"\"' + self.serialized_URI_MM(export_format) + xml_name + ' UKCL="' + self.UKCL + '"/>'  
             if export_format == 'JSON':
                 json_name = ' "' + node.model_metadata.name_field + '" : "' + getattr(self, node.model_metadata.name_field) + '"'
                 if node.is_many:
-                    return ' { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + json_name + ', "URIInstance": "' + self.URIInstance + '"} '
+                    return ' { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + json_name + ', "UKCL": "' + self.UKCL + '"} '
                 else:
-                    return '"' + tag_name + '" : { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + json_name + ', "URIInstance": "' + self.URIInstance + '"}'  
+                    return '"' + tag_name + '" : { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + json_name + ', "UKCL": "' + self.UKCL + '"}'  
             if export_format == 'DICT':
                 tmp_dict[node.model_metadata.name_field] = getattr(self, node.model_metadata.name_field)
                 tmp_dict["REFERENCE_IN_THIS_FILE"] = ""
                 tmp_dict.update(self.serialized_URI_MM(export_format))
-                tmp_dict["URIInstance"] = self.URIInstance
+                tmp_dict["UKCL"] = self.UKCL
                 if node.is_many:
                     export_dict = tmp_dict
                 else:
                     export_dict[tag_name] = tmp_dict
                 return export_dict
-        exported_instances.append(self.URIInstance) 
+        exported_instances.append(self.UKCL) 
         if not node.external_reference:
             try:
                 outer_comma = ""
@@ -335,15 +330,15 @@ class ShareableModel(SerializableModel):
                 if export_format == 'DICT':
                     tmp_dict[node.model_metadata.name_field] = getattr(self, node.model_metadata.name_field)
             if export_format == 'XML':
-                return '<' + tag_name + self.serialized_URI_MM() + 'URIInstance="' + self.URIInstance + '" ' + self._meta.pk.attname + '="' + str(self.pk) + '"' + xml_name + '/>'
+                return '<' + tag_name + self.serialized_URI_MM() + 'UKCL="' + self.UKCL + '" ' + self._meta.pk.attname + '="' + str(self.pk) + '"' + xml_name + '/>'
             if export_format == 'JSON':
                 if node.is_many:
-                    return '{ ' + self.serialized_URI_MM(export_format) + ', "URIInstance" : "' + self.URIInstance + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
+                    return '{ ' + self.serialized_URI_MM(export_format) + ', "UKCL" : "' + self.UKCL + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
                 else:
-                    return '"' + tag_name + '" :  { ' + self.serialized_URI_MM(export_format) + ', "URIInstance" : "' + self.URIInstance + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
+                    return '"' + tag_name + '" :  { ' + self.serialized_URI_MM(export_format) + ', "UKCL" : "' + self.UKCL + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
             if export_format == 'DICT':
                 tmp_dict.update(self.serialized_URI_MM(export_format))
-                tmp_dict["URIInstance"] = self.URIInstance
+                tmp_dict["UKCL"] = self.UKCL
                 tmp_dict[self._meta.pk.attname] = self.pk
                 if node.is_many:
                     export_dict = tmp_dict
@@ -358,7 +353,7 @@ class ShareableModel(SerializableModel):
         Every tag corresponds to a MetatadaModel, hence it
             contains a tag URIMetadataModel which points to the KS managing the MetadataModel
         
-        Each ShareableModel(SerializableModel) has URIInstance and URI_imported_instance attributes. 
+        Each ShareableModel(SerializableModel) has UKCL and UKCL_previous_version attributes. 
         
         external_reference
             the first ShareableModel in the XML cannot be marked as an external_reference in the structure_node
@@ -385,7 +380,7 @@ class ShareableModel(SerializableModel):
             module_name = structure_node.model_metadata.module
             actual_class = OrmWrapper.load_class(module_name, structure_node.model_metadata.name) 
             try:
-                instance = actual_class.retrieve(xmldoc.attributes["URIInstance"].firstChild.data)
+                instance = actual_class.retrieve(xmldoc.attributes["UKCL"].firstChild.data)
                 # It's in the database; I just need to set its parent; data is either already there or it will be updated later on
                 if parent:
                     field_name = ShareableModel.get_parent_field_name(parent, structure_node.attribute)
@@ -396,11 +391,11 @@ class ShareableModel(SerializableModel):
                 # I haven't found it in the database; I need to do something only if I have to set the parent
                 if parent: 
                     try:
-                        setattr(self, "URIInstance", xmldoc.attributes["URIInstance"].firstChild.data)
+                        setattr(self, "UKCL", xmldoc.attributes["UKCL"].firstChild.data)
                         self.SetNotNullFields()
                         self.save()
                     except:
-                        logger.error("Error in REFERENCE_IN_THIS_FILE TAG setting attribute URIInstance for instance of class " + self.__class__.__name__)
+                        logger.error("Error in REFERENCE_IN_THIS_FILE TAG setting attribute UKCL for instance of class " + self.__class__.__name__)
             # let's exit, nothing else to do, it's a REFERENCE_IN_THIS_FILE
             return
         except:
@@ -426,17 +421,8 @@ class ShareableModel(SerializableModel):
                 except:
                     logger.error("Error extracting from xml \"" + key.name + "\" for object of class \"" + self.__class__.__name__ + "\" with PK " + str(self.pk))
         # in the previous loop I have set the pk too; I must set it to None before saving
-        self.pk = None
+        self.pk = None   # TEST: CONTROLLA CHE UKCL UKCL sia settato!!!
 
-        # I set the URIInstance to "" so that one is generated automatically; URI_imported_instance is the field
-        # that allows me to track provenance
-        self.URIInstance = ""
-        try:
-            # URI_imported_instance stores the URIInstance from the XML
-            self.URI_imported_instance = xmldoc.attributes["URIInstance"].firstChild.data
-        except:
-            # there's no URIInstance in the XML; it doesn't make sense but it will be created from scratch here
-            pass
         # I must set foreign_key child nodes BEFORE SAVING self otherwise I get an error for ForeignKeys not being set
         for child_node in structure_node.child_nodes.all():
             if child_node.attribute == 'first_version':
@@ -457,21 +443,21 @@ class ShareableModel(SerializableModel):
                         if child_node.external_reference:
                             '''
                             If it is an external reference I must search for it in the database first;  
-                            if it is not there I fetch it using it's URI and then create it in the database
+                            if it is not there I fetch it using it's URL and then create it in the database
                             '''
                             # it can be a self relation; if so instance is self
-                            if self.URIInstance == xml_child_node.attributes["URIInstance"].firstChild.data:
+                            if self.UKCL == xml_child_node.attributes["UKCL"].firstChild.data:
                                 instance = self 
                             else:
                                 try:
                                     # let's search it in the database
-                                    instance = actual_class.retrieve(xml_child_node.attributes["URIInstance"].firstChild.data)
+                                    instance = actual_class.retrieve(xml_child_node.attributes["UKCL"].firstChild.data)
                                 except ObjectDoesNotExist:
-                                    # TODO: if it is not there I fetch it using it's URI and then create it in the database
+                                    # TODO: if it is not there I fetch it using it's URL and then create it in the database
                                     pass
                                 except Exception as ex:
-                                    logger.error("\"" + module_name + ".models " + se.name + "\" has no instance with URIInstance \"" + xml_child_node.attributes["URIInstance"].firstChild.data + " " + str(ex))
-                                    raise Exception("\"" + module_name + ".models " + se.name + "\" has no instance with URIInstance \"" + xml_child_node.attributes["URIInstance"].firstChild.data + " " + str(ex))
+                                    logger.error("\"" + module_name + ".models " + se.name + "\" has no instance with UKCL \"" + xml_child_node.attributes["UKCL"].firstChild.data + " " + str(ex))
+                                    raise Exception("\"" + module_name + ".models " + se.name + "\" has no instance with UKCL \"" + xml_child_node.attributes["UKCL"].firstChild.data + " " + str(ex))
                         else:
                             instance = actual_class()
                             # save_from_xml takes care of saving instance with a self.save() at the end
@@ -499,15 +485,15 @@ class ShareableModel(SerializableModel):
             try:
                 first_version_tag = xmldoc.getElementsByTagName('first_version')
                 if len(first_version_tag) == 1:
-                    first_version_URIInstance = xmldoc.getElementsByTagName('first_version')[0].attributes["URIInstance"].firstChild.data
-                    instance = DataSet.retrieve(first_version_URIInstance)
+                    first_version_UKCL = xmldoc.getElementsByTagName('first_version')[0].attributes["UKCL"].firstChild.data
+                    instance = DataSet.retrieve(first_version_UKCL)
                     self.first_version = instance
             except:
                 pass
             self.save()
-        # TODO: CHECK maybe the following comment is wrong and  URIInstance is always set 
-        # save_from_xml can be invoked on an instance retrieved from the database (where URIInstance is set)
-        # or created on the fly (and URIInstance is not set); in the latter case, only now I can generate URIInstance
+        # TODO: CHECK maybe the following comment is wrong and  UKCL is always set 
+        # save_from_xml can be invoked on an instance retrieved from the database (where UKCL is set)
+        # or created on the fly (and UKCL is not set); in the latter case, only now I can generate UKCL
         # as I have just saved it and I have a local ID
         
         for child_node in structure_node.child_nodes.all():
@@ -522,7 +508,7 @@ class ShareableModel(SerializableModel):
                         assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
                         actual_class = OrmWrapper.load_class(module_name, child_node.model_metadata.name)
                         if child_node.external_reference:
-                            instance = actual_class.retrieve(xml_child_node.attributes["URIInstance"].firstChild.data)
+                            instance = actual_class.retrieve(xml_child_node.attributes["UKCL"].firstChild.data)
                             # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
                             if child_node.attribute in self._meta.fields:
                                 setattr(instance, child_node.attribute, self)
@@ -549,7 +535,7 @@ class ShareableModel(SerializableModel):
                     assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
                     actual_class = OrmWrapper.load_class(module_name, child_node.model_metadata.name)
                     if child_node.external_reference:
-                        instance = actual_class.retrieve(xml_child_node.attributes["URIInstance"].firstChild.data)
+                        instance = actual_class.retrieve(xml_child_node.attributes["UKCL"].firstChild.data)
                         # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
                         if child_node.attribute in self._meta.fields:
                             setattr(instance, child_node.attribute, self)
@@ -566,7 +552,7 @@ class ShareableModel(SerializableModel):
         invoked by DataSet.new_version that wraps it in a transaction
         it recursively invokes itself to create a new version of the full structure
         
-        processed_instances is a dictionary where the key is the old URIInstance and 
+        processed_instances is a dictionary where the key is the old UKCL and 
         the data is the new one
         
         returns the newly created instance
@@ -576,9 +562,9 @@ class ShareableModel(SerializableModel):
             # if it is an external reference I do not need to create a new instance
             return self
 
-        if self.URIInstance and str(self.URIInstance) in processed_instances.keys():
+        if self.UKCL and str(self.UKCL) in processed_instances.keys():
             # already created, I get it and return it
-            return self.__class__.objects.get(URIInstance=processed_instances[str(self.URIInstance)])
+            return self.__class__.objects.get(UKCL=processed_instances[str(self.UKCL)])
         
         new_instance = self.__class__()
         if parent:
@@ -615,11 +601,11 @@ class ShareableModel(SerializableModel):
         for key in self._meta.fields:
             if key.__class__.__name__ != "ForeignKey" and self._meta.pk != key:
                 setattr(new_instance, key.name, eval("self." + key.name))
-        new_instance.URI_previous_version = new_instance.URIInstance
-        new_instance.URIInstance = ""
+        new_instance.UKCL_previous_version = new_instance.UKCL
+        new_instance.UKCL = ""
         new_instance.save()
         # after saving
-        processed_instances[str(self.URIInstance)] = new_instance.URIInstance
+        processed_instances[str(self.UKCL)] = new_instance.UKCL
         return new_instance
 
     def materialize(self, sn, processed_instances, parent=None):
@@ -627,9 +613,9 @@ class ShareableModel(SerializableModel):
         invoked by DataSet.set_released that wraps it in a transaction
         it recursively invokes itself to copy the full structure to the materialized DB
         
-        ASSERTION: URIInstance remains the same on the materialized database
+        ASSERTION: UKCL remains the same on the materialized database
         
-        processed_instances is a list of processed URIInstance 
+        processed_instances is a list of processed UKCL 
         
         TODO: before invoking this method a check is done to see whether it is already materialized; is it done always? 
         If so shall we move it inside this method?
@@ -637,15 +623,15 @@ class ShareableModel(SerializableModel):
 
         if sn.external_reference:
             try:
-                return self.__class__.objects.using('materialized').get(URIInstance=self.URIInstance)
+                return self.__class__.objects.using('materialized').get(UKCL=self.UKCL)
             except Exception as ex:
-                new_ex = Exception("ShareableModel.materialize: external_reference to self.URIInstance: " + self.URIInstance + " searching it on materialized: " + str(ex) + " Should we add it to dangling references?????")
+                new_ex = Exception("ShareableModel.materialize: external_reference to self.UKCL: " + self.UKCL + " searching it on materialized: " + str(ex) + " Should we add it to dangling references?????")
                 print(str(ex))
                 raise ex
 
-        if self.URIInstance and str(self.URIInstance) in processed_instances:
+        if self.UKCL and str(self.UKCL) in processed_instances:
             # already materialized it, I return that one 
-            return self.__class__.objects.using('materialized').get(URIInstance=self.URIInstance)
+            return self.__class__.objects.using('materialized').get(UKCL=self.UKCL)
         
         new_instance = self.__class__()
         if parent:
@@ -706,7 +692,7 @@ class ShareableModel(SerializableModel):
         
         new_instance.save(using='materialized')
         # after saving
-        processed_instances.append(new_instance.URIInstance)
+        processed_instances.append(new_instance.UKCL)
         return new_instance
 
     def delete_children(self, etn, parent=None):
@@ -741,15 +727,15 @@ class ShareableModel(SerializableModel):
             # let's get the instance it should point to
             '''
             There could be more than one; imagine the case of an Italian Province split into two of them (Region Sardinia
-            had four provinces and then they become 4) then there will be two new instances with the same URI_previous_version.
-            TODO: we should also take into account the case when a new_materialized_instance can have more than URI_previous_version; this
+            had four provinces and then they become 4) then there will be two new instances with the same UKCL_previous_version.
+            TODO: we should also take into account the case when a new_materialized_instance can have more than UKCL_previous_version; this
             situation requires redesign of the model and db
             '''
-            new_materialized_instances = self.__class__.objects.using('materialized').filter(URI_previous_version=self.URIInstance)
-            new_instances = self.__class__.objects.filter(URI_previous_version=self.URIInstance)
-            self_on_default_db = self.__class__.objects.filter(URIInstance=self.URIInstance)
+            new_materialized_instances = self.__class__.objects.using('materialized').filter(UKCL_previous_version=self.UKCL)
+            new_instances = self.__class__.objects.filter(UKCL_previous_version=self.UKCL)
+            self_on_default_db = self.__class__.objects.filter(UKCL=self.UKCL)
             
-            assert (len(new_materialized_instances) == len(new_instances)), 'ShareableModel.delete_children self.URIInstance="' + self.URIInstance + '": "(len(new_materialized_instances ' + str(new_materialized_instances) + ') != len(new_instances' + str(new_instances) + '))"'
+            assert (len(new_materialized_instances) == len(new_instances)), 'ShareableModel.delete_children self.UKCL="' + self.UKCL + '": "(len(new_materialized_instances ' + str(new_materialized_instances) + ') != len(new_instances' + str(new_instances) + '))"'
             if len(new_materialized_instances) == 1:
                 new_materialized_instance = new_materialized_instances[0]
                 new_instance = new_instances[0]
@@ -769,7 +755,7 @@ class ShareableModel(SerializableModel):
                         # update relationship on default DB
                         eval('related_instances_manager.update(' + rel.field.name + '=new_instance)')
             else:
-                raise Exception('NOT IMPLEMENTED in ShareableModel.delete_children: mapping between different versions: URIInstance "' + self.URIInstance + '" has ' + str(len(new_instances)) + ' materialized records that have this as URI_previous_version.') 
+                raise Exception('NOT IMPLEMENTED in ShareableModel.delete_children: mapping between different versions: UKCL "' + self.UKCL + '" has ' + str(len(new_instances)) + ' materialized records that have this as UKCL_previous_version.') 
         except Exception as e:
             print(str(e))
 
@@ -781,50 +767,30 @@ class ShareableModel(SerializableModel):
 
     @staticmethod
     def model_metadata_from_xml_tag(xml_child_node):
-        URIInstance = xml_child_node.attributes["URIModelMetadata"].firstChild.data
+        UKCL = xml_child_node.attributes["URIModelMetadata"].firstChild.data
         try:
-            se = ModelMetadata.objects.get(URIInstance=URIInstance)
+            se = ModelMetadata.objects.get(UKCL=UKCL)
         except:
-            '''
-            I go get it from the appropriate KS
-            TODO: David
-            See API definition here: http://redmine.davide.galletti.name/issues/33
-            When I get a ModelMetadata I must generate its model in an appropriate module; the module
-            name must be generated so that it is unique based on the ModelMetadata's BASE URI and on the module 
-            name; 
-            ModelMetadata URI 1: "http://finanze.it/KS/fattura"
-            ModelMetadata URI 2: "http://finanze.it/KS/sanzione"
-            
-            TODO: When importing an DataSet from another KS, its root will point to either self or to an DataSet
-            that is on the other KS; in the latter case I search for this root DataSet using the field 
-            SharableModel.URI_imported_instance; if I find it I set root to point to it otherwise
-            I set it to self.
-            '''
-            raise Exception("NOT IMPLEMENTED in model_metadata_from_xml_tag: get ModelMetadata from appropriate KS.")
+            raise Exception("ERROR model_metadata_from_xml_tag: there is no ModelMetadata corresponding to this URL: " + UKCL)
         return se
 
     @classmethod
-    def retrieve(cls, URIInstance):
+    def retrieve(cls, UKCL):
         '''
         It returns an instance of a ShareableModel stored in this KS
-        It searches first on the URIInstance field (e.g. is it already an instance of this KS? ) 
-        It searches then on the URI_imported_instance field (e.g. has is been imported in this KS from the same source? )
-        It fetches the instance from the source as it is not in this KS yet 
+        It searches on the UKCL field
         '''
         actual_instance = None
         try:
-            actual_instance = cls.objects.get(URIInstance=URIInstance)
+            actual_instance = cls.objects.get(UKCL=UKCL)
         except Exception as ex:
-            try:
-                actual_instance = cls.objects.get(URI_imported_instance=URIInstance)
-            except Exception as ex:
-                raise ex
+            raise ex
         return actual_instance
 
     @staticmethod
     def intersect_list(first, second):
-        first_URIInstances = list(i.URIInstance for i in first)
-        return filter(lambda x: x.URIInstance in first_URIInstances, second)
+        first_UKCLs = list(i.UKCL for i in first)
+        return filter(lambda x: x.UKCL in first_UKCLs, second)
             
     class Meta:
         abstract = True
@@ -839,7 +805,7 @@ class DanglingReference(ShareableModel):
     Importing new data structures will attempt the resolution of existing dangling references
     '''
     URI_actual_instance = models.CharField(max_length=2000, default='')
-    # the uri of the structure could be obtained invoking the api dataset_info on URI_actual_instance
+    # the url of the structure could be obtained invoking the api dataset_info on URI_actual_instance
     # but we need it to group DRs that depend on the same structure
     URI_structure = models.CharField(max_length=2000, default='')
     # same as URI_structure; we need it to group DRs depending on the same dataset
@@ -1043,7 +1009,7 @@ class DataSetStructure(ShareableModel):
     names of ModelMetadata are unique. When importing a ModelMetadata from
     an external KS we need to create a namespace (and a corresponding module
     where the class of the model must live) with a unique name. It can
-    be done combining the netloc of the URI of the KS with the namespace;
+    be done combining the netloc of the URL of the KS with the namespace;
     so when I import a WorkFlow from the namespace "entity" of rootks.thekoa.org 
     in my local KS it will live in the namespace/module:
         something like: rootks.thekoa.org_entity
@@ -1112,12 +1078,12 @@ class DataSetStructure(ShareableModel):
             except:
                 persistable = False
         if not persistable:
-            # I must go to the owner_knowledge_server of the DataSet
+            # I must go to the knowledge_server of the DataSet
             # I wanted to do "DataSet.objects.get(root=self)" but it doesn't work so I had to make it more verbose:
             ds = DataSet.objects.get(root_instance_id=self.id, root_content_type_id=ContentType.objects.get(model='DataSetStructure').id)
             #            ds = DataSet.objects.get(root_instance_id=self.id, root_content_type=ContentType.objects.get_for_model(DataSetStructure._meta.model))
             ar = ApiResponse()
-            ar.invoke_oks_api(ds.owner_knowledge_server.uri(), 'api_dataset_structure_code', args=(urllib.parse.urlencode({'':self.URI_imported_instance})[1:],))
+            ar.invoke_oks_api(ds.knowledge_server.url(), 'api_dataset_structure_code', args=(urllib.parse.urlencode({'':self.UKCL})[1:],))
             if ar.status == ApiResponse.success:
                 apps_code = ar.content
                 for app in apps_code:
@@ -1206,7 +1172,7 @@ class DataSet(ShareableModel):
     A data set / chunk of knowledge; its data structure is described by self.dataset_structure
     The only Versionable object so far
     Serializable like many others 
-    It has an owner KS which can be inferred by the URIInstance but it is explicitly linked 
+    It has an owner KS which can be inferred by the UKCL but it is explicitly linked 
 
     A DataSet is Versionable (if its structure is neither shallow nor a view) so there are many datasets
     that are basically different versions of the same thing; they share the same "first_version" attribute
@@ -1217,7 +1183,18 @@ class DataSet(ShareableModel):
         set_released: it sets version_released True and it sets it to False for all the other instances 
                       of the same set; it materializes the dataset
     '''
-    owner_knowledge_server = models.ForeignKey("knowledge_server.KnowledgeServer")
+
+    '''
+    The knowledge server that is making this dataset available; not necessarily the
+    organization that owns this knowledge server is the author of the data in the set.
+    '''
+    knowledge_server = models.ForeignKey("knowledge_server.KnowledgeServer")
+
+    '''
+    The Organization that has published the information in this dataset declaring the 
+    licenses DataSet.licenses; if empty, knowledge_server.organization would be the one.
+    '''
+    publisher = models.ForeignKey("knowledge_server.Organization", null=True, blank=True)
 
     # if the dataset structure is intended to be a view there won't be any version information
     # assert dataset_structure.is_a_view ===> root, version, ... == None
@@ -1274,6 +1251,7 @@ class DataSet(ShareableModel):
         that pertain to the dataset"
     '''
     licenses = models.ManyToManyField("licenses.License")
+
     
     def export(self, export_format='XML', force_external_reference=False):
         '''
@@ -1303,8 +1281,8 @@ class DataSet(ShareableModel):
             serialized_head += comma + tmp
         
         ks_model_metadata = ModelMetadata.objects.get(name="KnowledgeServer")
-        temp_etn = StructureNode(model_metadata=ks_model_metadata, external_reference=True, is_many=False, attribute="owner_knowledge_server")
-        tmp = self.owner_knowledge_server.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        temp_etn = StructureNode(model_metadata=ks_model_metadata, external_reference=True, is_many=False, attribute="knowledge_server")
+        tmp = self.knowledge_server.serialize(temp_etn, exported_instances=[], export_format=export_format)
         if export_format == 'DICT':
             export_dict.update(tmp)
         else:
@@ -1365,6 +1343,7 @@ class DataSet(ShareableModel):
         else:
             return serialized_head + serialized_tail
 
+
     def import_dataset(self, dataset_xml_stream):
         '''
         '''
@@ -1375,7 +1354,7 @@ class DataSet(ShareableModel):
         xmldoc = minidom.parseString(dataset_xml_stream)
         
         dataset_xml = xmldoc.childNodes[0].childNodes[0]
-        DataSetStructureURI = dataset_xml.getElementsByTagName("dataset_structure")[0].attributes["URIInstance"].firstChild.data
+        DataSetStructureURI = dataset_xml.getElementsByTagName("dataset_structure")[0].attributes["UKCL"].firstChild.data
 
         # the structure is present locally
         es = DataSetStructure.retrieve(DataSetStructureURI)
@@ -1395,9 +1374,9 @@ class DataSet(ShareableModel):
                 actual_class = OrmWrapper.load_class(es.root_node.model_metadata.module, es.root_node.model_metadata.name)
                 for actual_instance_xml in actual_instances_xml:
                     # already imported ?
-                    actual_instance_URIInstance = actual_instance_xml.attributes["URIInstance"].firstChild.data
+                    actual_instance_UKCL = actual_instance_xml.attributes["UKCL"].firstChild.data
                     try:
-                        actual_instance = actual_class.retrieve(actual_instance_URIInstance)
+                        actual_instance = actual_class.retrieve(actual_instance_UKCL)
                         # it is already in this database; ?????I return the corresponding DataSet
 #?????                        return DataSet.objects.get(dataset_structure=es, entry_point_instance_id=actual_instance_on_db.pk)
                     except:  # I didn't find it on this db, no problem
@@ -1406,9 +1385,9 @@ class DataSet(ShareableModel):
                         # save_from_xml saves actual_instance on the database
                 
                 # I create the DataSet if not already imported
-                dataset_URIInstance = dataset_xml.attributes["URIInstance"].firstChild.data
+                dataset_UKCL = dataset_xml.attributes["UKCL"].firstChild.data
                 try:
-                    dataset_on_db = DataSet.retrieve(dataset_URIInstance)
+                    dataset_on_db = DataSet.retrieve(dataset_UKCL)
                     if not es.is_a_view:
                         dataset_on_db.root = actual_instance
                         dataset_on_db.save()
@@ -1426,6 +1405,7 @@ class DataSet(ShareableModel):
             raise ex
         return self
 
+
     def get_instances(self, db_alias='materialized'):
         '''
         Used for views only
@@ -1436,6 +1416,7 @@ class DataSet(ShareableModel):
         actual_class = OrmWrapper.load_class(mm_model_metadata.module, mm_model_metadata.name)
         q = eval("Q(" + self.filter_text + ")")
         return actual_class.objects.using(db_alias).filter(q)
+
     
     def get_instances_of_a_type(self, se, db_alias='materialized'):
         '''
@@ -1447,6 +1428,7 @@ class DataSet(ShareableModel):
             return t[se]
         else:
             return None
+
 
     def get_state(self):
         '''
@@ -1465,11 +1447,13 @@ class DataSet(ShareableModel):
                 if self.version_patch == version_patch__max:
                     return "working"
         return "obsolete"
+
         
     def set_version(self, version_major=0, version_minor=1, version_patch=0):
         self.version_major = version_major
         self.version_minor = version_minor
         self.version_patch = version_patch
+
 
     def new_version(self, version_major=None, version_minor=None, version_patch=None, version_description="", version_date=None):
         '''
@@ -1503,7 +1487,7 @@ class DataSet(ShareableModel):
                 new_ds.version_major = version_major
                 new_ds.version_minor = version_minor
                 new_ds.version_patch = version_patch
-                new_ds.owner_knowledge_server = KnowledgeServer.this_knowledge_server('default')
+                new_ds.knowledge_server = KnowledgeServer.this_knowledge_server('default')
                 new_ds.dataset_structure = self.dataset_structure
                 new_ds.first_version = self.first_version
                 new_ds.version_description = version_description
@@ -1513,6 +1497,7 @@ class DataSet(ShareableModel):
         except Exception as e:
             print (str(e))
         return new_ds
+
 
     def materialize_dataset(self):
         '''
@@ -1526,10 +1511,10 @@ class DataSet(ShareableModel):
                 instances = []
                 instances.append(self.root)
             for instance in instances:
-                m_existing = instance.__class__.objects.using('materialized').filter(URI_imported_instance=instance.URI_imported_instance)
+                m_existing = instance.__class__.objects.using('materialized').filter(UKCL=instance.UKCL)
                 if len(m_existing) == 0:
                     instance.materialize(self.dataset_structure.root_node, processed_instances=[])
-            m_existing = DataSet.objects.using('materialized').filter(URI_imported_instance=self.URI_imported_instance)
+            m_existing = DataSet.objects.using('materialized').filter(UKCL=self.UKCL)
             if len(m_existing) == 0:
                 self.materialize(self.shallow_structure().root_node, processed_instances=[])
             # end of transaction
@@ -1576,7 +1561,7 @@ class DataSet(ShareableModel):
                 self.save()
                 # MATERIALIZATION Now we must copy newly released self to the materialized database
                 # I must check whether it is already materialized so that I don't do it twice
-                m_existing = DataSet.objects.using('materialized').filter(URIInstance=self.URIInstance)
+                m_existing = DataSet.objects.using('materialized').filter(UKCL=self.UKCL)
                 if len(m_existing) == 0:
                     instance = self.root
                     materialized_instance = instance.materialize(self.dataset_structure.root_node, processed_instances=[])
@@ -1590,14 +1575,14 @@ class DataSet(ShareableModel):
                         materialized_self.save()
                         # now I can delete the old dataset (if any) as I want just one release (multiple_releases == false)
                         if previously_released:
-                            materialized_previously_released = DataSet.objects.using('materialized').get(URIInstance=previously_released.URIInstance)
+                            materialized_previously_released = DataSet.objects.using('materialized').get(UKCL=previously_released.UKCL)
                             materialized_previously_released.delete_entire_dataset()
                     
                     # If I own this DataSet then I create the event for notifications
                     # releasing a dataset that I do not own makes no sense; in fact when I create a new version of
                     # a dataset that has a different owner, the owner is set to this oks
                     this_ks = KnowledgeServer.this_knowledge_server()
-                    if self.owner_knowledge_server.URIInstance == this_ks.URIInstance:
+                    if self.knowledge_server.UKCL == this_ks.UKCL:
                         # TODO: in the future this task must be run asynchronously
                         e = Event()
                         e.dataset = self
@@ -1635,9 +1620,9 @@ class DataSet(ShareableModel):
                             if not self.dataset_structure.multiple_releases:
                                 if previously_released:
                                     #     - all those that are in current but not in previous
-                                    current_not_previous = list(i for i in released_instances_list[se] if i.URI_previous_version not in list(i.URIInstance for i in previously_released_instances_list[se]))
+                                    current_not_previous = list(i for i in released_instances_list[se] if i.UKCL_previous_version not in list(i.UKCL for i in previously_released_instances_list[se]))
                                     #    - all those that are in previous but not in current
-                                    previous_not_current = list(i for i in previously_released_instances_list[se] if i.URIInstance not in list(i.URI_previous_version for i in released_instances_list[se]))
+                                    previous_not_current = list(i for i in previously_released_instances_list[se] if i.UKCL not in list(i.UKCL_previous_version for i in released_instances_list[se]))
                                 else:
                                     # previously_released is None
                                     #     - all those that are in current but not in previous
@@ -1647,11 +1632,11 @@ class DataSet(ShareableModel):
                                 current_changed = []
                                 previous_changed = []
                                 if previously_released:
-                                    previous_and_current = list(i for i in previously_released_instances_list[se] if i.URIInstance in list(i.URI_previous_version for i in released_instances_list[se]))
+                                    previous_and_current = list(i for i in previously_released_instances_list[se] if i.UKCL in list(i.UKCL_previous_version for i in released_instances_list[se]))
                                 else: # previously_released is None
                                     previous_and_current = []
                                 for previous_instance in previous_and_current:
-                                    current_instance = list(i for i in released_instances_list[se] if i.URI_previous_version == previous_instance.URIInstance)[0]
+                                    current_instance = list(i for i in released_instances_list[se] if i.UKCL_previous_version == previous_instance.UKCL)[0]
                                     if not ModelMetadata.compare(current_instance, previous_instance):
                                         current_changed.append(current_instance)
                                         previous_changed.append(previous_instance)
@@ -1680,6 +1665,7 @@ class DataSet(ShareableModel):
         except Exception as ex:
             print ("set_released (" + self.description + "): " + str(ex))
     
+
     def delete_entire_dataset(self):
         '''
         Navigating the structure deletes each record in the entire dataset obviously excluding external references
@@ -1689,6 +1675,7 @@ class DataSet(ShareableModel):
             self.root.delete_children(self.dataset_structure.root_node)
             self.root.delete()
             self.delete()
+
         
     def get_latest(self, released=None):
         '''
@@ -1732,12 +1719,12 @@ class KnowledgeServer(ShareableModel):
     
     organization = models.ForeignKey(Organization)
 
-    def uri(self, encode=False):
+    def url(self, encode=False):
         # "http://rootks.thekoa.org/"
-        uri = self.scheme + "://" + self.netloc
+        tmp_url = self.scheme + "://" + self.netloc
         if encode:
-            uri = urllib.parse.urlencode({'':uri})[1:]
-        return uri
+            tmp_url = urllib.parse.urlencode({'':tmp_url})[1:]
+        return tmp_url
     
     def run_cron(self):
         '''
@@ -1764,7 +1751,7 @@ class KnowledgeServer(ShareableModel):
             try:
                 with transaction.atomic():
                     # I get the DataSet from the subscription (it is the root)
-                    root_ei = DataSet.objects.get(URIInstance=sub.first_version_URIInstance)
+                    root_ei = DataSet.objects.get(UKCL=sub.first_version_UKCL)
                     event = Event()
                     event.dataset = root_ei.get_latest(True)
                     event.type = "First notification"
@@ -1784,7 +1771,7 @@ class KnowledgeServer(ShareableModel):
         events = Event.objects.filter(processed=False, type="New version")
         message += "Found " + str(len(events)) + " events<br>"
         for event in events:
-            subs = SubscriptionToThis.objects.filter(first_version_URIInstance=event.dataset.first_version.URIInstance)
+            subs = SubscriptionToThis.objects.filter(first_version_UKCL=event.dataset.first_version.UKCL)
             try:
                 with transaction.atomic():
                     for sub in subs:
@@ -1810,15 +1797,15 @@ class KnowledgeServer(ShareableModel):
             notifications = Notification.objects.filter(sent=False)
             message += "Found " + str(len(notifications)) + " notifications<br>"
             for notification in notifications:
-                message += "send_notifications, found a notification for URIInstance " + notification.event.dataset.URIInstance + "<br>"
+                message += "send_notifications, found a notification for UKCL " + notification.event.dataset.UKCL + "<br>"
                 message += "about to notify " + notification.remote_url + "<br>"
                 m_es = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_DSN)
-                es = DataSetStructure.objects.using('default').get(URIInstance=m_es.URIInstance)
-                this_es = DataSetStructure.objects.get(URIInstance=notification.event.dataset.dataset_structure.URIInstance)
+                es = DataSetStructure.objects.using('default').get(UKCL=m_es.UKCL)
+                this_es = DataSetStructure.objects.get(UKCL=notification.event.dataset.dataset_structure.UKCL)
                 ei_of_this_es = DataSet.objects.get(root_instance_id=this_es.id, dataset_structure=es)
-                values = { 'first_version_URIInstance' : notification.event.dataset.first_version.URIInstance,
-                           'URL_dataset' : this_ks.uri() + reverse('api_dataset', args=(urllib.parse.urlencode({'':notification.event.dataset.URIInstance})[1:], "XML",)),
-                           'URL_structure' : this_ks.uri() + reverse('api_dataset', args=(urllib.parse.urlencode({'':ei_of_this_es.URIInstance})[1:], "XML",)),
+                values = { 'first_version_UKCL' : notification.event.dataset.first_version.UKCL,
+                           'URL_dataset' : this_ks.url() + reverse('api_dataset', args=(urllib.parse.urlencode({'':notification.event.dataset.UKCL})[1:], "XML",)),
+                           'URL_structure' : this_ks.url() + reverse('api_dataset', args=(urllib.parse.urlencode({'':ei_of_this_es.UKCL})[1:], "XML",)),
                            'type' : notification.event.type,
                            'timestamp' : notification.event.timestamp, }
                 data = urllib.parse.urlencode(values)
@@ -1868,7 +1855,7 @@ class KnowledgeServer(ShareableModel):
                     model_metadata_tags = xmldoc.getElementsByTagName("model_metadata")
                     model_metadata_URIs = []
                     for mmt in model_metadata_tags:
-                        model_metadata_URIs.append(mmt.attributes["URIInstance"].firstChild.data)
+                        model_metadata_URIs.append(mmt.attributes["UKCL"].firstChild.data)
                     # let's make it unique
                     model_metadata_URIs = list(set(model_metadata_URIs))
                     # and we loop through the ModelMetadata
@@ -1877,7 +1864,7 @@ class KnowledgeServer(ShareableModel):
                             ModelMetadata.retrieve(mmu)
                         except:
                             # if it is not in local db we import it; I rely on the forgiveness of api_dataset
-                            url_to_invoke = KsUri(mmu).home() + reverse('api_dataset', args=(urllib.parse.urlencode({'':mmu})[1:], "XML",))
+                            url_to_invoke = KsUrl(mmu).home() + reverse('api_dataset', args=(urllib.parse.urlencode({'':mmu})[1:], "XML",))
                             response = urlopen(url_to_invoke)
                             mm_xml_stream = response.read()
                             mm_structure = DataSet()
@@ -1915,12 +1902,12 @@ class KnowledgeServer(ShareableModel):
         *** the reason being that only there "get(this_ks = True)" is ***
         *** guaranteed to return exactly one record                   ***
         when working on the default database we must first fetch it on the
-        materialized; then, using the URIInstance we search it on the default
-        because the URIInstance will be unique there
+        materialized; then, using the UKCL we search it on the default
+        because the UKCL will be unique there
         '''
         materialized_ks = KnowledgeServer.objects.using('materialized').get(this_ks=True)
         if db_alias == 'default':
-            return KnowledgeServer.objects.using('default').get(URIInstance=materialized_ks.URIInstance)
+            return KnowledgeServer.objects.using('default').get(UKCL=materialized_ks.UKCL)
         else:
             return materialized_ks
 
@@ -1938,7 +1925,7 @@ class KnowledgeServer(ShareableModel):
         remote_ks = None
         try:
             local_url = reverse('api_ks_info', args=("XML",))
-            response = urlopen(KsUri(remote_url).home() + local_url)
+            response = urlopen(KsUrl(remote_url).home() + local_url)
             ks_info_xml_stream = response.read()
             # import_dataset creates the entity instance and the actual instance
             ei = DataSet()
@@ -1977,9 +1964,9 @@ class SubscriptionToThis(ShareableModel):
     '''
     The subscriptions other systems do to my data
     '''
-    first_version_URIInstance = models.CharField(default='', max_length=2000)
+    first_version_UKCL = models.CharField(default='', max_length=2000)
     # where to send the notification; remote_url, in the case of a KS, will be something like http://rootks.thekoa.org/notify
-    # the actual notification will have the URIInstance of the DataSet and the URIInstance of the EventType
+    # the actual notification will have the UKCL of the DataSet and the UKCL of the EventType
     remote_url = models.CharField(max_length=200)
     # I send a first notification that can be used to get the data the first time
     first_notification_prepared = models.BooleanField(default=False)
@@ -2001,16 +1988,16 @@ class SubscriptionToOther(ShareableModel):
     '''
     The subscriptions I make to other systems' data
     '''
-    # The URIInstance I am subscribing to 
-    URI = models.CharField(max_length=200)
-    first_version_URIInstance = models.CharField(max_length=200)
+    # The UKCL I am subscribing to 
+    URL = models.CharField(max_length=200)
+    first_version_UKCL = models.CharField(max_length=200)
 
 
 class NotificationReceived(ShareableModel):
     '''
     When I receive a notification it is stored here and processed asynchronously in cron 
     '''
-    # URI to fetch the new data
+    # URL to fetch the new data
     URL_dataset = models.CharField(max_length=200)
     URL_structure = models.CharField(max_length=200)
     processed = models.BooleanField(default=False)
@@ -2039,7 +2026,7 @@ class ApiResponse():
         self.parse(self.response)
         
     def invoke_oks_api(self, oks, api, args):
-        oks_url = KsUri(oks)
+        oks_url = KsUrl(oks)
         local_url = reverse(api, args=args)
         self.urlopen(oks_url.home() + local_url)
         

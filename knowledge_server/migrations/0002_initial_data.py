@@ -15,16 +15,16 @@ def forwards_func(apps, schema_editor):
     # this data must be created on the root ks but also on any other as it is essential for basic ks operation
     # 
     the_koa_org = Organization();the_koa_org.id=1;the_koa_org.name="the Knowledge Oriented Architecture";
-    the_koa_org.URIInstance="-";the_koa_org.URI_imported_instance="http://rootks.thekoa.org/knowledge_server/Organization/1";the_koa_org.website='http://www.theKOA.org';
+    the_koa_org.UKCL="-";the_koa_org.website='http://www.theKOA.org';
     the_koa_org.description="the Knowledge Oriented Architecture organization .....";the_koa_org.save(using=db_alias)
     
     the_koa_org_ks = KnowledgeServer(pk=1, name="theKOA.org root Open Knowledge Server", scheme="http", netloc="rootks.thekoa.org", 
-                                     URIInstance="-",URI_imported_instance="http://rootthe_koa_org.URIInstance="";the_koa_org.URIInstance="";ks.thekoa.org/knowledge_server/KnowledgeServer/1", 
+                                     UKCL="-",
                                      description="The main OKS, defining the main structures and datasets used by any other Knowledge Server.", 
                                      organization=the_koa_org, this_ks=True,html_home="rootks html_home",html_disclaimer="rootks html_disclaimer")
     the_koa_org_ks.save(using=db_alias)
-    the_koa_org_ks.URIInstance=""; the_koa_org_ks.save(using=db_alias)
-    the_koa_org.URIInstance="";    the_koa_org.save(using=db_alias)
+    the_koa_org_ks.UKCL=""; the_koa_org_ks.save(using=db_alias)
+    the_koa_org.UKCL="";    the_koa_org.save(using=db_alias)
     #ModelMetadata
     mmModelMetadata=ModelMetadata();mmModelMetadata.name="ModelMetadata";mmModelMetadata.module="knowledge_server";mmModelMetadata.save(using=db_alias)
     mmField=ModelMetadata();mmField.name="Field";mmField.module="django.db.models.fields";mmField.description_field="";mmField.save(using=db_alias)
@@ -68,7 +68,7 @@ def forwards_func(apps, schema_editor):
                                                                 namespace="knowledge_server")
     dssDataSetStructureStructureNode.save(using=db_alias)
     mmDataSetStructure.dataset_structure = dssDataSetStructureStructureNode; mmDataSetStructure.save(using=db_alias)
-    dssModelMetadataFields.save(using=db_alias);dssDataSetStructureStructureNode.save(using=db_alias); #saving again to create URIInstance via the post_save signal
+    dssModelMetadataFields.save(using=db_alias);dssDataSetStructureStructureNode.save(using=db_alias); #saving again to create UKCL via the post_save signal
      
     mmStructureNode.dataset_structure = dssDataSetStructureStructureNode; mmStructureNode.save(using=db_alias)
     en1.save(using=db_alias);en2.save(using=db_alias);en4.save(using=db_alias);
@@ -78,18 +78,18 @@ def forwards_func(apps, schema_editor):
     # DATASETSTRUCTURE  eOrganizationKS
     en18.child_nodes.add(en19); en18.save(using=db_alias)
     eOrganizationKS=DataSetStructure(multiple_releases=False,root_node=en18,name=DataSetStructure.organization_DSN,
-                                     namespace="knowledge_server",description="An Organization and its Knowledge Servers",URIInstance="")
+                                     namespace="knowledge_server",description="An Organization and its Knowledge Servers",UKCL="")
     eOrganizationKS.save(using=db_alias)
     mmOrganization.dataset_structure = eOrganizationKS; mmOrganization.save(using=db_alias)
     mmKnowledgeServer.dataset_structure = eOrganizationKS; mmKnowledgeServer.save(using=db_alias)
      
     # DataSet
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,
                  root = mmModelMetadata,
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
     # DataSet has no DataSetStructure, I create the shallow one so that I can set DataSetStructure.namespace
-    # and hence generate the URIInstance for each instance of DataSet
+    # and hence generate the UKCL for each instance of DataSet
     es = ei.shallow_structure(db_alias)
     es.namespace = "knowledge_server"
     es.save(using=db_alias)
@@ -97,47 +97,47 @@ def forwards_func(apps, schema_editor):
     mmDataSet.save(using=db_alias)
     ei.save(using=db_alias)
      
-#     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+#     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
 #                  root=mmAttribute,                                   
 #                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
 #     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-#     ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+#     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
 #                  root=mmAttributeType,                               
 #                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
 #     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmStructureNode,                         
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmDataSetStructure,                             
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmOrganization,                                
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmDataSet,                              
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmKnowledgeServer,                             
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=dssModelMetadataFields,                       
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=dssDataSetStructureStructureNode,
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=eOrganizationKS,                               
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    ei = DataSet(owner_knowledge_server=the_koa_org_ks,dataset_structure=eOrganizationKS,                  
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=eOrganizationKS,                  
                  root=the_koa_org,                                   
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)

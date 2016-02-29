@@ -10,7 +10,7 @@
 
 {% block content %}
     <div class="row-fluid">
-        {% if this_ks.URIInstance == explored_ks.URIInstance %}
+        {% if this_ks.UKCL == explored_ks.UKCL %}
           <h4>This OKS contains data sets of the following <strong>types/structures</strong>: </h4>
           <h6>(<i>Follow the link to get a list of datasets</i>)</h6>
         {% else %}
@@ -20,7 +20,7 @@
           <h4>It contains data sets of the following types. Follow the link to list them: </h4>
         {% endif %}
 		{% if owned_structures %}
-          {% if this_ks.URIInstance == explored_ks.URIInstance %}
+          {% if this_ks.UKCL == explored_ks.UKCL %}
             <h5>Owned by this OKS:</h5>
           {% else %}
             <h5>Owned by the OKS you are browsing:</h5>
@@ -28,7 +28,7 @@
           <ul>
           {% for structure in owned_structures %}
             <li>
-                <a href="{% url 'datasets_of_type' ks_url structure.URIInstance "browse" %}">{{ structure.actual_instance_name }}</a> ( <a href="{% url 'datasets_of_type' ks_url structure.URIInstance "xml" %}">xml</a> | <a href="{% url 'datasets_of_type' ks_url structure.URIInstance "json" %}">json</a> )
+                <a href="{% url 'datasets_of_type' ks_url structure.UKCL "browse" %}">{{ structure.actual_instance_name }}</a> ( <a href="{% url 'datasets_of_type' ks_url structure.UKCL "xml" %}">xml</a> | <a href="{% url 'datasets_of_type' ks_url structure.UKCL "json" %}">json</a> )
             </li>
           {% endfor %}
           </ul>
@@ -38,7 +38,7 @@
           <ul>
           {% for structure in other_structures %}
             <li>
-                <a href="{% url 'datasets_of_type' ks_url structure.URIInstance "browse" %}">{{ structure.actual_instance_name }}</a> ( <a href="{% url 'datasets_of_type' ks_url structure.URIInstance "xml" %}">xml</a> | <a href="{% url 'datasets_of_type' ks_url structure.URIInstance "json" %}">json</a> ) - <a href="{% url 'ks_explorer' %}?ks_complete_url={{ structure.oks_home }}" target="_blank">{{ structure.oks_name }}</a>
+                <a href="{% url 'datasets_of_type' ks_url structure.UKCL "browse" %}">{{ structure.actual_instance_name }}</a> ( <a href="{% url 'datasets_of_type' ks_url structure.UKCL "xml" %}">xml</a> | <a href="{% url 'datasets_of_type' ks_url structure.UKCL "json" %}">json</a> ) - <a href="{% url 'ks_explorer' %}?ks_complete_url={{ structure.oks_home }}" target="_blank">{{ structure.oks_name }}</a>
             </li>
           {% endfor %}
           </ul>

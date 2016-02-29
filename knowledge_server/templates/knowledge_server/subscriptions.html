@@ -15,7 +15,7 @@
     <ul>
     {% for event in events %}
         <li>
-            "{{ event.type }}" for {{ event.dataset.URIInstance }}
+            "{{ event.type }}" for {{ event.dataset.UKCL }}
         </li>
     {% endfor %}
     </ul>
@@ -28,7 +28,7 @@
     <ul>
     {% for subscription in subscriptions_to_this %}
         <li>
-            {{ subscription.remote_url }} has subscribed to {{ subscription.first_version_URIInstance }}
+            {{ subscription.remote_url }} has subscribed to {{ subscription.first_version_UKCL }}
         </li>
     {% endfor %}
     </ul>
@@ -41,7 +41,7 @@
     <ul>
     {% for subscription in subscriptions_to_other %}
         <li>
-            {{ subscription.first_version_URIInstance }}
+            {{ subscription.first_version_UKCL }}
         </li>
     {% endfor %}
     </ul>
@@ -54,7 +54,7 @@
     <ul>
     {% for notification in notifications_to_be_sent %}
         <li>
-            "{{ notification.event.type }}" for {{ notification.event.dataset.URIInstance }} must be sent to {{ notification.remote_url }}
+            "{{ notification.event.type }}" for {{ notification.event.dataset.UKCL }} must be sent to {{ notification.remote_url }}
         </li>
     {% endfor %}
     </ul>

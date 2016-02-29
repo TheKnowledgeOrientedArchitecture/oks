@@ -11,7 +11,7 @@
 
 {% block content %}
 	<div class="row-fluid">
-		<h3>Dataset {{ dataset.URIInstance }} </h3>
+		<h3>Dataset {{ dataset.UKCL }} </h3>
     	{% version_instance_info dataset instances %}
     	<h4>Owned by:</h4>
     	{% ks_info ks %}
@@ -24,7 +24,7 @@
 			{% for version_with_instance in all_versions_with_instances %}
 			    <li>
 			    	{% version_instance_info version_with_instance.dataset version_with_instance.model_metadata %}
-			        <p><strong><a href="{{ version_with_instance.dataset.URIInstance }}">{{ version_with_instance.model_metadata.name }}</a></strong> <br>
+			        <p><strong><a href="{{ version_with_instance.dataset.UKCL }}">{{ version_with_instance.model_metadata.name }}</a></strong> <br>
 			        <i>{{ version_with_instance.model_metadata.description }}</i></p>
 			    </li>
 			{% endfor %}

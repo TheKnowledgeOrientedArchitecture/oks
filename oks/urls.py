@@ -19,7 +19,7 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
-from knowledge_server import views
+from knowledge_server import views, api
 from django.conf.urls import include, url
 
 urlpatterns = [
@@ -27,7 +27,7 @@ urlpatterns = [
 
     url(r'^oks/', include('knowledge_server.urls')),
 
-    #   catch all; if I receive an unrecognized url I try to see whether it is a URIInstance
+    #   catch all; if I receive an unrecognized url I try to see whether it is a UKCL
     # http://stackoverflow.com/questions/6545741/django-catch-all-url-without-breaking-append-slash
-    url(r'^(?P<uri_instance>.*)/$', views.api_catch_all, name='api_catch_all'), 
+    url(r'^(?P<uri_instance>.*)/$', api.api_catch_all, name='api_catch_all'), 
 ]

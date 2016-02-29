@@ -16,18 +16,18 @@ def ks_info(ks, *args, **kwargs):
     ret_html = "<p>" + ks.name
     if hasattr(ks, "organization"):
         ret_html += '<br>Maintained by "<a href="' + ks.organization.website + '" target="_blank">' + ks.organization.name + '</a>"'
-    ret_html += '<br><a href="' + ks.uri() + '/" target="_blank">' + ks.uri() + '</a>'
+    ret_html += '<br><a href="' + ks.url() + '/" target="_blank">' + ks.url() + '</a>'
     
     return ret_html
 
 @register.simple_tag
 def version_instance_info(dataset, instances, *args, **kwargs):
-    DataSet_URIInstance = urllib.urlencode({'':dataset.URIInstance})[1:]
+    DataSet_UKCL = urllib.urlencode({'':dataset.UKCL})[1:]
     ret_string = ''
     for instance in instances:
-        html_url = reverse('api_dataset_view', args=(DataSet_URIInstance,instance.pk,"html")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_URIInstance,"html"))
-        xml_url = reverse('api_dataset_view', args=(DataSet_URIInstance,instance.pk,"XML")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_URIInstance,"XML"))
-        json_url = reverse('api_dataset_view', args=(DataSet_URIInstance,instance.pk,"JSON")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_URIInstance,"JSON"))
+        html_url = reverse('api_dataset_view', args=(DataSet_UKCL,instance.pk,"html")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_UKCL,"html"))
+        xml_url = reverse('api_dataset_view', args=(DataSet_UKCL,instance.pk,"XML")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_UKCL,"XML"))
+        json_url = reverse('api_dataset_view', args=(DataSet_UKCL,instance.pk,"JSON")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_UKCL,"JSON"))
         ret_string +=  '<p>"' + instance.name + '" (<a href="' + html_url + '">browse the data</a> or'
         ret_string += ' get it in <a href="' + xml_url + '">XML</a> or '
         ret_string += '<a href="' + json_url + '">JSON</a>)<br>'
@@ -40,7 +40,7 @@ def version_instance_info(dataset, instances, *args, **kwargs):
         if dataset.version_released or dataset.dataset_structure.is_a_view:
             ret_string += '</p>'
         else:  
-            ret_string += '<br>Click <a href="' + reverse('release_dataset', args=(DataSet_URIInstance,)) + '" target="_blank">here</a> to release it.</p>'
+            ret_string += '<br>Click <a href="' + reverse('release_dataset', args=(DataSet_UKCL,)) + '" target="_blank">here</a> to release it.</p>'
     return ret_string
 
 @register.simple_tag
@@ -54,7 +54,7 @@ def json_to_html(actual_instance, json_data, esn, indent_level=0):
         ret_html = ""
         if esn.attribute == "":
             # no attribute, I am at the entry point
-            ret_html = (indent_level * "--&nbsp;") + " " + esn.model_metadata.name + ': "<a href="' + json_data["URIInstance"] + '">' + json_data[esn.model_metadata.name_field] +'</a>"<br>'
+            ret_html = (indent_level * "--&nbsp;") + " " + esn.model_metadata.name + ': "<a href="' + json_data["UKCL"] + '">' + json_data[esn.model_metadata.name_field] +'</a>"<br>'
             ret_html += actual_instance.serialized_attributes(format = 'HTML')
         else:
             if esn.is_many:
@@ -73,7 +73,7 @@ def json_to_html(actual_instance, json_data, esn, indent_level=0):
                     name = ""
                 if name == "":
                     name = esn.attribute
-                ret_html = (indent_level * "--&nbsp;") + " " + esn.model_metadata.name + ': "<a href="' + json_data["URIInstance"] + '">' + name +'</a>"<br>'
+                ret_html = (indent_level * "--&nbsp;") + " " + esn.model_metadata.name + ': "<a href="' + json_data["UKCL"] + '">' + name +'</a>"<br>'
         indent_level+=1
         for esn_child_node in esn.child_nodes.all():
             try:

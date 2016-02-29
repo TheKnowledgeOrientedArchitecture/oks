@@ -212,7 +212,7 @@ class SerializableModel(models.Model):
         I need to make sure that every SerializableModel can be saved on the database right after being created (*)
         hence I need to give a value to any attribute that can't be null
         (*) It's needed because during the import I can find a reference to an instance whose data is further away in the file
-        then I create the instance in the DB just with the URIInstance but no other data
+        then I create the instance in the DB just with the UKCL but no other data
         '''
         for key in self._meta.fields:
             if (not key.null) and key.__class__.__name__ != "ForeignKey" and (not key.primary_key):
