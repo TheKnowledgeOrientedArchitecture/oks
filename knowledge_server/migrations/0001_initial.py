@@ -51,7 +51,6 @@ class Migration(migrations.Migration):
                 ('is_shallow', models.BooleanField(default=False)),
                 ('is_a_view', models.BooleanField(default=False)),
                 ('multiple_releases', models.BooleanField(default=False)),
-                ('namespace', models.CharField(max_length=500, blank=True)),
                 ('dataset_I_belong_to', models.ForeignKey(related_name='+', blank=True, to='knowledge_server.DataSet', null=True)),
             ],
             options={
@@ -221,11 +220,6 @@ class Migration(migrations.Migration):
             options={
                 'abstract': False,
             },
-        ),
-        migrations.AddField(
-            model_name='dataset',
-            name='publisher',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.Organization'),
         ),
         migrations.AddField(
             model_name='knowledgeserver',

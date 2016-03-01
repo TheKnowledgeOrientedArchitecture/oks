@@ -45,7 +45,8 @@ def api_dataset_view(request, DataSet_UKCL, root_id, response_format):
     actual_instance_json = ""
     # this dataset is a view; I shall use root_id to retrieve the actual instance
     module_name = dataset.dataset_structure.root_node.model_metadata.module
-    actual_instance_class = OrmWrapper.load_class(module_name, dataset.dataset_structure.root_node.model_metadata.name) 
+    dataset_uri = KsUrl(DataSet_UKCL_decoded)
+    actual_instance_class = OrmWrapper.load_class(dataset_uri.netloc, module_name, dataset.dataset_structure.root_node.model_metadata.name) 
     actual_instance = actual_instance_class.objects.get(pk=root_id)
     
     if response_format == 'HTML' or response_format == 'BROWSE':
@@ -147,8 +148,8 @@ def api_catch_all(request, uri_instance):
         if len(split_path) == 3:
             module_name = split_path[0]
             simple_entity_name = split_path[1]
-            actual_class = OrmWrapper.load_class(module_name, simple_entity_name)
             this_ks = KnowledgeServer.this_knowledge_server()
+            actual_class = OrmWrapper.load_class(this_ks.netloc, module_name, simple_entity_name)
             instance = actual_class.retrieve(this_ks.url() + "/" + uri_instance)
             if response_format == 'JSON':
                 exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", ' + instance.serialize(export_format='JSON', exported_instances = []) + ' } }'

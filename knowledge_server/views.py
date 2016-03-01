@@ -21,6 +21,7 @@ import knowledge_server.forms as myforms
 from knowledge_server.models import ApiResponse, DataSet, Event, KnowledgeServer, Notification
 from knowledge_server.models import NotificationReceived, SubscriptionToOther, SubscriptionToThis
 from knowledge_server.utils import KsUrl
+from knowledge_server.migrations import ks_specific
 
 logger = logging.getLogger(__name__)
 
@@ -236,13 +237,7 @@ def debug(request):
     created to debug code
     '''
     try:
-        logger.info('Something went wrong!')
-        logger.debug("msg")
-        logger.warn("msg")
-        logger.error('Something went wrong!')
-        logger.critical("msg")
 
-    
         return HttpResponse("OK ")
     except Exception as ex:
         return HttpResponse(str(ex))

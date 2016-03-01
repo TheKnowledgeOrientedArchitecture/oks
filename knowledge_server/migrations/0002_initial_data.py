@@ -23,10 +23,13 @@ def forwards_func(apps, schema_editor):
                                      description="The main OKS, defining the main structures and datasets used by any other Knowledge Server.", 
                                      organization=the_koa_org, this_ks=True,html_home="rootks html_home",html_disclaimer="rootks html_disclaimer")
     the_koa_org_ks.save(using=db_alias)
-    the_koa_org_ks.UKCL=""; the_koa_org_ks.save(using=db_alias)
-    the_koa_org.UKCL="";    the_koa_org.save(using=db_alias)
     #ModelMetadata
-    mmModelMetadata=ModelMetadata();mmModelMetadata.name="ModelMetadata";mmModelMetadata.module="knowledge_server";mmModelMetadata.save(using=db_alias)
+    mmModelMetadata=ModelMetadata();mmModelMetadata.UKCL=the_koa_org_ks.url();mmModelMetadata.name="ModelMetadata";mmModelMetadata.module="knowledge_server";mmModelMetadata.save(using=db_alias)
+    # UKCL generation relies on the UKCL (only it's netloc) of its model metadata; for this record it is recursive so 
+    # we have to make a workaround: we set a fake one with the correct netloc and then we generate it
+    mmModelMetadata.UKCL=mmModelMetadata.generate_UKCL()
+    mmModelMetadata.save(using=db_alias)
+    # now that we have a UKCL on the ModelMetadata of ModelMetadata we can generate normally the other UKCL of ModelMetadata
     mmField=ModelMetadata();mmField.name="Field";mmField.module="django.db.models.fields";mmField.description_field="";mmField.save(using=db_alias)
     mmStructureNode=ModelMetadata();mmStructureNode.name="StructureNode";mmStructureNode.module="knowledge_server";mmStructureNode.name_field="attribute";mmStructureNode.description_field="";mmStructureNode.save(using=db_alias)
     mmDataSetStructure=ModelMetadata();mmDataSetStructure.name="DataSetStructure";mmDataSetStructure.module="knowledge_server";mmDataSetStructure.description_field;mmDataSetStructure.save(using=db_alias)
@@ -35,6 +38,10 @@ def forwards_func(apps, schema_editor):
     mmKnowledgeServer=ModelMetadata();mmKnowledgeServer.name="KnowledgeServer";mmKnowledgeServer.module="knowledge_server";mmKnowledgeServer.save(using=db_alias)
     mmLicense=ModelMetadata();mmLicense.name="License";mmLicense.module="licenses";mmLicense.save(using=db_alias)
  
+    # we need the corresponding ModelMetadata before generating the UKCL via the model_post_save
+    the_koa_org_ks.UKCL=""; the_koa_org_ks.save(using=db_alias)
+    the_koa_org.UKCL="";    the_koa_org.save(using=db_alias)
+
     # StructureNode for "ModelMetadata-fields"
     en1=StructureNode();en1.model_metadata=mmModelMetadata;en1.save(using=db_alias) 
     en2=StructureNode();en2.model_metadata=mmField;en2.method_to_retrieve="orm_metadata";en2.is_many=True;en2.save(using=db_alias)
@@ -52,7 +59,7 @@ def forwards_func(apps, schema_editor):
     dssModelMetadataFields=DataSetStructure();dssModelMetadataFields.multiple_releases=False;
     dssModelMetadataFields.root_node=en1;dssModelMetadataFields.name=DataSetStructure.model_metadata_DSN;
     dssModelMetadataFields.description="Metadata describing a model in the ORM, i.e. something closely related to what is stored in a database table, and its fields.";
-    dssModelMetadataFields.namespace="knowledge_server";dssModelMetadataFields.save(using=db_alias)
+    dssModelMetadataFields.save(using=db_alias)
 
     mmModelMetadata.dataset_structure = dssModelMetadataFields; mmModelMetadata.save(using=db_alias)
     mmField.dataset_structure = dssModelMetadataFields; mmField.save(using=db_alias)
@@ -64,8 +71,7 @@ def forwards_func(apps, schema_editor):
     en7.child_nodes.add(en6); en7.child_nodes.add(en7); en7.save(using=db_alias)
     dssDataSetStructureStructureNode=DataSetStructure(multiple_releases=False,root_node=en4,
                                                                 name=DataSetStructure.dataset_structure_DSN,
-                                                                description="A graph of simple entities that have relationships with one another and whose instances share the same version, status, ...",
-                                                                namespace="knowledge_server")
+                                                                description="A graph of simple entities that have relationships with one another and whose instances share the same version, status, ...")
     dssDataSetStructureStructureNode.save(using=db_alias)
     mmDataSetStructure.dataset_structure = dssDataSetStructureStructureNode; mmDataSetStructure.save(using=db_alias)
     dssModelMetadataFields.save(using=db_alias);dssDataSetStructureStructureNode.save(using=db_alias); #saving again to create UKCL via the post_save signal
@@ -78,7 +84,7 @@ def forwards_func(apps, schema_editor):
     # DATASETSTRUCTURE  eOrganizationKS
     en18.child_nodes.add(en19); en18.save(using=db_alias)
     eOrganizationKS=DataSetStructure(multiple_releases=False,root_node=en18,name=DataSetStructure.organization_DSN,
-                                     namespace="knowledge_server",description="An Organization and its Knowledge Servers",UKCL="")
+                                     description="An Organization and its Knowledge Servers",UKCL="")
     eOrganizationKS.save(using=db_alias)
     mmOrganization.dataset_structure = eOrganizationKS; mmOrganization.save(using=db_alias)
     mmKnowledgeServer.dataset_structure = eOrganizationKS; mmKnowledgeServer.save(using=db_alias)
@@ -88,23 +94,7 @@ def forwards_func(apps, schema_editor):
                  root = mmModelMetadata,
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-    # DataSet has no DataSetStructure, I create the shallow one so that I can set DataSetStructure.namespace
-    # and hence generate the UKCL for each instance of DataSet
-    es = ei.shallow_structure(db_alias)
-    es.namespace = "knowledge_server"
-    es.save(using=db_alias)
-    mmDataSet.dataset_structure = es
-    mmDataSet.save(using=db_alias)
-    ei.save(using=db_alias)
      
-#     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
-#                  root=mmAttribute,                                   
-#                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-#     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
-#     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
-#                  root=mmAttributeType,                               
-#                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-#     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmStructureNode,                         
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)

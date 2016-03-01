@@ -34,7 +34,7 @@ class KsUrl(object):
         self.url = url
         self.parsed = urlparse(self.url)
         # I remove format options if any, e.g.
-        # http://rootks.thekoa.org/entity/ModelMetadata/1/json/  --> http://rootks.thekoa.org/entity/ModelMetadata/1/
+        # http://root.thekoa.org/knowledge_server/ModelMetadata/1/json/  --> http://root.thekoa.org/knowledge_server/ModelMetadata/1/
         self.clean_uri = url
         # remove the trailing slash
         if self.clean_uri[-1:] == "/":
@@ -48,7 +48,7 @@ class KsUrl(object):
 
         # I check whether it's structure i well formed according to the GenerateUKCL method
         self.is_sintactically_correct = False
-        # not it looks something like: http://rootks.thekoa.org/entity/ModelMetadata/1
+        # not it looks something like: http://root.thekoa.org/knowledge_server/ModelMetadata/1
         self.clean_parsed = urlparse(self.clean_uri)
         self.scheme = ""
         for scheme in Choices.SCHEME:
@@ -57,8 +57,8 @@ class KsUrl(object):
         self.netloc = self.clean_parsed.netloc.lower()
         self.path = self.clean_parsed.path
         if self.scheme and self.netloc and self.path:
-            # the path should have the format: "/entity/ModelMetadata/1"
-            # where "entity" is the module, "ModelMetadata" is the class name and "1" is the id or pk
+            # the path should have the format: "/knowledge_server/ModelMetadata/1"
+            # where "knowledge_server" is the module/app/namespace, "ModelMetadata" is the class name and "1" is the id or pk
             temp_path = self.path
             if temp_path[0] == "/":
                 temp_path = temp_path[1:]
@@ -101,7 +101,7 @@ class KsUrl(object):
                 self.is_ks_known = False
             # I search for its class
             try:
-                self.actual_class = OrmWrapper.load_class(self.namespace, self.class_name)
+                self.actual_class = OrmWrapper.load_class(self.netloc, self.namespace, self.class_name)
             except:
                 pass
             # I search on this database

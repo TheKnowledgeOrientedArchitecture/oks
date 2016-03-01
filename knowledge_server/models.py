@@ -93,42 +93,42 @@ class ShareableModel(SerializableModel):
     def generate_UKCL(self):
         '''
         *** method that works on the same database where self is saved ***
-        This method is quite forgiving; there is no ModelMetadata? Then I use the class name and id_field="pk"
-        there is no DataSetStructure? Then I use the app name
         '''
         try:
             # http://stackoverflow.com/questions/10375019/get-database-django-model-object-was-queried-from
             db_alias = self._state.db
             this_ks = KnowledgeServer.this_knowledge_server()
 
-            # removing tail ".models"
-            namespace = self.__class__.__module__[:-7]
-            try:
-                se = self.get_model_metadata(db_alias=db_alias)
-                name = se.name
-                id_field = se.id_field
-                if se.dataset_structure != None:
-                    namespace = se.dataset_structure.namespace
-            except:
-                name = self.__class__.__name__
-                id_field = "pk"
+            se = self.get_model_metadata(db_alias=db_alias)
+            name = se.name
+            id_field = se.id_field
+            namespace = se.module
             return this_ks.url() + "/" + namespace + "/" + name + "/" + str(getattr(self, id_field))
         except Exception as es:
-            logger.warning("Exception 'generate_UKCL' " + self.__class__.__name__ + "." + str(self.pk) + ":" + str(es))
+            logger.error("Exception 'generate_UKCL' " + self.__class__.__name__ + "." + str(self.pk) + ":" + str(es))
             return ""
     
     def get_model_metadata (self, class_name="", db_alias='materialized'):
         '''
         *** method that works BY DEFAULT on the materialized database ***
+        There can be more than one class with the same name in different apps e.g. coming from different
+        OKSs; we need to find the app name as well so that we check if it matches the model metadata UKCL
         finds the instance of class ModelMetadata where the name corresponds to the name of the class of self
+        
         '''
         try:
             if class_name == "":
-                return ModelMetadata.objects.using(db_alias).get(name=self.__class__.__name__)
+                mms = ModelMetadata.objects.using(db_alias).filter(name=self.__class__.__name__)
+                for mm in mms.all():
+                    tmp_url = KsUrl(mm.UKCL)
+                    if self.__class__._meta.app_label == OrmWrapper.get_model_container_name(tmp_url.netloc, mm.module):
+                        return mm
+                raise("ModelMetadata not found. content_type.app_label="+self.__class__._meta.app_label)
             else:
+                # TBC we don't have a way to check the app yet
                 return ModelMetadata.objects.using(db_alias).get(name=class_name)
-        except:
-            logger.error('get_model_metadata - db_alias = ' + db_alias + ' - class_name self.__class__.__name__= ' + class_name + " " + self.__class__.__name__)
+        except Exception as ex:
+            logger.error('get_model_metadata - db_alias = ' + db_alias + ' - class_name self.__class__.__name__= ' + class_name + " " + self.__class__.__name__ + " -- " + str(ex))
             
     def structures(self):
         '''
@@ -347,7 +347,7 @@ class ShareableModel(SerializableModel):
                     export_dict[tag_name] = tmp_dict
                 return export_dict
             
-    def save_from_xml(self, xmldoc, structure_node, parent=None):
+    def save_from_xml(self, structure_netloc, xmldoc, structure_node, parent=None):
         '''
         save_from_xml gets from xmldoc the attributes of self and saves it; it searches for child nodes according
         to structure_node.child_nodes, creates instances of child objects and calls itself recursively
@@ -378,7 +378,8 @@ class ShareableModel(SerializableModel):
             xmldoc.attributes["REFERENCE_IN_THIS_FILE"]
             # if the TAG is not there an exception will be raised and the method will continue and expect to find all data
             module_name = structure_node.model_metadata.module
-            actual_class = OrmWrapper.load_class(module_name, structure_node.model_metadata.name) 
+            
+            actual_class = OrmWrapper.load_class(structure_netloc, module_name, structure_node.model_metadata.name) 
             try:
                 instance = actual_class.retrieve(xmldoc.attributes["UKCL"].firstChild.data)
                 # It's in the database; I just need to set its parent; data is either already there or it will be updated later on
@@ -436,10 +437,9 @@ class ShareableModel(SerializableModel):
                         # I search for the corresponding ModelMetadata
                          
                         se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
-                        # TODO: I'd like the module name to be function of the organization and namespace
                         assert (child_node.model_metadata.name == se.name), "child_node.model_metadata.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
                         module_name = child_node.model_metadata.module
-                        actual_class = OrmWrapper.load_class(module_name, child_node.model_metadata.name)
+                        actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
                         if child_node.external_reference:
                             '''
                             If it is an external reference I must search for it in the database first;  
@@ -461,7 +461,7 @@ class ShareableModel(SerializableModel):
                         else:
                             instance = actual_class()
                             # save_from_xml takes care of saving instance with a self.save() at the end
-                            instance.save_from_xml(xml_child_node, child_node)  # the fourth parameter, "parent" shouldn't be necessary in this case as this is a ForeignKey
+                            instance.save_from_xml(structure_netloc, xml_child_node, child_node)  # the fourth parameter, "parent" shouldn't be necessary in this case as this is a ForeignKey
                         setattr(self, child_node.attribute, instance)
                 except Exception as ex:
                     logger.error("save_from_xml: " + str(ex))
@@ -506,7 +506,7 @@ class ShareableModel(SerializableModel):
                         se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
                         module_name = child_node.model_metadata.module
                         assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
-                        actual_class = OrmWrapper.load_class(module_name, child_node.model_metadata.name)
+                        actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
                         if child_node.external_reference:
                             instance = actual_class.retrieve(xml_child_node.attributes["UKCL"].firstChild.data)
                             # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
@@ -519,7 +519,7 @@ class ShareableModel(SerializableModel):
                         else:
                             instance = actual_class()
                             # is_many = True, I need to add this instance to self
-                            instance.save_from_xml(xml_child_node, child_node, self)
+                            instance.save_from_xml(structure_netloc, xml_child_node, child_node, self)
                             related_parent = getattr(self._meta.concrete_model, child_node.attribute)
                             related_list = getattr(self, child_node.attribute)
                             # if it is not there yet ...
@@ -533,7 +533,7 @@ class ShareableModel(SerializableModel):
                     se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
                     module_name = child_node.model_metadata.module
                     assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
-                    actual_class = OrmWrapper.load_class(module_name, child_node.model_metadata.name)
+                    actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
                     if child_node.external_reference:
                         instance = actual_class.retrieve(xml_child_node.attributes["UKCL"].firstChild.data)
                         # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
@@ -545,7 +545,7 @@ class ShareableModel(SerializableModel):
                             self.save()
                     else:
                         instance = actual_class()
-                        instance.save_from_xml(xml_child_node, child_node, self)
+                        instance.save_from_xml(structure_netloc, xml_child_node, child_node, self)
         
     def new_version(self, sn, processed_instances, parent=None):
         '''
@@ -818,7 +818,17 @@ class ModelMetadata(ShareableModel):
     '''
     # this name corresponds to the class name
     name = models.CharField(max_length=100)
-    # for Django it corresponds to the module which contains the class 
+    '''
+    The module determines the app/module name containing the class
+    describing the model (e.g. the object-relational mapping). A module acts as 
+    a namespace that belongs to the organization that created the model (and the 
+    ModelMetadata record). Within that namespace the model names are unique. A model 
+    License che be in the "licenses" namespace of an OKS but also on the "software"
+    namespace of the OKS or on another namespace of another OKS.
+    Along with the Organization URL netloc, it is used to create a unique
+    name for the app/module so that there can be no collisions. See OrmWrapper
+    for more details.
+    '''
     module = models.CharField(max_length=500)
     description = models.CharField(max_length=2000, default="")
     table_name = models.CharField(max_length=255, db_column='tableName', default="")
@@ -1002,22 +1012,6 @@ class DataSetStructure(ShareableModel):
     '''
     multiple_releases = models.BooleanField(default=False)
     
-    '''
-    TODO: the namespace is defined in the organization owner of this DataSetStructure
-    within that organization (or maybe within the KS in that Organization)
-    names of ModelMetadata are unique. When importing a ModelMetadata from
-    an external KS we need to create a namespace (and a corresponding module
-    where the class of the model must live) with a unique name. It can
-    be done combining the netloc of the URL of the KS with the namespace;
-    so when I import a WorkFlow from the namespace "entity" of rootks.thekoa.org 
-    in my local KS it will live in the namespace/module:
-        something like: rootks.thekoa.org_entity
-    Within that namespace the KS it originated from ensures the ModelMetadata name
-    is unique; locally in my KS I make sure there is no other namespace of that form
-    (maybe not allowing "_"?)
-    '''
-    namespace = models.CharField(max_length=500, blank=True)
-    
     def navigate(self, dataset, instance_method_name, node_method_name, children_before = True):
         '''
         Many methods do things on each node navigating in the structure
@@ -1046,7 +1040,8 @@ class DataSetStructure(ShareableModel):
         app_models = self.root_node.app_models(processed_instances={})
         code_per_app = {}
         for app_model in app_models:
-            c = OrmWrapper.load_class(app_model['app'], app_model['model'])
+            netloc = KsUrl(self.UKCL).netloc
+            c = OrmWrapper.load_class(netloc, app_model['app'], app_model['model'])
             # I need the list of methods to guarantee I am not injecting code into another OKS
             c_methods  = list({x: c.__dict__[x]} for x in c.__dict__.keys() if inspect.isroutine(c.__dict__[x]))
             # let's exclude instances of ManagerDescriptor from the list
@@ -1073,7 +1068,8 @@ class DataSetStructure(ShareableModel):
         persistable = True
         for app_model in app_models:
             try:
-                OrmWrapper.load_class(app_model['app'], app_model['model'])
+                netloc = KsUrl(self.UKCL).netloc
+                OrmWrapper.load_class(netloc, app_model['app'], app_model['model'])
             except:
                 persistable = False
         if not persistable:
@@ -1186,14 +1182,10 @@ class DataSet(ShareableModel):
     '''
     The knowledge server that is making this dataset available; not necessarily the
     organization that owns this knowledge server is the author of the data in the set.
+    The Organization that has published the information in this dataset is 
+    knowledge_server.organization.
     '''
     knowledge_server = models.ForeignKey("knowledge_server.KnowledgeServer")
-
-    '''
-    The Organization that has published the information in this dataset declaring the 
-    licenses DataSet.licenses; if empty, knowledge_server.organization would be the one.
-    '''
-    publisher = models.ForeignKey("knowledge_server.Organization", null=True, blank=True)
 
     # if the dataset structure is intended to be a view there won't be any version information
     # assert dataset_structure.is_a_view ===> root, version, ... == None
@@ -1354,8 +1346,12 @@ class DataSet(ShareableModel):
         
         dataset_xml = xmldoc.childNodes[0].childNodes[0]
         DataSetStructureURI = dataset_xml.getElementsByTagName("dataset_structure")[0].attributes["UKCL"].firstChild.data
+        # The structure netloc tells me the OKS that created the structure and the models for the nodes
+        # so I will pass it to load_class in this method and in from_xml too
+        dss_url = KsUrl(DataSetStructureURI)
+        structure_netloc = dss_url.netloc
 
-        # the structure is present locally
+        # the structure is present locally because when I receive a dataset I import the structure before importing the dataset itself
         es = DataSetStructure.retrieve(DataSetStructureURI)
         es.make_persistable()
         self.dataset_structure = es
@@ -1370,22 +1366,23 @@ class DataSet(ShareableModel):
                 else:
                     # I create the actual instance
                     actual_instances_xml.append(dataset_xml.getElementsByTagName("ActualInstance")[0].childNodes[0])
-                actual_class = OrmWrapper.load_class(es.root_node.model_metadata.module, es.root_node.model_metadata.name)
+                actual_class = OrmWrapper.load_class(structure_netloc, es.root_node.model_metadata.module, es.root_node.model_metadata.name)
                 for actual_instance_xml in actual_instances_xml:
                     # already imported ?
                     actual_instance_UKCL = actual_instance_xml.attributes["UKCL"].firstChild.data
                     try:
                         actual_instance = actual_class.retrieve(actual_instance_UKCL)
-                        # it is already in this database; ?????I return the corresponding DataSet
-#?????                        return DataSet.objects.get(dataset_structure=es, entry_point_instance_id=actual_instance_on_db.pk)
+                        # it is already in this database; no need to import it again; UKCL is a persistent unique  
+                        # identifier so changing the data it identifies would be an error
                     except:  # I didn't find it on this db, no problem
                         actual_instance = actual_class()
-                        actual_instance.save_from_xml(actual_instance_xml, es.root_node)
+                        actual_instance.save_from_xml(structure_netloc, actual_instance_xml, es.root_node)
                         # save_from_xml saves actual_instance on the database
                 
                 # I create the DataSet if not already imported
                 dataset_UKCL = dataset_xml.attributes["UKCL"].firstChild.data
                 try:
+                    logger.warning("DataSet.import_dataset - I am importing a DataSet that is already in this database; it seems it doesn't not make sense; take a look at it: " + dataset_UKCL)
                     dataset_on_db = DataSet.retrieve(dataset_UKCL)
                     if not es.is_a_view:
                         dataset_on_db.root = actual_instance
@@ -1393,9 +1390,9 @@ class DataSet(ShareableModel):
                     return dataset_on_db
                 except:  # I didn't find it on this db, no problem
                     # In the next call the KnowledgeServer owner of this DataSet must exist
-                    # So it must be imported while subscribing; it is imported by this very same method
-                    # Since it is in the actual instance the next method will find it
-                    self.save_from_xml(dataset_xml, self.shallow_structure().root_node)
+                    # because it was imported while subscribing; it is imported by this very same method
+                    # since it is in the actual instance the next method will find it
+                    self.save_from_xml(structure_netloc, dataset_xml, self.shallow_structure().root_node)
                     if not es.is_a_view:
                         self.root = actual_instance
                         self.save()
@@ -1412,7 +1409,11 @@ class DataSet(ShareableModel):
         CHECK: default materialized? E' una view e quindi che senso ha andare su default dove ci sono anche le versioni vecchie?
         '''
         mm_model_metadata = self.dataset_structure.root_node.model_metadata
-        actual_class = OrmWrapper.load_class(mm_model_metadata.module, mm_model_metadata.name)
+        # The structure netloc tells me the OKS that created the structure and the models for the nodes
+        # so I will pass it to load_class in this method and in from_xml too
+        dss_url = KsUrl(self.dataset_structure.UKCL)
+        structure_netloc = dss_url.netloc
+        actual_class = OrmWrapper.load_class(structure_netloc, mm_model_metadata.module, mm_model_metadata.name)
         q = eval("Q(" + self.filter_text + ")")
         return actual_class.objects.using(db_alias).filter(q)
 
@@ -1486,7 +1487,11 @@ class DataSet(ShareableModel):
                 new_ds.version_major = version_major
                 new_ds.version_minor = version_minor
                 new_ds.version_patch = version_patch
+                # I am making a new version of a DataSet so I take the ownership
+                # If we are not the publishers, we must have checked that derivative works are possible before doing so!
                 new_ds.knowledge_server = KnowledgeServer.this_knowledge_server('default')
+                # I link the new one with the previous version
+                new_ds.UKCL_previous_version = self.UKCL
                 new_ds.dataset_structure = self.dataset_structure
                 new_ds.first_version = self.first_version
                 new_ds.version_description = version_description
@@ -1542,7 +1547,7 @@ class DataSet(ShareableModel):
                 currently_released = None
                 previously_released = None
                 if not self.dataset_structure.multiple_releases:
-                    # There cannot be more than one released? I set the others to False
+                    # There cannot be more than one released? I set the other one to False
                     try:
                         currently_released = self.first_version.versions.get(version_released=True)
                         if currently_released.pk != self.pk:
@@ -1550,7 +1555,7 @@ class DataSet(ShareableModel):
                             currently_released.save()
                         previously_released = currently_released
                     except Exception as ex:
-                        # TODO: check if .get has returned more than one release, if so throw an exception
+                        # there's no other version released
                         pass
                     if previously_released and previously_released.pk == self.pk:
                         # version_released was erroneously set to True before the set_released (TODO: it should be encapsulated in a property)
@@ -1707,15 +1712,15 @@ class KnowledgeServer(ShareableModel):
     # this is handled when importing data about an external KS
     this_ks = models.BooleanField(default=False)
     # urlparse terminology https://docs.python.org/2/library/urlparse.html
-#     scheme e.g. { "http" | "https" }
+    # scheme e.g. { "http" | "https" }
     scheme = models.CharField(max_length=50)
-#     netloc e.g. "ks.thekoa.org"
+    # netloc e.g. "root.thekoa.org"
     netloc = models.CharField(max_length=200)
-#     html_home text that gets displayed at the home page
+    #  html_home text that gets displayed at the home page
     html_home = models.CharField(max_length=4000, default="")
-#     html_disclaimer text that gets displayed at the disclaimer page
+    #  html_disclaimer text that gets displayed at the disclaimer page
     html_disclaimer = models.CharField(max_length=4000, default="")
-    
+    #  html_* can include html tags
     organization = models.ForeignKey(Organization)
 
     def url(self, encode=False):
