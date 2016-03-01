@@ -7,6 +7,7 @@
 import importlib
 import inspect
 import json
+import logging
 import os
 import knowledge_server.utils
 import urllib
@@ -31,9 +32,11 @@ from django.db.migrations.state import ModelState, ProjectState
 from django.db.models import Max, Q
 from django.db.models.manager import ManagerDescriptor
 
-from knowledge_server.utils import KsUrl, poor_mans_logger
+from knowledge_server.utils import KsUrl
 from knowledge_server.orm_wrapper import OrmWrapper
 from serializable.models import SerializableModel
+
+logger = logging.getLogger(__name__)
 
 class CustomModelManager(models.Manager):
     '''
@@ -63,7 +66,7 @@ def model_post_save(sender, **kwargs):
             if kwargs['instance'].UKCL != "":
                 kwargs['instance'].save()
         except Exception as e:
-            print ("ERROR in model_post_save kwargs['instance'].UKCL: " + kwargs['instance'].UKCL + "  -  " + str(e))
+            logger.error("model_post_save kwargs['instance'].UKCL: " + kwargs['instance'].UKCL + "  -  " + str(e))
 
 
 class ShareableModel(SerializableModel):
@@ -111,7 +114,7 @@ class ShareableModel(SerializableModel):
                 id_field = "pk"
             return this_ks.url() + "/" + namespace + "/" + name + "/" + str(getattr(self, id_field))
         except Exception as es:
-            print ("Exception 'generate_UKCL' " + self.__class__.__name__ + "." + str(self.pk) + ":" + str(es))
+            logger.warning("Exception 'generate_UKCL' " + self.__class__.__name__ + "." + str(self.pk) + ":" + str(es))
             return ""
     
     def get_model_metadata (self, class_name="", db_alias='materialized'):
@@ -119,7 +122,6 @@ class ShareableModel(SerializableModel):
         *** method that works BY DEFAULT on the materialized database ***
         finds the instance of class ModelMetadata where the name corresponds to the name of the class of self
         '''
-        logger = poor_mans_logger()
         try:
             if class_name == "":
                 return ModelMetadata.objects.using(db_alias).get(name=self.__class__.__name__)
@@ -184,7 +186,6 @@ class ShareableModel(SerializableModel):
                     try:
                         node_fk.model_metadata = self.get_model_metadata(class_name)
                     except Exception as ex:
-                        logger = poor_mans_logger()
                         logger.error("shallow_structure_node class_name = " + class_name + " - " + str(ex))
                 else:
                     node_fk.model_metadata = getattr(self, fk).get_model_metadata()
@@ -302,7 +303,7 @@ class ShareableModel(SerializableModel):
                                 serialized += child_serialized
                                 outer_comma = ", "
             except Exception as ex:
-                print(str(ex))
+                logger.error("ShareableModel.serialize: " + str(ex))
             if export_format == 'XML':
                 return '<' + tag_name + self.serialized_URI_MM(export_format) + self.serialized_attributes(parent_class=ShareableModel, format=export_format) + '>' + self.serialized_tags(parent_class=ShareableModel) + serialized + '</' + tag_name + '>'
             if export_format == 'JSON':
@@ -360,7 +361,6 @@ class ShareableModel(SerializableModel):
             save_from_xml doesn't get called recursively for external_references which are to be found in the database
             or to remain dangling references
         '''
-        logger = poor_mans_logger()
         field_name = ""
         if parent:
 #           I have a parent; let's set it
@@ -626,8 +626,8 @@ class ShareableModel(SerializableModel):
                 return self.__class__.objects.using('materialized').get(UKCL=self.UKCL)
             except Exception as ex:
                 new_ex = Exception("ShareableModel.materialize: external_reference to self.UKCL: " + self.UKCL + " searching it on materialized: " + str(ex) + " Should we add it to dangling references?????")
-                print(str(ex))
-                raise ex
+                logger.error("ShareableModel.materialize: external_reference to self.UKCL: " + self.UKCL + " searching it on materialized: " + str(ex) + " Should we add it to dangling references?????")
+                raise new_ex
 
         if self.UKCL and str(self.UKCL) in processed_instances:
             # already materialized it, I return that one 
@@ -660,7 +660,7 @@ class ShareableModel(SerializableModel):
                             new_child_instance = child_instance.materialize(sn_child_node, processed_instances)
                             setattr(new_instance, sn_child_node.attribute, new_child_instance)  # the parameter "parent" shouldn't be necessary in this case as this is a ForeignKey
                 except Exception as ex:
-                    print("ShareableModel.materialize: " + self.__class__.__name__ + " " + str(self.pk) + " attribute \"" + sn_child_node.attribute + "\" " + str(ex))
+                    logger.warning("ShareableModel.materialize: " + self.__class__.__name__ + " " + str(self.pk) + " attribute \"" + sn_child_node.attribute + "\" " + str(ex))
                     pass
         for key in self._meta.fields:
             if key.__class__.__name__ != "ForeignKey" and self._meta.pk != key:
@@ -757,7 +757,7 @@ class ShareableModel(SerializableModel):
             else:
                 raise Exception('NOT IMPLEMENTED in ShareableModel.delete_children: mapping between different versions: UKCL "' + self.UKCL + '" has ' + str(len(new_instances)) + ' materialized records that have this as UKCL_previous_version.') 
         except Exception as e:
-            print(str(e))
+            logger.error(str(e))
 
     def navigate_helper_set_dataset(self, instance, status):
         if not 'output' in status.keys():
@@ -854,8 +854,7 @@ class ModelMetadata(ShareableModel):
                 if (not dataset_type in types) and dataset_type.is_shallow == is_shallow and dataset_type.is_a_view == is_a_view:
                     types.append(dataset_type)
         except Exception as ex:
-            print ("dataset_structures type(self): " + str(type(self)) + " self.id " + str(self.id) + str(ex))
-            print ("visited_nodes_ids : " + str(visited_nodes_ids))
+            logger.error("dataset_structures type(self): " + str(type(self)) + " self.id " + str(self.id) + str(ex) + "\ndataset_structures visited_nodes_ids : " + str(visited_nodes_ids))
         return types
 
 
@@ -1401,7 +1400,7 @@ class DataSet(ShareableModel):
                         self.root = actual_instance
                         self.save()
         except Exception as ex:
-            print (str(ex))
+            logger.error("import_dataset: " + str(ex))
             raise ex
         return self
 
@@ -1495,7 +1494,7 @@ class DataSet(ShareableModel):
                     new_ds.version_date = version_date
                 new_ds.save()
         except Exception as e:
-            print (str(e))
+            logger.error("new_version: " + str(e))
         return new_ds
 
 
@@ -1519,8 +1518,8 @@ class DataSet(ShareableModel):
                 self.materialize(self.shallow_structure().root_node, processed_instances=[])
             # end of transaction
         except Exception as ex:
+            logger.error("materialize_dataset (" + self.description + "): " + str(ex))
             raise ex
-            print ("materialize_dataset (" + self.description + "): " + str(ex))
 
 
     def set_dataset_on_instances(self):
@@ -1663,7 +1662,7 @@ class DataSet(ShareableModel):
                                         e.save()
                     # end of transaction
         except Exception as ex:
-            print ("set_released (" + self.description + "): " + str(ex))
+            logger.error("set_released (" + self.description + "): " + str(ex))
     
 
     def delete_entire_dataset(self):
@@ -1765,7 +1764,7 @@ class KnowledgeServer(ShareableModel):
                     sub.save()
             except Exception as e:
                 message += "process_events, subscriptions error: " + str(e)
-                print (str(e))
+                logger.error("process_events, subscriptions error: " + str(e))
             
         # events
         events = Event.objects.filter(processed=False, type="New version")
@@ -1785,7 +1784,7 @@ class KnowledgeServer(ShareableModel):
                     event.save()
             except Exception as e:
                 message += "process_events, events error: " + str(e)
-                print (str(e))
+                logger.error("process_events, events error: " + str(e))
         return message + "<br>"
     
     def send_notifications(self):
@@ -1822,6 +1821,7 @@ class KnowledgeServer(ShareableModel):
                     message += "send_notifications " + notification.remote_url + " responded: " + ar.message + "<br>"
         except Exception as e:
             message += "send_notifications error: " + str(e)
+            logger.error("send_notifications error: " + str(e))
         return message + "<br>"
     
     def process_received_notifications(self):
@@ -1893,6 +1893,7 @@ class KnowledgeServer(ShareableModel):
                     notification.save()
             except Exception as ex:
                 message += "process_received_notifications error: " + str(ex)
+                logger.error("process_received_notifications error: " + str(ex))
         return message + "<br>"
         
     @staticmethod

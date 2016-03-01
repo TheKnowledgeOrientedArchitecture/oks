@@ -44,7 +44,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'serializable',
-    'shareable',
     'licenses',
     'knowledge_server',
 )
@@ -65,7 +64,7 @@ ROOT_URLCONF = 'oks.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [ ( os.path.join(BASE_DIR,  'templates') ) ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -86,9 +85,21 @@ WSGI_APPLICATION = 'oks.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+        'ENGINE': 'django.db.backends.mysql', 
+        'NAME': 'licensedemooks', 
+        'USER': '#########',
+        'PASSWORD': '#########',
+        'HOST': '127.0.0.1', 
+        'PORT': '3306', 
+    },
+    'materialized': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'licensedemooksm', 
+        'USER': '######',
+        'PASSWORD': '####',
+        'HOST': '127.0.0.1',
+        'PORT': '3306', 
+    },
 }
 
 
@@ -108,5 +119,55 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
-
 STATIC_URL = '/static/'
+
+# Additional locations of static files
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, "static"),
+)
+
+# List of finder classes that know how to find static files in
+# various locations.
+STATICFILES_FINDERS = (
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+)
+
+
+# settings.py
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format' : "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] %(message)s",
+            'datefmt' : "%d/%b/%Y %H:%M:%S"
+        },
+        'simple': {
+            'format': '[%(asctime)s] %(levelname)s %(message)s'
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/tmp/oks.log',
+            'formatter': 'verbose'
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers':['file'],
+            'propagate': True,
+            'level':'WARNING',
+        },
+        'knowledge_server': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+        },
+        'serializable': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+        },
+    }
+}

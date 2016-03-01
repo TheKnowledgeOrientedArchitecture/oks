@@ -1,0 +1,16 @@
+--- <senza nome>
++++ <senza nome>
+@@ -85,11 +85,8 @@
+         else:
+             top_dir = os.path.abspath(path.expanduser(target))
+             if not os.path.exists(top_dir):
+-                if isinstance(self, django.core.management.commands.startapp.Command):
+-                    os.makedirs(top_dir)
+-                else:
+-                    raise CommandError("Destination directory '%s' does not "
+-                                       "exist, please create it first." % top_dir)
++                raise CommandError("Destination directory '%s' does not "
++                                   "exist, please create it first." % top_dir)
+ 
+         extensions = tuple(handle_extensions(options['extensions']))
+         extra_files = []

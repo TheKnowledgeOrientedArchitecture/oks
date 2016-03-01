@@ -4,62 +4,12 @@
 #
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
-import importlib
 import urllib
-import knowledge_server.models 
-from datetime import datetime
+
 from urllib.parse import urlparse
 
-from django.conf import settings
-
+import knowledge_server.models 
 from knowledge_server.orm_wrapper import OrmWrapper
-
-class xmlMinidom():
-    @staticmethod    
-    def getString(xmldoc, tag):
-        try:
-            return xmldoc.getElementsByTagName(tag)[0].firstChild.data
-        except:
-            return ""
-
-    @staticmethod    
-    def getStringAttribute(xmldoc, tag):
-        try:
-            return xmldoc.attributes[tag].firstChild.data
-        except:
-            return "" 
-        
-    @staticmethod    
-    def getNaturalAttribute(xmldoc, tag):
-        '''
-        a natural number; if it's not there -1 is returned
-        '''
-        try:
-            return int(xmldoc.attributes[tag].firstChild.data)
-        except:
-            return -1
-
-class poor_mans_logger():
-        
-    def log(self, message):
-        logfile = open('/tmp/' + settings.LOG_FILE_NAME + '.log', "a")
-        logfile.write(str(datetime.now()) + " " + message + "\n")
-        logfile.close
-        
-    def debug(self, message):
-        self.log("Debug: " + message)
-        
-    def info(self, message):
-        self.log("Info: " + message)
-        
-    def warning(self, message):
-        self.log("Warning: " + message)
-        
-    def error(self, message):
-        self.log("Error: " + message)
-
-    def critical(self, message):
-        self.log("Critical: " + message)
 
 class Choices():
     # in lower case as they are brought to lower before verification
