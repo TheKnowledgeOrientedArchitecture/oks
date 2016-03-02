@@ -70,7 +70,6 @@ class KsUrl(object):
                 if temp_path.find('/'):
                     self.class_name = temp_path[:temp_path.find('/')]
                     temp_path = temp_path[temp_path.find('/') + 1:]
-                    print(temp_path)
                     if temp_path.find('/') < 0:
                         self.pk_value = temp_path
                         self.is_sintactically_correct = True

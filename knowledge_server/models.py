@@ -413,16 +413,16 @@ class ShareableModel(SerializableModel):
                     if key.__class__.__name__ in SerializableModel.classes_serialized_as_tags and (not key.name in list(key.name for key in ShareableModel._meta.fields)):
                         child_tag = xmldoc.getElementsByTagName(key.name)[0]
                         setattr(self, key.name, child_tag.firstChild.data)
-                    if key.__class__.__name__ == "BooleanField":
+                    elif key.__class__.__name__ == "BooleanField":
                         setattr(self, key.name, xmldoc.attributes[key.name].firstChild.data.lower() == "true") 
                     elif key.__class__.__name__ == "IntegerField":
                         setattr(self, key.name, int(xmldoc.attributes[key.name].firstChild.data))
                     else:
                         setattr(self, key.name, xmldoc.attributes[key.name].firstChild.data)
-                except:
-                    logger.error("Error extracting from xml \"" + key.name + "\" for object of class \"" + self.__class__.__name__ + "\" with PK " + str(self.pk))
+                except Exception as ex:
+                    logger.warning("Extracting from xml \"" + key.name + "\" for object of class \"" + self.__class__.__name__ + "\" with PK " + str(self.pk) + ". Exception: " + str(ex))
         # in the previous loop I have set the pk too; I must set it to None before saving
-        self.pk = None   # TEST: CONTROLLA CHE UKCL UKCL sia settato!!!
+        self.pk = None
 
         # I must set foreign_key child nodes BEFORE SAVING self otherwise I get an error for ForeignKeys not being set
         for child_node in structure_node.child_nodes.all():
@@ -676,13 +676,14 @@ class ShareableModel(SerializableModel):
         for sn_child_node in sn.child_nodes.all():
             if not (sn_child_node.attribute in self.foreign_key_attributes()):
                 if sn_child_node.is_many:
-                    child_instances = eval("self." + sn_child_node.attribute + ".all()")
-                    for child_instance in child_instances:
-                        # let's prevent infinite loops if self relationships
-                        if (child_instance.__class__.__name__ == self.__class__.__name__) and (self.pk == sn_child_node.pk):
-                            eval("new_instance." + sn_child_node.attribute + ".add(new_instance)")
-                        else:
-                            new_child_instance = child_instance.materialize(sn_child_node, processed_instances, new_instance)
+                    if not sn_child_node.method_to_retrieve:
+                        child_instances = eval("self." + sn_child_node.attribute + ".all()")
+                        for child_instance in child_instances:
+                            # let's prevent infinite loops if self relationships
+                            if (child_instance.__class__.__name__ == self.__class__.__name__) and (self.pk == sn_child_node.pk):
+                                eval("new_instance." + sn_child_node.attribute + ".add(new_instance)")
+                            else:
+                                new_child_instance = child_instance.materialize(sn_child_node, processed_instances, new_instance)
                 else:
                     # not is_many ###############################################################################
                     child_instance = eval("self." + sn_child_node.attribute)
@@ -790,7 +791,7 @@ class ShareableModel(SerializableModel):
     @staticmethod
     def intersect_list(first, second):
         first_UKCLs = list(i.UKCL for i in first)
-        return filter(lambda x: x.UKCL in first_UKCLs, second)
+        return [item for item in second if item.UKCL in first_UKCLs]
             
     class Meta:
         abstract = True
@@ -1667,7 +1668,7 @@ class DataSet(ShareableModel):
                                         e.save()
                     # end of transaction
         except Exception as ex:
-            logger.error("set_released (" + self.description + "): " + str(ex))
+            logger.error("set_released DataSet " + str(self.pk) + " '" + self.description + "': " + str(ex))
     
 
     def delete_entire_dataset(self):

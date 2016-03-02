@@ -36,8 +36,11 @@ def forwards_func(apps, schema_editor):
     mmOrganization=ModelMetadata();mmOrganization.name="Organization";mmOrganization.module="knowledge_server";mmOrganization.save(using=db_alias)
     mmDataSet=ModelMetadata();mmDataSet.name="DataSet";mmDataSet.module="knowledge_server";mmDataSet.name_field="";mmDataSet.description_field="";mmDataSet.save(using=db_alias)
     mmKnowledgeServer=ModelMetadata();mmKnowledgeServer.name="KnowledgeServer";mmKnowledgeServer.module="knowledge_server";mmKnowledgeServer.save(using=db_alias)
-    mmLicense=ModelMetadata();mmLicense.name="License";mmLicense.module="licenses";mmLicense.save(using=db_alias)
- 
+    mmEvent=ModelMetadata();mmEvent.name="Event";mmEvent.module="knowledge_server";mmEvent.save(using=db_alias)
+    mmSubscriptionToThis=ModelMetadata();mmSubscriptionToThis.name="SubscriptionToThis";mmSubscriptionToThis.module="knowledge_server";mmSubscriptionToThis.save(using=db_alias)
+    mmSubscriptionToOther=ModelMetadata();mmSubscriptionToOther.name="SubscriptionToOther";mmSubscriptionToOther.module="knowledge_server";mmSubscriptionToOther.save(using=db_alias)
+    mmNotification=ModelMetadata(); mmNotification.name="Notification"; mmNotification.module="knowledge_server"; mmNotification.save(using=db_alias)
+
     # we need the corresponding ModelMetadata before generating the UKCL via the model_post_save
     the_koa_org_ks.UKCL=""; the_koa_org_ks.save(using=db_alias)
     the_koa_org.UKCL="";    the_koa_org.save(using=db_alias)
@@ -115,6 +118,23 @@ def forwards_func(apps, schema_editor):
                  root=mmKnowledgeServer,                             
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+                 root=mmEvent,
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+                 root=mmSubscriptionToThis,
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+                 root=mmSubscriptionToOther,
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+                 root=mmNotification,
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=dssModelMetadataFields,                       
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
