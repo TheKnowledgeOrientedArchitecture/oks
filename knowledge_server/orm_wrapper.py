@@ -40,8 +40,9 @@ class OrmWrapper():
                     importlib.invalidate_caches()
                     module = importlib.reload(module)
             return getattr(module, class_name)        
-        except:
-            return None
+        except Exception as ex:
+            logger.warning("OrmWrapper.load_class not found netloc %s, module_name %s, class_name %s: _%s" % (netloc, module_name, class_name, str(ex)))
+            raise(ex)
     
     @staticmethod
     def get_model_container_name(netloc, name):

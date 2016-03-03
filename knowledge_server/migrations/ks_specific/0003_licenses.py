@@ -6,9 +6,13 @@
 
 from __future__ import unicode_literals
 
+import logging
+
 from django.db import models, migrations
 from knowledge_server.models import Organization, KnowledgeServer, DataSet, DataSetStructure, ModelMetadata, StructureNode
 from licenses.models import License
+
+logger = logging.getLogger(__name__)
 
 def forwards_func(apps, schema_editor):
     test_license_org = Organization();test_license_org.name = "A test Organization hosting license information";test_license_org.website = 'http://license_org.example.com';test_license_org.description = "This is just a test Organization.";
@@ -63,8 +67,8 @@ def forwards_func(apps, schema_editor):
     ei.set_released()  # here materialization happens
 
 
-    
-    mmLicense.dataset_structure = dssLicense; mmLicense.save(using='default')
+    # I need to reload it otherwise I overwrite the dataset_I_belong_to that is written in set_released
+    mmLicense = ModelMetadata.objects.using('default').get(UKCL = mmLicense.UKCL)
     m_dssLicense = DataSetStructure.objects.using('materialized').get(UKCL = dssLicense.UKCL)
     m_mmLicense = ModelMetadata.objects.using('materialized').get(UKCL = mmLicense.UKCL)
     m_mmLicense.dataset_structure = m_dssLicense; m_mmLicense.save(using='materialized')

@@ -145,8 +145,6 @@ def home(request):
     cont = RequestContext(request, {'this_ks':this_ks, 'this_ks_encoded_url':this_ks.url(True)})
     return render(request, 'knowledge_server/home.html', context_instance=cont)
 
-
-    
     
 def this_ks_unsubscribes_to(request, UKCL):
     '''
@@ -197,6 +195,7 @@ def this_ks_subscribes_to(request, UKCL):
                 return render(request, 'knowledge_server/export.json', {'json': ar.response}, content_type="application/json")
     except Exception as ex:
         return HttpResponse(str(ex))
+
     
 def cron(request):
     '''

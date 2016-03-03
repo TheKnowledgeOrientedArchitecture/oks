@@ -196,10 +196,10 @@ class ShareableModel(SerializableModel):
                 node.child_nodes.add(node_fk)
         for rm in self.related_manager_attributes():
             # TODO: shallow_structure_node: implement self.related_manager_attributes case
-            pass
+            logger.critical("shallow_structure_node class_name = " + class_name + " - TO BE IMPLEMENTED: related_manager_attributes")
         for mrm in self.many_related_manager_attributes():
             # TODO: shallow_structure_node: implement self.many_related_manager_attributes case
-            pass
+            logger.critical("shallow_structure_node class_name = " + class_name + " - TO BE IMPLEMENTED: many_related_manager_attributes")
         node.save(using=db_alias)
         return node
 
@@ -420,7 +420,7 @@ class ShareableModel(SerializableModel):
                     else:
                         setattr(self, key.name, xmldoc.attributes[key.name].firstChild.data)
                 except Exception as ex:
-                    logger.warning("Extracting from xml \"" + key.name + "\" for object of class \"" + self.__class__.__name__ + "\" with PK " + str(self.pk) + ". Exception: " + str(ex))
+                    logger.info("Extracting from xml \"" + key.name + "\" for object of class \"" + self.__class__.__name__ + "\" with PK " + str(self.pk) + ". Exception: " + str(ex))
         # in the previous loop I have set the pk too; I must set it to None before saving
         self.pk = None
 
@@ -498,7 +498,7 @@ class ShareableModel(SerializableModel):
         
         for child_node in structure_node.child_nodes.all():
             # I have already processed foreign keys, I skip them now
-            if (not child_node.attribute in self.foreign_key_attributes()):
+            if child_node.attribute and (not child_node.attribute in self.foreign_key_attributes()):
                 # ASSERT: in the XML there is exactly one child tag
                 xml_attribute_node = xmldoc.getElementsByTagName(child_node.attribute)[0]
                 if child_node.is_many:
@@ -906,7 +906,10 @@ class StructureNode(ShareableModel):
         # loop on children
 
         for child_node in self.child_nodes.all():
-            if child_node.attribute:
+            # I don't do it to external references, they don't belong to this dataset
+            # at the moment I don't do it when attribute is '' as I should use method_to_retrieve
+            # to get the child instances and I can't guarantee that they are instances of ShareableModel
+            if (not child_node.external_reference) and child_node.attribute:
                 if child_node.is_many:
                     child_instances = eval("instance." + child_node.attribute + ".all()")
                     for child_instance in child_instances:
@@ -1083,26 +1086,27 @@ class DataSetStructure(ShareableModel):
             if ar.status == ApiResponse.success:
                 apps_code = ar.content
                 for app in apps_code:
+                    app_name = OrmWrapper.get_model_container_name(netloc, app)
                     # is the app missing?
-                    if not app in global_apps.app_configs.keys():
+                    if not app_name in global_apps.app_configs.keys():
                         # must add it
                         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        management.call_command('startapp', app, 'oks/' + app, interactive=False)
-                        with open(BASE_DIR + "/" + app + "/models.py", "a") as myfile:
+                        management.call_command('startapp', app_name, 'oks/' + app_name, interactive=False)
+                        with open(BASE_DIR + "/" + app_name + "/models.py", "a") as myfile:
                             myfile.write("from knowledge_server.models import ShareableModel\n\n\n\n")
 #                         settings.INSTALLED_APPS += (app, )
 #                         # I load the app
 #                         global_apps.app_configs = OrderedDict()
 #                         global_apps.ready = False
 #                         global_apps.populate(settings.INSTALLED_APPS)
-                        settings.INSTALLED_APPS += (app, )
-                    module = importlib.import_module(app + ".models")
+                        settings.INSTALLED_APPS += (app_name, )
+                    module = importlib.import_module(app_name + ".models")
 #                     added_modules = {}
                     for model_class in apps_code[app]:
                         # is the class missing?
                         if not hasattr(module, model_class):
                             # must add it
-                            with open(BASE_DIR + "/" + app + "/models.py", "a") as myfile:
+                            with open(BASE_DIR + "/" + app_name + "/models.py", "a") as myfile:
                                 myfile.write(apps_code[app][model_class])
 #                                 myfile.write("class aa(models.Model):\n    legalcode = models.TextField(default = \"\")")
 
@@ -1128,11 +1132,11 @@ class DataSetStructure(ShareableModel):
 #                             global_apps.app_configs[app].models[model_class] = getattr(module, model_class)
 
                 
-                # eventually I can generate the migrations for the new app
-                management.call_command('makemigrations', app, interactive=False)
-                # and migrate it
-                management.call_command('migrate', app, interactive=False)                
-                management.call_command('migrate', "--database=materialized", app, interactive=False)
+                    # eventually I can generate the migrations for the new app
+                    management.call_command('makemigrations', app_name, interactive=False)
+                    # and migrate it
+                    management.call_command('migrate', app_name, interactive=False)                
+                    management.call_command('migrate', "--database=materialized", app_name, interactive=False)
                 persistable = True
             
         return persistable
@@ -1383,8 +1387,8 @@ class DataSet(ShareableModel):
                 # I create the DataSet if not already imported
                 dataset_UKCL = dataset_xml.attributes["UKCL"].firstChild.data
                 try:
-                    logger.warning("DataSet.import_dataset - I am importing a DataSet that is already in this database; it seems it doesn't not make sense; take a look at it: " + dataset_UKCL)
                     dataset_on_db = DataSet.retrieve(dataset_UKCL)
+                    logger.warning("DataSet.import_dataset - I am importing a DataSet that is already in this database; it seems it doesn't not make sense; take a look at it: " + dataset_UKCL)
                     if not es.is_a_view:
                         dataset_on_db.root = actual_instance
                         dataset_on_db.save()
@@ -1393,7 +1397,8 @@ class DataSet(ShareableModel):
                     # In the next call the KnowledgeServer owner of this DataSet must exist
                     # because it was imported while subscribing; it is imported by this very same method
                     # since it is in the actual instance the next method will find it
-                    self.save_from_xml(structure_netloc, dataset_xml, self.shallow_structure().root_node)
+                    # netloc is "rootks.thekoa.org" as I am importing a dataset
+                    self.save_from_xml("rootks.thekoa.org", dataset_xml, self.shallow_structure().root_node)
                     if not es.is_a_view:
                         self.root = actual_instance
                         self.save()
@@ -1582,6 +1587,10 @@ class DataSet(ShareableModel):
                         if previously_released:
                             materialized_previously_released = DataSet.objects.using('materialized').get(UKCL=previously_released.UKCL)
                             materialized_previously_released.delete_entire_dataset()
+                    # materialization is complete; I need to set the dataset on instances
+                    # it could not be done before because the materialization of the instances happens before
+                    # the materialization of the dataset; if would have generated a dangling reference
+                    materialized_self.set_dataset_on_instances()
                     
                     # If I own this DataSet then I create the event for notifications
                     # releasing a dataset that I do not own makes no sense; in fact when I create a new version of
@@ -1873,9 +1882,9 @@ class KnowledgeServer(ShareableModel):
                             url_to_invoke = KsUrl(mmu).home() + reverse('api_dataset', args=(urllib.parse.urlencode({'':mmu})[1:], "XML",))
                             response = urlopen(url_to_invoke)
                             mm_xml_stream = response.read()
-                            mm_structure = DataSet()
-                            mm_structure = mm_structure.import_dataset(mm_xml_stream)
-                            mm_structure.materialize_dataset()
+                            mm_dataset = DataSet()
+                            mm_dataset = mm_dataset.import_dataset(mm_xml_stream)
+                            mm_dataset.materialize_dataset()
                     ds_structure = DataSet()
                     ds_structure = ds_structure.import_dataset(structure_xml_stream)
                     ds_structure.dataset_structure = DataSetStructure.objects.get(name=DataSetStructure.dataset_structure_DSN)

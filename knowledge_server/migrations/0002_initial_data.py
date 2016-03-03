@@ -5,8 +5,11 @@
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
 from __future__ import unicode_literals
+import logging
 from django.db import migrations
 from knowledge_server.models import Organization, KnowledgeServer, ModelMetadata, StructureNode, DataSetStructure, DataSet
+
+logger = logging.getLogger(__name__)
 
 def forwards_func(apps, schema_editor):
     
@@ -40,6 +43,7 @@ def forwards_func(apps, schema_editor):
     mmSubscriptionToThis=ModelMetadata();mmSubscriptionToThis.name="SubscriptionToThis";mmSubscriptionToThis.module="knowledge_server";mmSubscriptionToThis.save(using=db_alias)
     mmSubscriptionToOther=ModelMetadata();mmSubscriptionToOther.name="SubscriptionToOther";mmSubscriptionToOther.module="knowledge_server";mmSubscriptionToOther.save(using=db_alias)
     mmNotification=ModelMetadata(); mmNotification.name="Notification"; mmNotification.module="knowledge_server"; mmNotification.save(using=db_alias)
+    mmNotificationReceived=ModelMetadata(); mmNotificationReceived.name="NotificationReceived"; mmNotificationReceived.module="knowledge_server"; mmNotificationReceived.save(using=db_alias)
 
     # we need the corresponding ModelMetadata before generating the UKCL via the model_post_save
     the_koa_org_ks.UKCL=""; the_koa_org_ks.save(using=db_alias)
@@ -48,6 +52,7 @@ def forwards_func(apps, schema_editor):
     # StructureNode for "ModelMetadata-fields"
     en1=StructureNode();en1.model_metadata=mmModelMetadata;en1.save(using=db_alias) 
     en2=StructureNode();en2.model_metadata=mmField;en2.method_to_retrieve="orm_metadata";en2.is_many=True;en2.save(using=db_alias)
+    en3=StructureNode();en3.model_metadata=mmDataSetStructure;en3.attribute="dataset_structure";en3.external_reference=True;en3.save(using=db_alias)
     # StructureNode for "DataSetStructure-StructureNode"
     en4=StructureNode();en4.model_metadata=mmDataSetStructure;en4.save(using=db_alias)
     en5=StructureNode();en5.model_metadata=mmStructureNode;en5.attribute="root_node";en5.save(using=db_alias)
@@ -58,7 +63,7 @@ def forwards_func(apps, schema_editor):
     en19=StructureNode();en19.model_metadata=mmKnowledgeServer;en19.attribute="knowledgeserver_set";en19.is_many=True;en19.save(using=db_alias)
     
     # DATASETSTRUCTURE dssModelMetadataFields
-    en1.child_nodes.add(en2); en1.save(using=db_alias)
+    en1.child_nodes.add(en2);en1.child_nodes.add(en3);en1.save(using=db_alias)
     dssModelMetadataFields=DataSetStructure();dssModelMetadataFields.multiple_releases=False;
     dssModelMetadataFields.root_node=en1;dssModelMetadataFields.name=DataSetStructure.model_metadata_DSN;
     dssModelMetadataFields.description="Metadata describing a model in the ORM, i.e. something closely related to what is stored in a database table, and its fields.";
@@ -96,7 +101,9 @@ def forwards_func(apps, schema_editor):
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,
                  root = mmModelMetadata,
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;
+    ei.set_dataset_on_instances();
+    ei.save(using=db_alias)
      
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmStructureNode,                         
@@ -132,6 +139,10 @@ def forwards_func(apps, schema_editor):
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmNotification,
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+                 root=mmNotificationReceived,
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
 
