@@ -381,7 +381,7 @@ class ShareableModel(SerializableModel):
             
             actual_class = OrmWrapper.load_class(structure_netloc, module_name, structure_node.model_metadata.name) 
             try:
-                instance = actual_class.retrieve(xmldoc.attributes["UKCL"].firstChild.data)
+                instance = actual_class.retrieve_locally(xmldoc.attributes["UKCL"].firstChild.data)
                 # It's in the database; I just need to set its parent; data is either already there or it will be updated later on
                 if parent:
                     field_name = ShareableModel.get_parent_field_name(parent, structure_node.attribute)
@@ -440,6 +440,7 @@ class ShareableModel(SerializableModel):
                         assert (child_node.model_metadata.name == se.name), "child_node.model_metadata.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
                         module_name = child_node.model_metadata.module
                         actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
+                        instance = None
                         if child_node.external_reference:
                             '''
                             If it is an external reference I must search for it in the database first;  
@@ -451,10 +452,10 @@ class ShareableModel(SerializableModel):
                             else:
                                 try:
                                     # let's search it in the database
-                                    instance = actual_class.retrieve(xml_child_node.attributes["UKCL"].firstChild.data)
+                                    instance = actual_class.retrieve_locally(xml_child_node.attributes["UKCL"].firstChild.data)
                                 except ObjectDoesNotExist:
-                                    # TODO: if it is not there I fetch it using it's URL and then create it in the database
-                                    pass
+                                    # TODO: if it is not there it is a dangling reference
+                                    logger.warning("\"" + module_name + ".models " + se.name + "\" TODO: dangling reference for UKCL \"" + xml_child_node.attributes["UKCL"].firstChild.data)
                                 except Exception as ex:
                                     logger.error("\"" + module_name + ".models " + se.name + "\" has no instance with UKCL \"" + xml_child_node.attributes["UKCL"].firstChild.data + " " + str(ex))
                                     raise Exception("\"" + module_name + ".models " + se.name + "\" has no instance with UKCL \"" + xml_child_node.attributes["UKCL"].firstChild.data + " " + str(ex))
@@ -462,7 +463,8 @@ class ShareableModel(SerializableModel):
                             instance = actual_class()
                             # save_from_xml takes care of saving instance with a self.save() at the end
                             instance.save_from_xml(structure_netloc, xml_child_node, child_node)  # the fourth parameter, "parent" shouldn't be necessary in this case as this is a ForeignKey
-                        setattr(self, child_node.attribute, instance)
+                        if not instance is None:
+                            setattr(self, child_node.attribute, instance)
                 except Exception as ex:
                     logger.error("save_from_xml: " + str(ex))
                     raise Exception("save_from_xml: " + str(ex))
@@ -486,7 +488,7 @@ class ShareableModel(SerializableModel):
                 first_version_tag = xmldoc.getElementsByTagName('first_version')
                 if len(first_version_tag) == 1:
                     first_version_UKCL = xmldoc.getElementsByTagName('first_version')[0].attributes["UKCL"].firstChild.data
-                    instance = DataSet.retrieve(first_version_UKCL)
+                    instance = DataSet.retrieve_locally(first_version_UKCL)
                     self.first_version = instance
             except:
                 pass
@@ -508,7 +510,7 @@ class ShareableModel(SerializableModel):
                         assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
                         actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
                         if child_node.external_reference:
-                            instance = actual_class.retrieve(xml_child_node.attributes["UKCL"].firstChild.data)
+                            instance = actual_class.retrieve_locally(xml_child_node.attributes["UKCL"].firstChild.data)
                             # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
                             if child_node.attribute in self._meta.fields:
                                 setattr(instance, child_node.attribute, self)
@@ -535,7 +537,7 @@ class ShareableModel(SerializableModel):
                     assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
                     actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
                     if child_node.external_reference:
-                        instance = actual_class.retrieve(xml_child_node.attributes["UKCL"].firstChild.data)
+                        instance = actual_class.retrieve_locally(xml_child_node.attributes["UKCL"].firstChild.data)
                         # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
                         if child_node.attribute in self._meta.fields:
                             setattr(instance, child_node.attribute, self)
@@ -776,7 +778,7 @@ class ShareableModel(SerializableModel):
         return se
 
     @classmethod
-    def retrieve(cls, UKCL):
+    def retrieve_locally(cls, UKCL):
         '''
         It returns an instance of a ShareableModel stored in this KS
         It searches on the UKCL field
@@ -829,6 +831,12 @@ class ModelMetadata(ShareableModel):
     Along with the Organization URL netloc, it is used to create a unique
     name for the app/module so that there can be no collisions. See OrmWrapper
     for more details.
+    '''
+    '''
+    module is Python terminology; app is Django. More generally the module is a group of models,
+    shareable models in our case. It is part of the name of the namespace where each model lives.
+    It is used to build the UKCL.
+    For its use, it is not supposed to change over time.
     '''
     module = models.CharField(max_length=500)
     description = models.CharField(max_length=2000, default="")
@@ -959,6 +967,7 @@ class DataSetStructure(ShareableModel):
     dataset_structure_DSN = "Dataset structure"
     model_metadata_DSN = "Model meta-data"
     organization_DSN = "Organization and Open Knowledge Servers"
+    license_DSN = "License"
     '''
     Main idea behind the model: a chunk of knowledge that needs to be shared is not represented 
     with a single class or a single table in a database but it is usually represented using a 
@@ -1357,7 +1366,7 @@ class DataSet(ShareableModel):
         structure_netloc = dss_url.netloc
 
         # the structure is present locally because when I receive a dataset I import the structure before importing the dataset itself
-        es = DataSetStructure.retrieve(DataSetStructureURI)
+        es = DataSetStructure.retrieve_locally(DataSetStructureURI)
         es.make_persistable()
         self.dataset_structure = es
         
@@ -1376,7 +1385,7 @@ class DataSet(ShareableModel):
                     # already imported ?
                     actual_instance_UKCL = actual_instance_xml.attributes["UKCL"].firstChild.data
                     try:
-                        actual_instance = actual_class.retrieve(actual_instance_UKCL)
+                        actual_instance = actual_class.retrieve_locally(actual_instance_UKCL)
                         # it is already in this database; no need to import it again; UKCL is a persistent unique  
                         # identifier so changing the data it identifies would be an error
                     except:  # I didn't find it on this db, no problem
@@ -1384,10 +1393,11 @@ class DataSet(ShareableModel):
                         actual_instance.save_from_xml(structure_netloc, actual_instance_xml, es.root_node)
                         # save_from_xml saves actual_instance on the database
                 
-                # I create the DataSet if not already imported
+                # finished importing the data contained in the dataset
+                # let's create the record for the DataSet if not already imported
                 dataset_UKCL = dataset_xml.attributes["UKCL"].firstChild.data
                 try:
-                    dataset_on_db = DataSet.retrieve(dataset_UKCL)
+                    dataset_on_db = DataSet.retrieve_locally(dataset_UKCL)
                     logger.warning("DataSet.import_dataset - I am importing a DataSet that is already in this database; it seems it doesn't not make sense; take a look at it: " + dataset_UKCL)
                     if not es.is_a_view:
                         dataset_on_db.root = actual_instance
@@ -1397,8 +1407,9 @@ class DataSet(ShareableModel):
                     # In the next call the KnowledgeServer owner of this DataSet must exist
                     # because it was imported while subscribing; it is imported by this very same method
                     # since it is in the actual instance the next method will find it
-                    # netloc is "rootks.thekoa.org" as I am importing a dataset
-                    self.save_from_xml("rootks.thekoa.org", dataset_xml, self.shallow_structure().root_node)
+                    # netloc is "root.beta.thekoa.org" as I am importing a dataset (whose structure is 
+                    # owned by root)
+                    self.save_from_xml("root.beta.thekoa.org", dataset_xml, self.shallow_structure().root_node)
                     if not es.is_a_view:
                         self.root = actual_instance
                         self.save()
@@ -1501,9 +1512,11 @@ class DataSet(ShareableModel):
                 new_ds.dataset_structure = self.dataset_structure
                 new_ds.first_version = self.first_version
                 new_ds.version_description = version_description
+                new_ds.root = instance
                 if version_date:
                     new_ds.version_date = version_date
                 new_ds.save()
+                new_ds.set_dataset_on_instances()
         except Exception as e:
             logger.error("new_version: " + str(e))
         return new_ds
@@ -1734,7 +1747,7 @@ class KnowledgeServer(ShareableModel):
     organization = models.ForeignKey(Organization)
 
     def url(self, encode=False):
-        # "http://rootks.thekoa.org/"
+        # "http://root.beta.thekoa.org/"
         tmp_url = self.scheme + "://" + self.netloc
         if encode:
             tmp_url = urllib.parse.urlencode({'':tmp_url})[1:]
@@ -1876,7 +1889,7 @@ class KnowledgeServer(ShareableModel):
                     # and we loop through the ModelMetadata
                     for mmu in model_metadata_URIs:
                         try:
-                            ModelMetadata.retrieve(mmu)
+                            ModelMetadata.retrieve_locally(mmu)
                         except:
                             # if it is not in local db we import it; I rely on the forgiveness of api_dataset
                             url_to_invoke = KsUrl(mmu).home() + reverse('api_dataset', args=(urllib.parse.urlencode({'':mmu})[1:], "XML",))
@@ -1981,7 +1994,7 @@ class SubscriptionToThis(ShareableModel):
     The subscriptions other systems do to my data
     '''
     first_version_UKCL = models.CharField(default='', max_length=2000)
-    # where to send the notification; remote_url, in the case of a KS, will be something like http://rootks.thekoa.org/notify
+    # where to send the notification; remote_url, in the case of a KS, will be something like http://root.beta.thekoa.org/notify
     # the actual notification will have the UKCL of the DataSet and the UKCL of the EventType
     remote_url = models.CharField(max_length=200)
     # I send a first notification that can be used to get the data the first time

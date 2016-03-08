@@ -40,6 +40,11 @@
 					<li><a href="{% url 'ks_explorer' %}?ks_complete_url={{ this_ks_encoded_url }}" title="Browse the dataset types and actual datasets in this OKS">Browse this OKS</a></li>
 					<li><a href="{% url 'ks_explorer_form' %}" title="Browse the dataset types and actual datasets of another OKS with his homepage URL">Browse another OKS</a></li>
 					<li><a href="{% url 'subscriptions' %}" title="List of Events, Subscriptions to and from this OKS, Notifications to be sent and to be processed.">Subscriptions...</a></li>
+                    {% if user.is_authenticated %}
+                    Welcome {{ user.first_name }}
+                    {% else %}
+                    <li><a href="/admin/login/" target="_blank" title="Login with a Django administrator's account.">Login...</a></li>
+                    {% endif %}
 					<li><a href="http://www.c4k.it/oks" title="Documentation page describing an Open Knowledge Server." target="_blank">What is an OKS?</a></li>
 				</ul>
 			</div>

@@ -31,7 +31,7 @@ class KsUrl(object):
         uu= urlunparse([o.scheme, o.netloc, o.path, o.params, o.query, ''])
         così possiamo rimuovere il fragment e params query in modo da ripulire l'url ed essere più forgiving sulle api; da valutare
         '''
-        self.url = url
+        self.url = url.strip()
         self.parsed = urlparse(self.url)
         # I remove format options if any, e.g.
         # http://root.thekoa.org/knowledge_server/ModelMetadata/1/json/  --> http://root.thekoa.org/knowledge_server/ModelMetadata/1/
@@ -106,7 +106,7 @@ class KsUrl(object):
             # I search on this database
             try:
                 if self.actual_class:
-                    self.actual_instance = self.actual_class.retrieve(self.clean_uri)
+                    self.actual_instance = self.actual_class.retrieve_locally(self.clean_uri)
             except:
                 pass
                 

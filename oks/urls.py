@@ -21,12 +21,15 @@ Including another URLconf
 """
 from knowledge_server import views, api
 from django.conf.urls import include, url
+from django.contrib import admin
 
 urlpatterns = [
     url(r'^$', views.home, name='home'),
 
     url(r'^oks/', include('knowledge_server.urls')),
 
+    url(r'^admin/', admin.site.urls),
+    
     #   catch all; if I receive an unrecognized url I try to see whether it is a UKCL
     # http://stackoverflow.com/questions/6545741/django-catch-all-url-without-breaking-append-slash
     url(r'^(?P<uri_instance>.*)/$', api.api_catch_all, name='api_catch_all'), 

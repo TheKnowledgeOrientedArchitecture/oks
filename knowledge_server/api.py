@@ -4,6 +4,7 @@ import urllib
 from datetime import datetime
 from xml.dom import minidom
 
+from django.http import JsonResponse
 from django.shortcuts import render, render_to_response
 from django.template import RequestContext
 from django.views.decorators.csrf import csrf_exempt
@@ -40,7 +41,7 @@ def api_dataset_view(request, DataSet_UKCL, root_id, response_format):
     '''
     response_format = response_format.upper()
     DataSet_UKCL_decoded = urllib.parse.unquote(DataSet_UKCL)
-    dataset = DataSet.retrieve(DataSet_UKCL_decoded)
+    dataset = DataSet.retrieve_locally(DataSet_UKCL_decoded)
     actual_instance = ""
     actual_instance_json = ""
     # this dataset is a view; I shall use root_id to retrieve the actual instance
@@ -122,9 +123,9 @@ def api_dataset(request, DataSet_UKCL, response_format):
 def api_catch_all(request, uri_instance):
     '''
         parameters:
-            url: http://rootks.thekoa.org/knowledge_server/Attribute/1
-            url: http://rootks.thekoa.org/knowledge_server/Attribute/1/xml
-            url: http://rootks.thekoa.org/knowledge_server/Attribute/1/json
+            url: http://root.beta.thekoa.org/knowledge_server/Attribute/1
+            url: http://root.beta.thekoa.org/knowledge_server/Attribute/1/xml
+            url: http://root.beta.thekoa.org/knowledge_server/Attribute/1/json
         
         Implementation:
             I do something only if it is a UKCL in my database; otherwise I return a not found message
@@ -150,7 +151,7 @@ def api_catch_all(request, uri_instance):
             simple_entity_name = split_path[1]
             this_ks = KnowledgeServer.this_knowledge_server()
             actual_class = OrmWrapper.load_class(this_ks.netloc, module_name, simple_entity_name)
-            instance = actual_class.retrieve(this_ks.url() + "/" + uri_instance)
+            instance = actual_class.retrieve_locally(this_ks.url() + "/" + uri_instance)
             if response_format == 'JSON':
                 exported_json = '{ "Export" : { "ExportDateTime" : "' + str(datetime.now()) + '", ' + instance.serialize(export_format='JSON', exported_instances = []) + ' } }'
                 return render(request, 'knowledge_server/export.json', {'json': exported_json}, content_type="application/json")
@@ -181,14 +182,7 @@ def api_dataset_types(request, response_format):
             Invoking api_datasets #64 with parameter "DataSetStructure"
             so that I get all the Structures in this_ks in a shallow export
     '''
-    # Look for all DataSetStructure of type "DataSetStructure-StructureNode-Application" ...
-    entities_id = DataSetStructure.objects.filter(name=DataSetStructure.dataset_structure_DSN).values("id")
-    # Look for the only DataSet whose DataSetStructure is *incidentally* of the above type (entity_id__in=entities_id)
-    # whose instance is ov the above type root_instance_id__in=entities_id
-    # and it is released (there must be exactly one!
-    ei = DataSet.objects.get(version_released=True, root_instance_id__in=entities_id, dataset_structure_id__in=entities_id)
-    dss = DataSetStructure.objects.get(pk=ei.root_instance_id)
-    
+    dss = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_DSN)
     return api_datasets(request, DataSetStructure_UKCL = dss.UKCL, response_format=response_format)
 
 
@@ -213,7 +207,7 @@ def api_dataset_info(request, DataSet_UKCL, response_format):
     '''
     response_format = response_format.upper()
     DataSet_UKCL = urllib.parse.unquote(DataSet_UKCL).replace("%2F","/")
-    dataset = DataSet.retrieve(DataSet_UKCL)
+    dataset = DataSet.retrieve_locally(DataSet_UKCL)
     all_versions = DataSet.objects.filter(first_version = dataset.first_version)
     all_versions_serialized = ""
     all_versions_list = []
@@ -270,7 +264,7 @@ def api_datasets(request, DataSetStructure_UKCL, response_format):
         # with that structure; if it is not a view only those that are released; 
     '''
     response_format = response_format.upper()
-    dss = DataSetStructure.retrieve(urllib.parse.unquote(DataSetStructure_UKCL).replace("%2F","/"))
+    dss = DataSetStructure.retrieve_locally(urllib.parse.unquote(DataSetStructure_UKCL).replace("%2F","/"))
     
     # Now I need to get all the released DataSet of the DataSetStructure passed as a parameter
     if dss.is_a_view:
@@ -358,7 +352,7 @@ def api_dataset_structure_code(request, DataSetStructure_UKCL):
     The information is provided in the form of the code of the classes in a dictionary
     that groups them by APP/MODULE
     '''
-    dss = DataSetStructure.retrieve(urllib.parse.unquote(DataSetStructure_UKCL).replace("%2F","/"))
+    dss = DataSetStructure.retrieve_locally(urllib.parse.unquote(DataSetStructure_UKCL).replace("%2F","/"))
     try:
         classes_code = dss.classes_code()
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, "", classes_code).json()}, content_type="application/json")

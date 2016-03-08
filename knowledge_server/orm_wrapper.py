@@ -70,7 +70,7 @@ class OrmWrapper():
                     have the same name in any OKS
         '''
         try:
-            if netloc == "rootks.thekoa.org":
+            if netloc == "root.beta.thekoa.org":
                 return name
             this_ks = knowledge_server.models.KnowledgeServer.this_knowledge_server()
             that = netloc.split('.')

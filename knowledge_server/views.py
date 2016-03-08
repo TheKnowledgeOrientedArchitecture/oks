@@ -11,6 +11,7 @@ import urllib
 from urllib.request import urlopen
 
 from django.db import transaction
+from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 from django.shortcuts import render, render_to_response
@@ -32,6 +33,8 @@ def ks_explorer(request):
     except:
         ks_url = request.POST['ks_complete_url']
     try:
+        # use the KsUrl class to clean it up
+        ks_url = KsUrl(ks_url).url
         this_ks = KnowledgeServer.this_knowledge_server()
         # info on the remote ks
         ar_ks_info = ApiResponse()
@@ -139,19 +142,22 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
         cont = RequestContext(request, {'entities':entities, 'organization': organization, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.url(True), 'external_ks': external_ks, 'es_info_json': es_info_json})
         return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
     
-    
+
 def home(request):
     this_ks = KnowledgeServer.this_knowledge_server()
     cont = RequestContext(request, {'this_ks':this_ks, 'this_ks_encoded_url':this_ks.url(True)})
     return render(request, 'knowledge_server/home.html', context_instance=cont)
 
+
     
+@login_required
 def this_ks_unsubscribes_to(request, UKCL):
     '''
     '''
     pass
 
 
+@login_required
 def release_dataset(request, Dataset_UKCL):
     '''
     '''
@@ -164,6 +170,7 @@ def release_dataset(request, Dataset_UKCL):
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, str(ex)).json()}, content_type="application/json")
         
         
+@login_required
 def this_ks_subscribes_to(request, UKCL):
     '''
     This ks is subscribing to a data set in another ks
@@ -197,6 +204,7 @@ def this_ks_subscribes_to(request, UKCL):
         return HttpResponse(str(ex))
 
     
+@login_required
 def cron(request):
     '''
         to run tasks that have to be executed periodically on this ks; e.g. 
@@ -231,13 +239,14 @@ def subscriptions(request):
     return render_to_response('knowledge_server/subscriptions.html', context_instance=cont)
 
 
+@login_required
 def debug(request):
     '''
     created to debug code
     '''
     try:
         from django.core import management
-#         management.call_command('migrate', "--database=materialized", interactive=False)
+        management.call_command('migrate', "--database=materialized", interactive=False)
         management.call_command('migrate', interactive=False)
 
         return HttpResponse("OK ")
