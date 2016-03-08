@@ -11,14 +11,14 @@
 
 {% block content %}
 	<div class="row-fluid">
-		<h3>Dataset {{ dataset.UKCL }} </h3>
-    	{% version_instance_info dataset instances %}
-    	<h4>Owned by:</h4>
-    	{% ks_info ks %}
-        <h3>The structure is:</h3>
-         <p><strong>{{ dataset.dataset_structure.name }}</strong> <br>
-         <i>{{ dataset.dataset_structure.description }}</i></p>
-         {% if all_versions_with_instances|length > 0 %}
+		<h3>Dataset: <strong>{{ dataset.description }}</strong> </h3>
+        <h3>Type: <strong>{{ dataset.dataset_structure.name }}</strong></h3>
+        <h4>Published by:</h4>
+        {% autoescape off %}{% ks_info ks %}{% endautoescape %}
+        <hr>
+    	{% autoescape off %}{% version_instance_info dataset instances %}{% endautoescape %}
+        {% if all_versions_with_instances|length > 0 %}
+        <hr>
 			<h3>... has the following versions:</h3> 
 			<ul>
 			{% for version_with_instance in all_versions_with_instances %}
@@ -28,10 +28,10 @@
 			        <i>{{ version_with_instance.model_metadata.description }}</i></p>
 			    </li>
 			{% endfor %}
-         {% else %}
-         	<h3>There are no versions other than this.</h3> 
-         {% endif %}
-        </ul>
+            </ul>
+        {% else %}
+            <h3>This is the only published version of this dataset.</h3> 
+        {% endif %}
     </div>
 
 {% endblock %}

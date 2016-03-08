@@ -133,6 +133,8 @@ STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 )
 
+LOGIN_URL = "/admin/login/"
+
 
 # settings.py
 LOGGING = {

@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+# Subject to the terms of the GNU AFFERO GENERAL PUBLIC LICENSE, v. 3.0. If a copy of the AGPL was not
+# distributed with this file, You can obtain one at http://www.gnu.org/licenses/agpl.txt
+#
+# Author: Davide Galletti                davide   ( at )   c4k.it
+
 import socket
 import urllib
 
@@ -40,7 +46,7 @@ def api_dataset_view(request, DataSet_UKCL, root_id, response_format):
     but a list of instances that match the criteria; root_id tells us which one to browse
     '''
     response_format = response_format.upper()
-    DataSet_UKCL_decoded = urllib.parse.unquote(DataSet_UKCL)
+    DataSet_UKCL_decoded = urllib.parse.unquote(DataSet_UKCL).replace("%2F","/")
     dataset = DataSet.retrieve_locally(DataSet_UKCL_decoded)
     actual_instance = ""
     actual_instance_json = ""
@@ -83,7 +89,7 @@ def api_dataset(request, DataSet_UKCL, response_format):
     '''
     response_format = response_format.upper()
     ar = ApiResponse()
-    DataSet_UKCL_decoded = urllib.parse.unquote(DataSet_UKCL)
+    DataSet_UKCL_decoded = urllib.parse.unquote(DataSet_UKCL).replace("%2F","/")
     
     url = KsUrl(DataSet_UKCL_decoded)
     # If it is not a DataSet we try to find the dataset it is in
@@ -206,8 +212,8 @@ def api_dataset_info(request, DataSet_UKCL, response_format):
 
     '''
     response_format = response_format.upper()
-    DataSet_UKCL = urllib.parse.unquote(DataSet_UKCL).replace("%2F","/")
-    dataset = DataSet.retrieve_locally(DataSet_UKCL)
+    DataSet_UKCL_unquoted = urllib.parse.unquote(DataSet_UKCL).replace("%2F","/")
+    dataset = DataSet.retrieve_locally(DataSet_UKCL_unquoted)
     all_versions = DataSet.objects.filter(first_version = dataset.first_version)
     all_versions_serialized = ""
     all_versions_list = []

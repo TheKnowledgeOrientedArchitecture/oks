@@ -83,37 +83,44 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
     this_ks = KnowledgeServer.this_knowledge_server()
     response_format = response_format.upper()
     ks_url = urllib.parse.unquote(ks_url)
+    tmp_ks_url = KsUrl(ks_url)
     UKCL = urllib.parse.unquote(UKCL)
-    # info on the remote ks{{  }}
-    ar_ks_info = ApiResponse()
-    ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info', args=("JSON",))
-    organization = ar_ks_info.content['DataSet']['ActualInstance']['Organization']
-    for ks in organization['knowledgeserver_set']:
-        if ks['this_ks']:
-            external_ks_json = ks
-    external_ks = KnowledgeServer()
-    external_ks.name = external_ks_json['name']
-    external_ks.scheme = external_ks_json['scheme']
-    external_ks.netloc = external_ks_json['netloc']
-    external_ks.description = external_ks_json['description']
+    if tmp_ks_url.scheme != tmp_ks_url.scheme or tmp_ks_url.netloc != tmp_ks_url.netloc:
+        # info on the remote ks
+        ar_ks_info = ApiResponse()
+        ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info', args=("JSON",))
+        organization = ar_ks_info.content['DataSet']['ActualInstance']['Organization']
+        for ks in organization['knowledgeserver_set']:
+            if ks['this_ks']:
+                external_ks_json = ks
+        external_ks = KnowledgeServer()
+        external_ks.name = external_ks_json['name']
+        external_ks.scheme = external_ks_json['scheme']
+        external_ks.netloc = external_ks_json['netloc']
+        external_ks.description = external_ks_json['description']
+        browsing_this = False
+    else:
+        external_ks = this_ks
+        organization = this_ks.organization
+        browsing_this = True
     # info on the DataSetStructure
     # TODO: the following call relies on api_catch_all; use dataset_info instead
     response = urlopen(UKCL + "/json")
-    es_info_json = response.read().decode("utf-8")
+    es_info_json = json.loads(response.read().decode("utf-8"))
     
     if response_format == 'XML':
-        local_url = reverse('api_datasets', args=(urllib.parse.quote(UKCL),response_format))
+        local_url = reverse('api_datasets', args=(urllib.parse.quote(UKCL).replace("/","%2F"),response_format))
     if response_format == 'JSON' or response_format == 'BROWSE':
-        local_url = reverse ('api_datasets', args=(urllib.parse.quote(UKCL).replace("/","%252F"),'JSON'))
+        local_url = reverse ('api_datasets', args=(urllib.parse.quote(UKCL).replace("/","%2F"),'JSON'))
     response = urlopen(ks_url + local_url)
-    entities = response.read().decode("utf-8")
+    datasets = response.read().decode("utf-8")
     if response_format == 'XML':
-        return render(request, 'knowledge_server/export.xml', {'xml': entities}, content_type="application/xhtml+xml")
+        return render(request, 'knowledge_server/export.xml', {'xml': datasets}, content_type="application/xhtml+xml")
     if response_format == 'JSON':
-        return render(request, 'knowledge_server/export.json', {'json': entities}, content_type="application/json")
+        return render(request, 'knowledge_server/export.json', {'json': datasets}, content_type="application/json")
     if response_format == 'BROWSE':
         # parse
-        decoded = json.loads(entities)
+        decoded = json.loads(datasets)
         # I prepare a list of UKCL of root so that I can check which I have subscribed to
         first_version_UKCLs = []
         for ei in decoded['content']['DataSets']:
@@ -125,7 +132,7 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
         subscribed_first_version_UKCLs = []
         for s in subscribed:
             subscribed_first_version_UKCLs.append(s.first_version_UKCL)
-        entities = []
+        datasets = []
         for ei in decoded['content']['DataSets']:
             entity = {}
             if 'ActualInstance' in ei.keys():
@@ -134,12 +141,12 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
             else: #is a view
                 entity['actual_instance_name'] = ei['description']
             entity['encodedUKCL'] = urllib.parse.urlencode({'':ei['UKCL']})[1:]
-            entity['UKCL'] = urllib.parse.quote(ei['UKCL']).replace("/","%252F")
+            entity['UKCL'] = urllib.parse.quote(ei['UKCL']).replace("/","%2F")
             subscribed_UKCL = ei['first_version']['UKCL'] if 'first_version' in ei else ei['UKCL']
             if subscribed_UKCL in subscribed_first_version_UKCLs:
                 entity['subscribed'] = True
-            entities.append(entity)
-        cont = RequestContext(request, {'entities':entities, 'organization': organization, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.url(True), 'external_ks': external_ks, 'es_info_json': es_info_json})
+            datasets.append(entity)
+        cont = RequestContext(request, {'browsing_this':browsing_this, 'datasets':datasets, 'organization': organization, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.url(True), 'external_ks': external_ks, 'es_info_json': es_info_json})
         return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
     
 

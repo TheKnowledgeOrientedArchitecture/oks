@@ -11,27 +11,29 @@
 
 {% block content %}
     <div class="row-fluid">
-    	<h3>Browsing: </h3>
-    	{% ks_info external_ks %}
-        <h4>The type/structure "<strong>{{ es_info_json.Export.DataSetStructure.name }}</strong>" (<i>{{ es_info_json.Export.DataSetStructure.description }}</i>) {% if entities %}has the following data sets:{% else %}has no data sets of this type.{% endif %}</h4>
-        {% if entities %}
-	        <ul>
-	        {% for entity in entities %}
-	            <li>
-	                {% if external_ks.scheme != this_ks.scheme or external_ks.netloc != this_ks.netloc %}
-	                	{% if entity.subscribed %}
-	                		<a href="{% url 'this_ks_unsubscribes_to' entity.UKCL %}" target="_blank"></a>&nbsp;
-	                	{% else %}
-	                		<a href="{% url 'this_ks_subscribes_to' entity.UKCL %}" target="_blank">Subscribe</a>&nbsp;
-	                	{% endif %}
-	                {% endif %}
-	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.UKCL "html" %}">{{ entity.actual_instance_name }}</a>
-	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.UKCL "json" %}">json</a>
-	                <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' entity.UKCL "xml" %}">xml</a>
-	                
-	            </li>
-	        {% endfor %}
-	        </ul>
+        {% if not browsing_this %}
+        <h3>Browsing: </h3>
+        {% autoescape off %}{% ks_info external_ks %}{% endautoescape %}
+        {% endif %}
+        <h4>{% if datasets %}List of{% else %}No{% endif %} datasets with type/structure "<strong>{{ es_info_json.Export.DataSetStructure.name }}</strong>" (<i>{{ es_info_json.Export.DataSetStructure.description }}</i>).</h4>
+        {% if datasets %}
+            <ul>
+            {% for dataset in datasets %}
+                <li>
+                    {% if external_ks.scheme != this_ks.scheme or external_ks.netloc != this_ks.netloc %}
+                        {% if dataset.subscribed %}
+                            <a href="{% url 'this_ks_unsubscribes_to' dataset.UKCL %}" target="_blank"></a>&nbsp;
+                        {% else %}
+                            <a href="{% url 'this_ks_subscribes_to' dataset.UKCL %}" target="_blank">Subscribe</a>&nbsp;
+                        {% endif %}
+                    {% endif %}
+                    <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' dataset.UKCL "html" %}">{{ dataset.actual_instance_name }}</a>
+                    <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' dataset.UKCL "json" %}">json</a>
+                    <a href="{{ external_ks.scheme }}://{{ external_ks.netloc }}{% url 'api_dataset_info' dataset.UKCL "xml" %}">xml</a>
+                    
+                </li>
+            {% endfor %}
+            </ul>
         {% endif %}
     </div>
 

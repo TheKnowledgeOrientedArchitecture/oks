@@ -22,7 +22,7 @@ def ks_info(ks, *args, **kwargs):
 
 @register.simple_tag
 def version_instance_info(dataset, instances, *args, **kwargs):
-    DataSet_UKCL = urllib.urlencode({'':dataset.UKCL})[1:]
+    DataSet_UKCL = urllib.parse.quote(dataset.UKCL).replace("/","%2F")
     ret_string = ''
     for instance in instances:
         html_url = reverse('api_dataset_view', args=(DataSet_UKCL,instance.pk,"html")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_UKCL,"html"))
@@ -41,6 +41,7 @@ def version_instance_info(dataset, instances, *args, **kwargs):
             ret_string += '</p>'
         else:  
             ret_string += '<br>Click <a href="' + reverse('release_dataset', args=(DataSet_UKCL,)) + '" target="_blank">here</a> to release it.</p>'
+        ret_string += '<hr>'
     return ret_string
 
 @register.simple_tag
