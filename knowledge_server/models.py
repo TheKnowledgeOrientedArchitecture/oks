@@ -67,7 +67,10 @@ def model_post_save(sender, **kwargs):
                 kwargs['instance'].save()
         except Exception as e:
             logger.error("model_post_save kwargs['instance'].UKCL: " + kwargs['instance'].UKCL + "  -  " + str(e))
-
+    if isinstance(kwargs['instance'], DataSet):
+        if kwargs['instance'].first_version_id == None:
+            kwargs['instance'].first_version_id = kwargs['instance'].pk
+            kwargs['instance'].save()
 
 class ShareableModel(SerializableModel):
     '''
@@ -934,6 +937,17 @@ class StructureNode(ShareableModel):
         if children_before and node_method_name:
             node_method(instance, status)
         
+    def navigate_helper_set_datasetstructure(self, instance, status):
+        '''
+        instance is a StructureNode, I must set its model_metadata.dataset_structure
+        on both default and materialized database
+        '''
+        instance.model_metadata.dataset_structure = status['dataset'].dataset_structure
+        instance.model_metadata.save()
+        mm_model_metadata = ModelMetadata.objects.using('materialized').get(UKCL=instance.model_metadata.UKCL)
+        mm_model_metadata.dataset_structure = status['dataset'].dataset_structure
+        mm_model_metadata.save()
+    
     def navigate_helper_list_by_type(self, instance, status):
         # if status['output'] is None I create a dictionary whose keys will be 
         # different ModelMetadata and whose values will be list without repetition
@@ -1046,7 +1060,6 @@ class DataSetStructure(ShareableModel):
             self.root_node.navigate(instance, instance_method_name, node_method_name, status, children_before)
         return status['output']
 
-
     def classes_code(self):
         '''
         '''
@@ -1066,7 +1079,6 @@ class DataSetStructure(ShareableModel):
             if not app_model['model'] in code_per_app[app_model['app']].keys():
                 code_per_app[app_model['app']][app_model['model']] = inspect.getsource(c)
         return code_per_app
-
 
     def make_persistable(self):
         # If the owner of this structure is not this OKS I must check that I can persist each instance on each node.
@@ -1175,6 +1187,11 @@ class DataSetStructure(ShareableModel):
             except ValueError as ve:
                 pass
   
+    @staticmethod
+    def get_from_name(model_metadata_name):
+        materialized = DataSetStructure.objects.using('materialized').get(name=model_metadata_name)
+        return DataSetStructure.objects.using('default').get(UKCL=materialized.UKCL)
+
     
 class DataSet(ShareableModel):
     '''
@@ -1689,6 +1706,10 @@ class DataSet(ShareableModel):
                                         e.type = "New version"
                                         e.save()
                     # end of transaction
+                if isinstance(self.root, DataSetStructure):
+                    # now that the DataSetStructure is released we can set each ModelMetadata.dataset_structure
+                    # attribute; the method takes care of both default and materialized instances.
+                    self.dataset_structure.navigate(self, "", "navigate_helper_set_datasetstructure")
         except Exception as ex:
             logger.error("set_released DataSet " + str(self.pk) + " '" + self.description + "': " + str(ex))
     
@@ -1923,6 +1944,31 @@ class KnowledgeServer(ShareableModel):
                 message += "process_received_notifications error: " + str(ex)
                 logger.error("process_received_notifications error: " + str(ex))
         return message + "<br>"
+        
+    def set_as_this_ks(self):
+        '''
+        Invoked on a KnowledgeServer with this_ks set to False
+        It sets it to True on both default and materialized and set it to False to the one that had it set to True
+        '''
+        m_this_ks = KnowledgeServer.this_knowledge_server('materialized')
+        d_this_ks = KnowledgeServer.this_knowledge_server('default')
+        m_this_ks.this_ks = False
+        m_this_ks.save()
+        d_this_ks.this_ks = False
+        d_this_ks.save()
+        
+        m_self = KnowledgeServer.objects.using('materialized').get(UKCL=self.UKCL)
+        d_self = KnowledgeServer.objects.using('default').get(UKCL=self.UKCL)
+        m_self.this_ks = True
+        m_self.save()
+        # now I am ready to generate UKCL with the new KS scheme and netloc
+        # so I trigger the regeneration on the existing record
+        m_self.UKCL = ""
+        m_self.save()
+        d_self.this_ks = True
+        d_self.UKCL = ""
+        d_self.save()
+        
         
     @staticmethod
     def this_knowledge_server(db_alias='materialized'):

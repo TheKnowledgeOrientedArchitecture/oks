@@ -123,77 +123,95 @@ def forwards_func(apps, schema_editor):
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,
                  root = mmModelMetadata,description="Model metadata of ModelMetadata",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
      
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmStructureNode,description="Model metadata of StructureNode",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmDataSetStructure,description="Model metadata of DataSetStructure",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmOrganization,description="Model metadata of Organization",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmDataSet,description="Model metadata of DataSet",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmKnowledgeServer,description="Model metadata of KnowledgeServer",    
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmEvent,description="Model metadata of Event",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmSubscriptionToThis,description="Model metadata of SubscriptionToThis",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmSubscriptionToOther,description="Model metadata of SubscriptionToOther",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmNotification,description="Model metadata of Notification",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmNotificationReceived,description="Model metadata of NotificationReceived",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmLicense,description="Model metadata of License",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
 
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=dssModelMetadataFields,description="DataSet structure of ModelMetadata-Fields",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=dssDataSetStructureStructureNode,description="DataSet structure of DataSetStructure-StructureNode",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode, 
                  root=eOrganizationKS,description="DataSet structure of Organization-KnowledgeServer",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=eOrganizationKS,                  
                  root=the_koa_org,description="Organization TheKoa.org",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id=ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssDataSetStructureStructureNode,
                  root=esLicenseList,description="DataSet structure of List of licenses",
                  version_major=0, version_minor=1, version_patch=0, version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssDataSetStructureStructureNode,
                  root=dssLicense,description="DataSet structure of a License",
                  version_major=0, version_minor=1, version_patch=0, version_description="",version_released=True)
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.set_dataset_on_instances();ei.save(using=db_alias)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
 
     ######## BEGIN LICENSES DATA
     
@@ -210,7 +228,7 @@ def forwards_func(apps, schema_editor):
     adrm.save(using=db_alias)
     ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=adrm, version_major=2, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias)
 
     # Creative Commons Attribution 1.0
     ccby10 = License()
@@ -225,7 +243,7 @@ def forwards_func(apps, schema_editor):
     ccby10.save(using=db_alias)
     ei_ccby10 = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                         root=ccby10, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei_ccby10.save(using=db_alias);ei_ccby10.first_version_id = ei_ccby10.id;ei_ccby10.save(using=db_alias)
+    ei_ccby10.save(using=db_alias)
 
     # above reccomended; below other conformant
     
@@ -242,7 +260,7 @@ def forwards_func(apps, schema_editor):
     cczero.save(using=db_alias)
     ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=cczero, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias)
 
     # Open Data Commons Public Domain Dedication and Licence
     pddl = License()
@@ -257,7 +275,7 @@ def forwards_func(apps, schema_editor):
     pddl.save(using=db_alias)
     ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=pddl, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias)
 
     # Creative Commons Attribution 4.0
     ccby40 = License()
@@ -287,7 +305,7 @@ def forwards_func(apps, schema_editor):
     odcby.save(using=db_alias)
     ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=odcby, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias)
 
     # Creative Commons Attribution Share-Alike 4.0  
     ccbysa40 = License()
@@ -302,7 +320,7 @@ def forwards_func(apps, schema_editor):
     ccbysa40.save(using=db_alias)
     ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=ccbysa40, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias)
 
     # Open Data Commons Open Database License 
     odbl = License()
@@ -317,18 +335,18 @@ def forwards_func(apps, schema_editor):
     odbl.save(using=db_alias)
     ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=odbl, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias)
 
     ######## END LICENSES DATA
 
     # 2 DataSet/Views "License List"
     # opendefinition.org conformant
     ei = DataSet(knowledge_server=the_koa_org_ks, filter_text="conformant_for_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant licenses.")
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias)
 
     # opendefinition.org conformant and reccomended
     ei = DataSet(knowledge_server=the_koa_org_ks, filter_text="reccomended_by_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant and reccomended licenses.")
-    ei.save(using=db_alias);ei.first_version_id = ei.id;ei.save(using=db_alias)
+    ei.save(using=db_alias)
 
 class Migration(migrations.Migration):
 
