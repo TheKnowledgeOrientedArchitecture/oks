@@ -333,9 +333,7 @@ def forwards_func(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('licenses', '0002_license_dataset_i_belong_to'),
-        ('knowledge_server', '0001_initial'),
-        ('licenses', '0001_initial'),
+        ('knowledge_server', '0002_auto_20160309_0617'),
     ]
 
     operations = [
