@@ -246,12 +246,20 @@ def subscriptions(request):
     return render_to_response('knowledge_server/subscriptions.html', context_instance=cont)
 
 
-@login_required
 def debug(request):
     '''
     created to debug code
     '''
     try:
+#         d = DataSet.objects.get(pk=1)
+#         s = d.shallow_structure()
+#         rct = d.root_content_type
+# 
+#         
+#         for structure_child_node in s.root_node.child_nodes.all():
+#             mm = structure_child_node.sn_model_metadata(d)
+#             print(mm.name)
+        
         from django.core import management
 #         management.call_command('migrate', "--database=materialized", interactive=False)
         management.call_command('migrate', interactive=False)

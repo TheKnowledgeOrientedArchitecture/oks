@@ -23,10 +23,11 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('UKCL', models.CharField(default='', max_length=2000)),
-                ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
-                ('URI_actual_instance', models.CharField(default='', max_length=2000)),
-                ('URI_structure', models.CharField(default='', max_length=2000)),
-                ('URI_dataset', models.CharField(default='', max_length=2000)),
+                ('UKCL_actual_instance', models.CharField(default='', max_length=2000)),
+                ('oks_home',models.CharField(blank=True, max_length=255)),
+                ('object_with_dangling_content_type',models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='contenttypes.ContentType')),
+                ('object_with_dangling_instance_id',models.PositiveIntegerField(blank=True, null=True)),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -49,6 +50,7 @@ class Migration(migrations.Migration):
                 ('version_date', models.DateTimeField(auto_now_add=True)),
                 ('version_released', models.BooleanField(default=False)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -66,6 +68,7 @@ class Migration(migrations.Migration):
                 ('is_a_view', models.BooleanField(default=False)),
                 ('multiple_releases', models.BooleanField(default=False)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -82,6 +85,7 @@ class Migration(migrations.Migration):
                 ('processed', models.BooleanField(default=False)),
                 ('dataset', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.DataSet')),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -101,6 +105,7 @@ class Migration(migrations.Migration):
                 ('html_home', models.CharField(default='', max_length=4000)),
                 ('html_disclaimer', models.CharField(default='', max_length=4000)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -121,6 +126,7 @@ class Migration(migrations.Migration):
                 ('description_field', models.CharField(db_column='descriptionField', default='description', max_length=255)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
                 ('dataset_structure', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.DataSetStructure')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -136,6 +142,7 @@ class Migration(migrations.Migration):
                 ('remote_url', models.CharField(max_length=200)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
                 ('event', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.Event')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -152,6 +159,7 @@ class Migration(migrations.Migration):
                 ('processed', models.BooleanField(default=False)),
                 ('timestamp', models.DateTimeField(auto_now_add=True)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -167,6 +175,7 @@ class Migration(migrations.Migration):
                 ('description', models.CharField(blank=True, max_length=2000)),
                 ('website', models.CharField(blank=True, max_length=500)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -184,7 +193,10 @@ class Migration(migrations.Migration):
                 ('is_many', models.BooleanField(db_column='isMany', default=False)),
                 ('child_nodes', models.ManyToManyField(blank=True, related_name='parent', to='knowledge_server.StructureNode')),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
-                ('model_metadata', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.ModelMetadata')),
+                ('model_metadata', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.ModelMetadata',blank=True, null=True)),
+                ('fk_field', models.CharField(default='', max_length=255)),
+                ('ct_field', models.CharField(default='', max_length=255)),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -199,6 +211,7 @@ class Migration(migrations.Migration):
                 ('URL', models.CharField(max_length=200)),
                 ('first_version_UKCL', models.CharField(max_length=200)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,
@@ -215,6 +228,7 @@ class Migration(migrations.Migration):
                 ('first_notification_prepared', models.BooleanField(default=False)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
                 ('remote_ks', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.KnowledgeServer')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,

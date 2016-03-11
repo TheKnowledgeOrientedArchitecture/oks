@@ -16,11 +16,46 @@ from django.db.migrations.state import ModelState, ProjectState
 
 class SerializableModel(models.Model):
     classes_serialized_as_tags = ["CharField"]
+    is_a_placeholder = models.BooleanField(default=False, db_column='oks_internals_placeholder')
 
+    def generic_content_types_attributes(self):
+        '''
+        see documentation for GenericForeignKey
+        ''' 
+        attributes = []
+        for key in self._meta.virtual_fields:
+            attributes.append(key.ct_field)
+        return attributes
+                
+    def generic_foreign_key_attributes(self):
+        '''
+        see documentation for GenericForeignKey
+        ''' 
+        attributes = []
+        for key in self._meta.virtual_fields:
+            attributes.append((key.name, key.ct_field, key.fk_field))
+        return attributes
+                
     def foreign_key_attributes(self): 
         attributes = []
+        # I must exclude each generic content types for GenericForeignKey
+        generic = self.generic_content_types_attributes()
         for key in self._meta.fields:
-            if key.__class__.__name__ == "ForeignKey":
+            if key.__class__.__name__ == "ForeignKey" and (not key.name in generic):
+                attributes.append(key.name)
+        return attributes
+                
+    def many_to_many_attributes(self): 
+        attributes = []
+        for key in self._meta.many_to_many:
+            if key.__class__.__name__ == "ManyToManyField":
+                attributes.append(key.name)
+        return attributes
+                
+    def virtual_field_attributes(self): 
+        attributes = []
+        for key in self._meta.virtual_field:
+#             if key.__class__.__name__ == "ManyToManyField":
                 attributes.append(key.name)
         return attributes
                 
@@ -31,13 +66,6 @@ class SerializableModel(models.Model):
                 attributes += ' ' + key.name + '="' + str(getattr(self, key.name)) + '"'
         return attributes
                 
-    def many_related_manager_attributes(self): 
-        attributes = ""
-        for key in self._meta.fields:
-            if key.__class__.__name__ == "ManyRelatedManager":
-                attributes += ' ' + key.name + '="' + str(getattr(self, key.name)) + '"'
-        return attributes
-     
     def serialized_tags(self, parent_class=None):
         '''
         invoked only for XML
@@ -66,7 +94,6 @@ class SerializableModel(models.Model):
                     attributes += '<' + key.name + '><![CDATA[' + str(value) + ']]></' + key.name + '>'
         return attributes
     
-
     def serialized_attributes(self, parent_class=None, format='XML'):
         '''
         parent_class is used only if format is XML; see comment above on serialized_tags
@@ -226,6 +253,16 @@ class SerializableModel(models.Model):
                 if key.__class__.__name__ in ("DateField", "DateTimeField"):
                     setattr(self, key.name, datetime.now())
                 
+    def placeholder(self, db_alias):
+        ps = self.__class__.objects.using(db_alias).filter(is_a_placeholder=True)
+        if len(ps.all()) == 0:
+            p = self.__class__()
+            p.SetNotNullFields()
+            p.save(using=db_alias)
+            return p
+        else:
+            return ps.all()[0]
+
     @staticmethod
     def compare(first, second):
         return first.serialized_attributes(format='JSON') == second.serialized_attributes(format='JSON')

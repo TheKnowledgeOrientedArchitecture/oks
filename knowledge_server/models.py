@@ -111,6 +111,19 @@ class ShareableModel(SerializableModel):
             logger.error("Exception 'generate_UKCL' " + self.__class__.__name__ + "." + str(self.pk) + ":" + str(es))
             return ""
     
+    def regenerate_UKCL(self):
+        '''
+        Creating initial data like current knowledge server can live some record with the wrong UKCL based on old KnowledgeServer.netloc
+        This method fixes UKCL on both materialized and default db
+        '''
+        m_self = self.__class__.objects.using('materialized').get(UKCL=self.UKCL)
+        d_self = self.__class__.objects.using('default').get(UKCL=self.UKCL)
+        m_self.UKCL = ""
+        m_self.save()
+        d_self.UKCL = ""
+        d_self.save()
+        self.UKCL = d_self.UKCL
+        
     def get_model_metadata (self, class_name="", db_alias='materialized'):
         '''
         *** method that works BY DEFAULT on the materialized database ***
@@ -164,7 +177,6 @@ class ShareableModel(SerializableModel):
             dss.model_metadata = self.get_model_metadata()
             dss.root_node = self.shallow_structure_node(db_alias)
             dss.save()
-            dss.UKCL = dss.generate_UKCL()
             dss.save(using=db_alias)
         return dss 
         
@@ -173,40 +185,46 @@ class ShareableModel(SerializableModel):
         it creates a StructureNode used to serialize (to_xml) self. It has the ModelMetadata 
         and references to ForeignKeys and ManyToMany
         '''
-        node = StructureNode()
-        node.model_metadata = self.get_model_metadata() 
-        node.external_reference = False
-        node.is_many = False
-        node.save(using=db_alias)
-        node.child_nodes = []
-        for fk in self.foreign_key_attributes():
-            # PATCH: I must not include 'root_content_type'
-            if fk != 'root_content_type':
-                node_fk = StructureNode()
-                if getattr(self, fk) is None:
-                    # the attribute is not set so I can't get its __class__.__name__ and I take it from the model
-                    class_name = self._meta.get_field(fk).rel.model.__name__
-                    try:
-                        node_fk.model_metadata = self.get_model_metadata(class_name)
-                    except Exception as ex:
-                        logger.error("shallow_structure_node class_name = " + class_name + " - " + str(ex))
-                else:
-                    node_fk.model_metadata = getattr(self, fk).get_model_metadata()
-                node_fk.external_reference = True
-                node_fk.attribute = fk
-                node_fk.is_many = False
-                node_fk.save(using=db_alias)
-                node.child_nodes.add(node_fk)
-        for rm in self.related_manager_attributes():
-            # TODO: shallow_structure_node: implement self.related_manager_attributes case
-            logger.critical("shallow_structure_node class_name = " + class_name + " - TO BE IMPLEMENTED: related_manager_attributes")
-        for mrm in self.many_related_manager_attributes():
-            # TODO: shallow_structure_node: implement self.many_related_manager_attributes case
-            logger.critical("shallow_structure_node class_name = " + class_name + " - TO BE IMPLEMENTED: many_related_manager_attributes")
-        node.save(using=db_alias)
-        return node
+        structure_node = StructureNode()
+        structure_node.model_metadata = self.get_model_metadata() 
+        structure_node.external_reference = False
+        structure_node.is_many = False
+        structure_node.save(using=db_alias)
+        structure_node.child_nodes = []
+        for rel in self.foreign_key_attributes() + self.many_to_many_attributes():
+            rel_structure_node = StructureNode()
+            
+            class_name = self._meta.get_field(rel).rel.model.__name__
+            # from the module name I remove the final ".models"
+            # TODO: usare queste righe seguenti per creare una nuova implementazione di get_model_metadata
+            module_name = self._meta.get_field(rel).rel.model.__module__[:-7]
+            try:
+                rel_structure_node.model_metadata = ModelMetadata.objects.using(db_alias).get(name=class_name, module=module_name)
+            except Exception as ex:
+                raise Exception("shallow_structure_node class_name = %s -- module_name = %s --- %s" %  (class_name, module_name, str(ex)))
+            rel_structure_node.external_reference = True
+            rel_structure_node.attribute = rel
+            rel_structure_node.is_many = (rel in self.many_to_many_attributes())
+            rel_structure_node.save(using=db_alias)
+            structure_node.child_nodes.add(rel_structure_node)
+        for rel, ct_field, fk_field in self.generic_foreign_key_attributes():
+            rel_structure_node = StructureNode()
+            
+            # It's a GenericForeignKey
+            # https://docs.djangoproject.com/en/1.9/ref/contrib/contenttypes/#django.contrib.contenttypes.fields.GenericForeignKey
+            # ct = Content Type    fk = Foreign Key
+            rel_structure_node.ct_field = ct_field
+            rel_structure_node.fk_field = fk_field
 
-    def serialize(self, node=None, exported_instances=[], export_format='XML'):
+            rel_structure_node.external_reference = True
+            rel_structure_node.attribute = rel
+            rel_structure_node.is_many = False
+            rel_structure_node.save(using=db_alias)
+            structure_node.child_nodes.add(rel_structure_node)
+        structure_node.save(using=db_alias)
+        return structure_node
+
+    def serialize(self, structure_node=None, exported_instances=[], export_format='XML', parent=None):
         '''
         formats so far: {'XML' | 'JSON' | 'DICT'}
             dict is a python dictionary that can be easily inserted in other dictionaries and serialized at a later stage
@@ -220,43 +238,43 @@ class ShareableModel(SerializableModel):
         serialized = ""
         tmp_dict = {}
         export_dict = {}
-        # if there is no node I export just this object creating a shallow DataSetStructure 
-        if node is None:
-            node = self.shallow_structure().root_node
-        if node.is_many:
+        # if there is no structure_node I export just this object creating a shallow DataSetStructure 
+        if structure_node is None:
+            structure_node = self.shallow_structure().root_node
+        if structure_node.is_many:
             # the attribute corresponds to a list of instances of the model_metadata 
-            tag_name = node.model_metadata.name
+            tag_name = structure_node.sn_model_metadata(parent).name
         else:
-            tag_name = self.__class__.__name__ if node.attribute == "" else node.attribute
+            tag_name = self.__class__.__name__ if structure_node.attribute == "" else structure_node.attribute
         # already exported, I just export a short reference with the UKCL
-        if self.UKCL and self.UKCL in exported_instances and node.model_metadata.name_field:
+        if self.UKCL and self.UKCL in exported_instances and structure_node.sn_model_metadata(parent).name_field:
             if export_format == 'XML':
-                xml_name = " " + node.model_metadata.name_field + "=\"" + getattr(self, node.model_metadata.name_field) + "\""
+                xml_name = " " + structure_node.sn_model_metadata(parent).name_field + "=\"" + getattr(self, structure_node.sn_model_metadata(parent).name_field) + "\""
                 return '<' + tag_name + ' REFERENCE_IN_THIS_FILE=\"\"' + self.serialized_URI_MM(export_format) + xml_name + ' UKCL="' + self.UKCL + '"/>'  
             if export_format == 'JSON':
-                json_name = ' "' + node.model_metadata.name_field + '" : "' + getattr(self, node.model_metadata.name_field) + '"'
-                if node.is_many:
+                json_name = ' "' + structure_node.sn_model_metadata(parent).name_field + '" : "' + getattr(self, structure_node.sn_model_metadata(parent).name_field) + '"'
+                if structure_node.is_many:
                     return ' { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + json_name + ', "UKCL": "' + self.UKCL + '"} '
                 else:
                     return '"' + tag_name + '" : { "REFERENCE_IN_THIS_FILE" : \"\", ' + self.serialized_URI_MM(export_format) + ", " + json_name + ', "UKCL": "' + self.UKCL + '"}'  
             if export_format == 'DICT':
-                tmp_dict[node.model_metadata.name_field] = getattr(self, node.model_metadata.name_field)
+                tmp_dict[structure_node.sn_model_metadata(parent).name_field] = getattr(self, structure_node.sn_model_metadata(parent).name_field)
                 tmp_dict["REFERENCE_IN_THIS_FILE"] = ""
                 tmp_dict.update(self.serialized_URI_MM(export_format))
                 tmp_dict["UKCL"] = self.UKCL
-                if node.is_many:
+                if structure_node.is_many:
                     export_dict = tmp_dict
                 else:
                     export_dict[tag_name] = tmp_dict
                 return export_dict
         exported_instances.append(self.UKCL) 
-        if not node.external_reference:
+        if not structure_node.external_reference:
             try:
                 outer_comma = ""
-                for child_node in node.child_nodes.all():
-                    if child_node.method_to_retrieve:
+                for child_structure_node in structure_node.child_nodes.all():
+                    if child_structure_node.method_to_retrieve:
                         # there is no attribute but a method to access the child(ren)
-                        method_to_retrieve = getattr(self, child_node.method_to_retrieve)
+                        method_to_retrieve = getattr(self, child_structure_node.method_to_retrieve)
                         o = method_to_retrieve(export_format)
                         if export_format == 'XML':
                             serialized += o
@@ -267,42 +285,42 @@ class ShareableModel(SerializableModel):
 #                         source_code = inspect.getsource(self)
                         outer_comma = ", "
                     else:
-                        if child_node.is_many:
-                            child_instances = eval("self." + child_node.attribute + ".all()")
+                        if child_structure_node.is_many:
+                            child_instances = eval("self." + child_structure_node.attribute + ".all()")
                             if export_format == 'XML':
-                                serialized += "<" + child_node.attribute + ">"
+                                serialized += "<" + child_structure_node.attribute + ">"
                             if export_format == 'JSON':
-                                serialized += outer_comma + ' "' + child_node.attribute + '" : ['
+                                serialized += outer_comma + ' "' + child_structure_node.attribute + '" : ['
                             innner_comma = ''
                             children_list = []
                             for child_instance in child_instances:
                                 # let's prevent infinite loops if self relationships
-                                if (child_instance.__class__.__name__ != self.__class__.__name__) or (self.pk != child_node.pk):
+                                if (child_instance.__class__.__name__ != self.__class__.__name__) or (self.pk != child_structure_node.pk):
                                     if export_format == 'JSON':
                                         serialized += innner_comma
                                     if export_format == 'DICT':
-                                        children_list.append(child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format))
+                                        children_list.append(child_instance.serialize(child_structure_node, exported_instances=exported_instances, export_format=export_format, parent=self))
                                     else:
-                                        serialized += child_instance.serialize(child_node, exported_instances=exported_instances, export_format=export_format)
+                                        serialized += child_instance.serialize(child_structure_node, exported_instances=exported_instances, export_format=export_format, parent=self)
                                 innner_comma = ", "
                             if export_format == 'XML':
-                                serialized += "</" + child_node.attribute + ">"
+                                serialized += "</" + child_structure_node.attribute + ">"
                             if export_format == 'JSON':
                                 serialized += "]"
                             if export_format == 'DICT':
-                                tmp_dict[child_node.attribute] = children_list
+                                tmp_dict[child_structure_node.attribute] = children_list
 
                             outer_comma = ", "
                         else:
-                            child_instance = eval("self." + child_node.attribute)
+                            child_instance = eval("self." + child_structure_node.attribute)
                             if not child_instance is None:
                                 child_serialized = ""
                                 if export_format == 'JSON':
                                     child_serialized = outer_comma
                                 if export_format == 'DICT':
-                                    tmp_dict.update(child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances))
+                                    tmp_dict.update(child_instance.serialize(child_structure_node, export_format=export_format, exported_instances=exported_instances, parent=self))
                                 else:
-                                    child_serialized += child_instance.serialize(child_node, export_format=export_format, exported_instances=exported_instances)
+                                    child_serialized += child_instance.serialize(child_structure_node, export_format=export_format, exported_instances=exported_instances, parent=self)
                                 serialized += child_serialized
                                 outer_comma = ", "
             except Exception as ex:
@@ -310,33 +328,33 @@ class ShareableModel(SerializableModel):
             if export_format == 'XML':
                 return '<' + tag_name + self.serialized_URI_MM(export_format) + self.serialized_attributes(parent_class=ShareableModel, format=export_format) + '>' + self.serialized_tags(parent_class=ShareableModel) + serialized + '</' + tag_name + '>'
             if export_format == 'JSON':
-                if node.is_many:
+                if structure_node.is_many:
                     return ' { ' + self.serialized_URI_MM(export_format) + ', ' + self.serialized_attributes(format=export_format) + outer_comma + serialized + ' }'
                 else:
                     return '"' + tag_name + '" : { ' + self.serialized_URI_MM(export_format) + ', ' + self.serialized_attributes(format=export_format) + outer_comma + serialized + ' }'
             if export_format == 'DICT':
                 tmp_dict.update(self.serialized_URI_MM(export_format))
                 tmp_dict.update(self.serialized_attributes(format=export_format))
-                if node.is_many:
+                if structure_node.is_many:
                     export_dict = tmp_dict
                 else:
                     export_dict[tag_name] = tmp_dict
                 return export_dict
         else:
-            # node.external_reference = True
+            # structure_node.external_reference = True
             xml_name = ''
             json_name = ''
-            if node.model_metadata.name_field != "":
+            if structure_node.sn_model_metadata(parent).name_field != "":
                 if export_format == 'XML':
-                    xml_name = " " + node.model_metadata.name_field + "=\"" + getattr(self, node.model_metadata.name_field) + "\""
+                    xml_name = " " + structure_node.sn_model_metadata(parent).name_field + "=\"" + getattr(self, structure_node.sn_model_metadata(parent).name_field) + "\""
                 if export_format == 'JSON':
-                    json_name = ', "' + node.model_metadata.name_field + '": "' + getattr(self, node.model_metadata.name_field) + '"'
+                    json_name = ', "' + structure_node.sn_model_metadata(parent).name_field + '": "' + getattr(self, structure_node.sn_model_metadata(parent).name_field) + '"'
                 if export_format == 'DICT':
-                    tmp_dict[node.model_metadata.name_field] = getattr(self, node.model_metadata.name_field)
+                    tmp_dict[structure_node.sn_model_metadata(parent).name_field] = getattr(self, structure_node.sn_model_metadata(parent).name_field)
             if export_format == 'XML':
                 return '<' + tag_name + self.serialized_URI_MM() + 'UKCL="' + self.UKCL + '" ' + self._meta.pk.attname + '="' + str(self.pk) + '"' + xml_name + '/>'
             if export_format == 'JSON':
-                if node.is_many:
+                if structure_node.is_many:
                     return '{ ' + self.serialized_URI_MM(export_format) + ', "UKCL" : "' + self.UKCL + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
                 else:
                     return '"' + tag_name + '" :  { ' + self.serialized_URI_MM(export_format) + ', "UKCL" : "' + self.UKCL + '", "' + self._meta.pk.attname + '" : "' + str(self.pk) + '"' + json_name + ' }'
@@ -344,7 +362,7 @@ class ShareableModel(SerializableModel):
                 tmp_dict.update(self.serialized_URI_MM(export_format))
                 tmp_dict["UKCL"] = self.UKCL
                 tmp_dict[self._meta.pk.attname] = self.pk
-                if node.is_many:
+                if structure_node.is_many:
                     export_dict = tmp_dict
                 else:
                     export_dict[tag_name] = tmp_dict
@@ -380,9 +398,9 @@ class ShareableModel(SerializableModel):
         try:
             xmldoc.attributes["REFERENCE_IN_THIS_FILE"]
             # if the TAG is not there an exception will be raised and the method will continue and expect to find all data
-            module_name = structure_node.model_metadata.module
+            module_name = structure_node.sn_model_metadata(parent).module
             
-            actual_class = OrmWrapper.load_class(structure_netloc, module_name, structure_node.model_metadata.name) 
+            actual_class = OrmWrapper.load_class(structure_netloc, module_name, structure_node.sn_model_metadata(parent).name) 
             try:
                 instance = actual_class.retrieve_locally(xmldoc.attributes["UKCL"].firstChild.data)
                 # It's in the database; I just need to set its parent; data is either already there or it will be updated later on
@@ -428,23 +446,23 @@ class ShareableModel(SerializableModel):
         self.pk = None
 
         # I must set foreign_key child nodes BEFORE SAVING self otherwise I get an error for ForeignKeys not being set
-        for child_node in structure_node.child_nodes.all():
-            if child_node.attribute == 'first_version':
+        for child_structure_node in structure_node.child_nodes.all():
+            if child_structure_node.attribute == 'first_version':
                 pass
-            elif child_node.attribute in self.foreign_key_attributes():
+            elif child_structure_node.attribute in self.foreign_key_attributes():
                 try:
                     # ASSERT: in the XML there is exactly at most one child tag
-                    child_tag = xmldoc.getElementsByTagName(child_node.attribute)
+                    child_tag = xmldoc.getElementsByTagName(child_structure_node.attribute)
                     if len(child_tag) == 1:
                         xml_child_node = child_tag[0] 
                         # I search for the corresponding ModelMetadata
                          
                         se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
-                        assert (child_node.model_metadata.name == se.name), "child_node.model_metadata.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
-                        module_name = child_node.model_metadata.module
-                        actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
+                        assert (child_structure_node.sn_model_metadata(self).name == se.name), "child_structure_node.sn_model_metadata(self).name - se.name: " + child_structure_node.sn_model_metadata(self).name + ' - ' + se.name
+                        module_name = child_structure_node.sn_model_metadata(self).module
+                        actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_structure_node.sn_model_metadata(self).name)
                         instance = None
-                        if child_node.external_reference:
+                        if child_structure_node.external_reference:
                             '''
                             If it is an external reference I must search for it in the database first;  
                             if it is not there I fetch it using it's URL and then create it in the database
@@ -465,9 +483,9 @@ class ShareableModel(SerializableModel):
                         else:
                             instance = actual_class()
                             # save_from_xml takes care of saving instance with a self.save() at the end
-                            instance.save_from_xml(structure_netloc, xml_child_node, child_node)  # the fourth parameter, "parent" shouldn't be necessary in this case as this is a ForeignKey
+                            instance.save_from_xml(structure_netloc, xml_child_node, child_structure_node)  # the fourth parameter, "parent" shouldn't be necessary in this case as this is a ForeignKey
                         if not instance is None:
-                            setattr(self, child_node.attribute, instance)
+                            setattr(self, child_structure_node.attribute, instance)
                 except Exception as ex:
                     logger.error("save_from_xml: " + str(ex))
                     raise Exception("save_from_xml: " + str(ex))
@@ -501,32 +519,32 @@ class ShareableModel(SerializableModel):
         # or created on the fly (and UKCL is not set); in the latter case, only now I can generate UKCL
         # as I have just saved it and I have a local ID
         
-        for child_node in structure_node.child_nodes.all():
+        for child_structure_node in structure_node.child_nodes.all():
             # I have already processed foreign keys, I skip them now
-            if child_node.attribute and (not child_node.attribute in self.foreign_key_attributes()):
+            if child_structure_node.attribute and (not child_structure_node.attribute in self.foreign_key_attributes()):
                 # ASSERT: in the XML there is exactly one child tag
-                xml_attribute_node = xmldoc.getElementsByTagName(child_node.attribute)[0]
-                if child_node.is_many:
+                xml_attribute_node = xmldoc.getElementsByTagName(child_structure_node.attribute)[0]
+                if child_structure_node.is_many:
                     for xml_child_node in xml_attribute_node.childNodes:
                         se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
-                        module_name = child_node.model_metadata.module
-                        assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
-                        actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
-                        if child_node.external_reference:
+                        module_name = child_structure_node.sn_model_metadata(self).module
+                        assert (child_structure_node.sn_model_metadata(self).name == se.name), "child_structure_node.name - se.name: " + child_structure_node.sn_model_metadata(self).name + ' - ' + se.name
+                        actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_structure_node.sn_model_metadata(self).name)
+                        if child_structure_node.external_reference:
                             instance = actual_class.retrieve_locally(xml_child_node.attributes["UKCL"].firstChild.data)
                             # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
-                            if child_node.attribute in self._meta.fields:
-                                setattr(instance, child_node.attribute, self)
+                            if child_structure_node.attribute in self._meta.fields:
+                                setattr(instance, child_structure_node.attribute, self)
                                 instance.save()
                             else:  
-                                setattr(self, child_node.attribute, instance)
+                                setattr(self, child_structure_node.attribute, instance)
                                 self.save()
                         else:
                             instance = actual_class()
                             # is_many = True, I need to add this instance to self
-                            instance.save_from_xml(structure_netloc, xml_child_node, child_node, self)
-                            related_parent = getattr(self._meta.concrete_model, child_node.attribute)
-                            related_list = getattr(self, child_node.attribute)
+                            instance.save_from_xml(structure_netloc, xml_child_node, child_structure_node, self)
+                            related_parent = getattr(self._meta.concrete_model, child_structure_node.attribute)
+                            related_list = getattr(self, child_structure_node.attribute)
                             # if it is not there yet ...
                             if instance.id not in [i.id for i in related_list.all()]:
                                 # I add it
@@ -536,23 +554,23 @@ class ShareableModel(SerializableModel):
                     # is_many == False
                     xml_child_node = xml_attribute_node
                     se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
-                    module_name = child_node.model_metadata.module
-                    assert (child_node.model_metadata.name == se.name), "child_node.name - se.name: " + child_node.model_metadata.name + ' - ' + se.name
-                    actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_node.model_metadata.name)
-                    if child_node.external_reference:
+                    module_name = child_structure_node.sn_model_metadata(self).module
+                    assert (child_structure_node.sn_model_metadata(self).name == se.name), "child_structure_node.name - se.name: " + child_structure_node.sn_model_metadata(self).name + ' - ' + se.name
+                    actual_class = OrmWrapper.load_class(structure_netloc, module_name, child_structure_node.sn_model_metadata(self).name)
+                    if child_structure_node.external_reference:
                         instance = actual_class.retrieve_locally(xml_child_node.attributes["UKCL"].firstChild.data)
                         # TODO: il test successivo forse si fa meglio guardando il concrete_model - capire questo test e mettere un commento
-                        if child_node.attribute in self._meta.fields:
-                            setattr(instance, child_node.attribute, self)
+                        if child_structure_node.attribute in self._meta.fields:
+                            setattr(instance, child_structure_node.attribute, self)
                             instance.save()
                         else:  
-                            setattr(self, child_node.attribute, instance)
+                            setattr(self, child_structure_node.attribute, instance)
                             self.save()
                     else:
                         instance = actual_class()
-                        instance.save_from_xml(structure_netloc, xml_child_node, child_node, self)
+                        instance.save_from_xml(structure_netloc, xml_child_node, child_structure_node, self)
         
-    def new_version(self, sn, processed_instances, parent=None):
+    def new_version(self, structure_node, processed_instances, parent=None):
         '''
         invoked by DataSet.new_version that wraps it in a transaction
         it recursively invokes itself to create a new version of the full structure
@@ -563,7 +581,7 @@ class ShareableModel(SerializableModel):
         returns the newly created instance
         '''
 
-        if sn.external_reference:
+        if structure_node.external_reference:
             # if it is an external reference I do not need to create a new instance
             return self
 
@@ -574,34 +592,34 @@ class ShareableModel(SerializableModel):
         new_instance = self.__class__()
         if parent:
 #           I have a parent; let's set it
-            field_name = ShareableModel.get_parent_field_name(parent, sn.attribute)
+            field_name = ShareableModel.get_parent_field_name(parent, structure_node.attribute)
             if field_name:
                 setattr(new_instance, field_name, parent)
                 
-        for sn_child_node in sn.child_nodes.all():
-            if sn_child_node.attribute in self.foreign_key_attributes():
+        for child_structure_node in structure_node.child_nodes.all():
+            if child_structure_node.attribute in self.foreign_key_attributes():
                 # not is_many
-                child_instance = eval("self." + sn_child_node.attribute)
-                new_child_instance = child_instance.new_version(sn_child_node, processed_instances)
-                setattr(new_instance, sn_child_node.attribute, new_child_instance)  # the parameter "parent" shouldn't be necessary in this case as this is a ForeignKey
+                child_instance = eval("self." + child_structure_node.attribute)
+                new_child_instance = child_instance.new_version(child_structure_node, processed_instances)
+                setattr(new_instance, child_structure_node.attribute, new_child_instance)  # the parameter "parent" shouldn't be necessary in this case as this is a ForeignKey
                 
         # I have added all attributes corresponding to ForeignKey, I can save it so that I can use it as a parent for the other attributes
         new_instance.save()
                 
-        for sn_child_node in sn.child_nodes.all():
-            if sn_child_node.is_many:
-                child_instances = eval("self." + sn_child_node.attribute + ".all()")
+        for child_structure_node in structure_node.child_nodes.all():
+            if child_structure_node.is_many:
+                child_instances = eval("self." + child_structure_node.attribute + ".all()")
                 for child_instance in child_instances:
                     # let's prevent infinite loops if self relationships
-                    if (child_instance.__class__.__name__ == self.__class__.__name__) and (self.pk == sn_child_node.pk):
-                        eval("new_instance." + sn_child_node.attribute + ".add(new_instance)")
+                    if (child_instance.__class__.__name__ == self.__class__.__name__) and (self.pk == child_structure_node.pk):
+                        eval("new_instance." + child_structure_node.attribute + ".add(new_instance)")
                     else:
-                        new_child_instance = child_instance.new_version(sn_child_node, processed_instances, new_instance)
+                        new_child_instance = child_instance.new_version(child_structure_node, processed_instances, new_instance)
             else:
                 # not is_many
-                child_instance = eval("self." + sn_child_node.attribute)
-                new_child_instance = child_instance.new_version(sn_child_node, processed_instances, self)
-                setattr(new_instance, sn_child_node.attribute, new_child_instance)
+                child_instance = eval("self." + child_structure_node.attribute)
+                new_child_instance = child_instance.new_version(child_structure_node, processed_instances, self)
+                setattr(new_instance, child_structure_node.attribute, new_child_instance)
         
         for key in self._meta.fields:
             if key.__class__.__name__ != "ForeignKey" and self._meta.pk != key:
@@ -613,7 +631,7 @@ class ShareableModel(SerializableModel):
         processed_instances[str(self.UKCL)] = new_instance.UKCL
         return new_instance
 
-    def materialize(self, sn, processed_instances, parent=None):
+    def materialize(self, structure_node, processed_instances, parent=None):
         '''
         invoked by DataSet.set_released that wraps it in a transaction
         it recursively invokes itself to copy the full structure to the materialized DB
@@ -626,13 +644,12 @@ class ShareableModel(SerializableModel):
         If so shall we move it inside this method?
         '''
 
-        if sn.external_reference:
+        if structure_node.external_reference:
             try:
                 return self.__class__.objects.using('materialized').get(UKCL=self.UKCL)
             except Exception as ex:
-                new_ex = Exception("ShareableModel.materialize: external_reference to self.UKCL: " + self.UKCL + " searching it on materialized: " + str(ex) + " Should we add it to dangling references?????")
-                logger.error("ShareableModel.materialize: external_reference to self.UKCL: " + self.UKCL + " searching it on materialized: " + str(ex) + " Should we add it to dangling references?????")
-                raise new_ex
+                logger.info("ShareableModel.materialize: external_reference to UKCL: " + self.UKCL + " searching it on materialized: " + str(ex) + " Adding it to DanglingReferences")
+                raise ExternalReferenceNotFoundOnMaterialized("")
 
         if self.UKCL and str(self.UKCL) in processed_instances:
             # already materialized it, I return that one 
@@ -641,17 +658,18 @@ class ShareableModel(SerializableModel):
         new_instance = self.__class__()
         if parent:
 #           I have a parent; let's set it
-            field_name = ShareableModel.get_parent_field_name(parent, sn.attribute)
+            field_name = ShareableModel.get_parent_field_name(parent, structure_node.attribute)
             if field_name:
                 setattr(new_instance, field_name, parent)
-          
+
+        dangling_references = []  
         list_of_self_relationships_pointing_to_self = []      
-        for sn_child_node in sn.child_nodes.all():
-            if sn_child_node.attribute in self.foreign_key_attributes():
+        for child_structure_node in structure_node.child_nodes.all():
+            if child_structure_node.attribute in self.foreign_key_attributes():
                 # not is_many
                 # if they are nullable I do nothing
                 try:
-                    child_instance = getattr(self, sn_child_node.attribute)
+                    child_instance = getattr(self, child_structure_node.attribute)
                     if not child_instance is None:
                         # e.g. DataSet.root is a self relationship often set to self; I am materializing self
                         # so I don't have it; I return self; I could probably do the same also in the other case
@@ -660,48 +678,79 @@ class ShareableModel(SerializableModel):
                             # In Django ORM it seems not possible to have not nullable self relationships pointing to self
                             # I make not nullable in the model (this becomes a general constraint!); 
                             # put them in a list and save them after saving new_instance
-                            list_of_self_relationships_pointing_to_self.append(sn_child_node.attribute)
+                            list_of_self_relationships_pointing_to_self.append(child_structure_node.attribute)
                         else:
-                            new_child_instance = child_instance.materialize(sn_child_node, processed_instances)
-                            setattr(new_instance, sn_child_node.attribute, new_child_instance)  # the parameter "parent" shouldn't be necessary in this case as this is a ForeignKey
+                            try:
+                                new_child_instance = child_instance.materialize(child_structure_node, processed_instances)
+                                # the parameter "parent" shouldn't be necessary in this case as this is a ForeignKey
+                                setattr(new_instance, child_structure_node.attribute, new_child_instance)  
+                            except ExternalReferenceNotFoundOnMaterialized:
+                                # The reference exists in default, so we store the DanglingReference on the materialized
+                                dr = DanglingReference()
+                                dr.UKCL_actual_instance = child_instance.UKCL
+                                # child_structure_node is from default; we can't have a rel with dr on materialized
+                                dr.structure_node = StructureNode.objects.using('materialized').get(UKCL=child_structure_node.UKCL)
+                                dangling_references.append(dr)
+                                # I need to set a placeholder otherwise saving new_instance will fail if the attribute can't be null
+                                setattr(new_instance, child_structure_node.attribute, child_instance.placeholder('materialized'))
+                            except Exception as ex:
+                                raise ex
                 except Exception as ex:
-                    logger.warning("ShareableModel.materialize: " + self.__class__.__name__ + " " + str(self.pk) + " attribute \"" + sn_child_node.attribute + "\" " + str(ex))
-                    pass
+                    logger.warning("ShareableModel.materialize: " + self.__class__.__name__ + " " + str(self.pk) + " attribute \"" + child_structure_node.attribute + "\" " + str(ex))
         for key in self._meta.fields:
             if key.__class__.__name__ != "ForeignKey" and self._meta.pk != key:
                 setattr(new_instance, key.name, eval("self." + key.name))
 
         # I have added all attributes corresponding to ForeignKey, I can save it so that I can use it as a parent for the other attributes
-        new_instance.save(using='materialized')
+        try:
+            new_instance.save(using='materialized')
+        except Exception as ex:
+            logger.error("ShareableModel.materialize, errore saving new_instance of " + self.__class__.__name__ + " " + str(self.pk) + + str(ex))
+        # now I can link the dangling_references to new_instance
+        for dr in dangling_references:
+            dr.object_with_dangling=new_instance
+            dr.save(using='materialized')
         if len(list_of_self_relationships_pointing_to_self) > 0:
             for attribute in list_of_self_relationships_pointing_to_self:
                 setattr(new_instance, attribute, new_instance)
             new_instance.save(using='materialized')
         
-        for sn_child_node in sn.child_nodes.all():
-            if not (sn_child_node.attribute in self.foreign_key_attributes()):
-                if sn_child_node.is_many:
-                    if not sn_child_node.method_to_retrieve:
-                        child_instances = eval("self." + sn_child_node.attribute + ".all()")
+        for child_structure_node in structure_node.child_nodes.all():
+            if not (child_structure_node.attribute in self.foreign_key_attributes()):
+                if child_structure_node.is_many:
+                    if not child_structure_node.method_to_retrieve:
+                        child_instances = eval("self." + child_structure_node.attribute + ".all()")
                         for child_instance in child_instances:
                             # let's prevent infinite loops if self relationships
-                            if (child_instance.__class__.__name__ == self.__class__.__name__) and (self.pk == sn_child_node.pk):
-                                eval("new_instance." + sn_child_node.attribute + ".add(new_instance)")
+                            if (child_instance.__class__.__name__ == self.__class__.__name__) and (self.pk == child_structure_node.pk):
+                                eval("new_instance." + child_structure_node.attribute + ".add(new_instance)")
                             else:
-                                new_child_instance = child_instance.materialize(sn_child_node, processed_instances, new_instance)
+                                new_child_instance = child_instance.materialize(child_structure_node, processed_instances, new_instance)
                 else:
                     # not is_many ###############################################################################
-                    child_instance = eval("self." + sn_child_node.attribute)
-                    new_child_instance = child_instance.materialize(sn_child_node, processed_instances, self)
+                    child_instance = eval("self." + child_structure_node.attribute)
+                    new_child_instance = child_instance.materialize(child_structure_node, processed_instances, self)
                     # The child_instance could be a reference so we expect to find it already there
-                    setattr(new_instance, sn_child_node.attribute, new_child_instance)
+                    setattr(new_instance, child_structure_node.attribute, new_child_instance)
         
         new_instance.save(using='materialized')
         # after saving
         processed_instances.append(new_instance.UKCL)
+        # resolve dangling
+        drs = DanglingReference.objects.using('materialized').filter(UKCL_actual_instance=new_instance.UKCL)
+        for dr in drs:
+            try:
+                if dr.structure_node.is_many:
+                    eval("dr.object_with_dangling." + child_structure_node.attribute + ".add(new_instance)")
+                else:
+                    setattr(dr.object_with_dangling, dr.structure_node.attribute, new_instance)
+                new_instance.save(using='materialized')
+                dr.delete()
+            except:
+                logger.warn("Couldn't resolve a dangling reference from " + dr.UKCL_actual_instance + " to " + dr.object_with_dangling.UKCL)
         return new_instance
 
-    def delete_children(self, etn, parent=None):
+    def delete_children(self, structure_node, parent=None):
         '''
         invoked by DataSet.delete_entire_dataset that wraps it in a transaction
         it recursively invokes itself to delete children's children; self is in the 
@@ -713,19 +762,19 @@ class ShareableModel(SerializableModel):
         '''
 
         # I delete the children; must do it before remapping foreignkeys otherwise some will escape deletion
-        for sn_child_node in etn.child_nodes.all():
-            if not sn_child_node.external_reference:
-                if sn_child_node.is_many:
-                    child_instances = eval("self." + sn_child_node.attribute + ".all()")
+        for child_structure_node in structure_node.child_nodes.all():
+            if not child_structure_node.external_reference:
+                if child_structure_node.is_many:
+                    child_instances = eval("self." + child_structure_node.attribute + ".all()")
                     for child_instance in child_instances:
                         # let's prevent deleting self; self will be deleted by who has invoked this method 
-                        if (child_instance.__class__.__name__ != self.__class__.__name__) or (self.pk != sn_child_node.pk):
-                            child_instance.delete_children(sn_child_node, self)
+                        if (child_instance.__class__.__name__ != self.__class__.__name__) or (self.pk != child_structure_node.pk):
+                            child_instance.delete_children(child_structure_node, self)
                             child_instance.delete()
                 else:
                     # not is_many
-                    child_instance = eval("self." + sn_child_node.attribute)
-                    child_instance.delete_children(sn_child_node, self)
+                    child_instance = eval("self." + child_structure_node.attribute)
+                    child_instance.delete_children(child_structure_node, self)
                     child_instance.delete()
         
         try:
@@ -810,12 +859,20 @@ class DanglingReference(ShareableModel):
     an OKS, all those of a specific type/structure, all those depending on a specific dataset ...
     Importing new data structures will attempt the resolution of existing dangling references
     '''
-    URI_actual_instance = models.CharField(max_length=2000, default='')
-    # the url of the structure could be obtained invoking the api dataset_info on URI_actual_instance
-    # but we need it to group DRs that depend on the same structure
-    URI_structure = models.CharField(max_length=2000, default='')
-    # same as URI_structure; we need it to group DRs depending on the same dataset
-    URI_dataset = models.CharField(max_length=2000, default='')
+    UKCL_actual_instance = models.CharField(max_length=2000, default='')
+    '''
+    the structure_node tells us the attribute and whether is_many or not
+    '''
+    structure_node = models.ForeignKey("StructureNode")
+    '''
+    We want to group DRs so that we can try to resolve them with not so many API calls to external OKSs
+    the only info we have is the UKCL from which we determin the oks_home; we save on a separate column
+    to TODO: make an index an more efficient queries
+    '''
+    oks_home = models.CharField(max_length=255, blank=True)
+    object_with_dangling_content_type = models.ForeignKey(ContentType, null=True, blank=True)
+    object_with_dangling_instance_id = models.PositiveIntegerField(null=True, blank=True)
+    object_with_dangling = GenericForeignKey('object_with_dangling_content_type', 'object_with_dangling_instance_id')
 
 
 class ModelMetadata(ShareableModel):
@@ -862,8 +919,8 @@ class ModelMetadata(ShareableModel):
         types = []
         nodes = StructureNode.objects.using('materialized').filter(model_metadata=self, external_reference=external_reference)
         try:
-            for node in nodes:
-                entry_node = node
+            for structure_node in nodes:
+                entry_node = structure_node
                 visited_nodes_ids = []
                 visited_nodes_ids.append(entry_node.id)
                 while len(entry_node.parent.all()) > 0:
@@ -881,9 +938,15 @@ class ModelMetadata(ShareableModel):
 
 
 class StructureNode(ShareableModel):
-    model_metadata = models.ForeignKey('ModelMetadata')
+    model_metadata = models.ForeignKey('ModelMetadata', null=True, blank=True)
     # attribute is blank for the entry point as it is available as dataset.root
     attribute = models.CharField(max_length=255, blank=True)
+    # if ct and fk are not '' then it is a GenericForeignKey e.g. I do not 
+    # now to which ContentType the fk points to; ct_field tells me which ContentType; 
+    # fk tells me the pk value
+    # model_metadata is None if it is a GenericForeignKey
+    ct_field = models.CharField(max_length=255, default='')
+    fk_field = models.CharField(max_length=255, default='')
     '''
        method_to_retrieve is a method that can be invoked to retrieve
        the value of the instance or instances corresponding to this 
@@ -916,21 +979,21 @@ class StructureNode(ShareableModel):
             node_method(instance, status)
         # loop on children
 
-        for child_node in self.child_nodes.all():
+        for child_structure_node in self.child_nodes.all():
             # I don't do it to external references, they don't belong to this dataset
             # at the moment I don't do it when attribute is '' as I should use method_to_retrieve
             # to get the child instances and I can't guarantee that they are instances of ShareableModel
-            if (not child_node.external_reference) and child_node.attribute:
-                if child_node.is_many:
-                    child_instances = eval("instance." + child_node.attribute + ".all()")
+            if (not child_structure_node.external_reference) and child_structure_node.attribute:
+                if child_structure_node.is_many:
+                    child_instances = eval("instance." + child_structure_node.attribute + ".all()")
                     for child_instance in child_instances:
                         # let's prevent infinite loops if self relationships
-                        if (child_instance.__class__.__name__ != instance.__class__.__name__) or (instance.pk != child_node.pk):
-                            child_node.navigate(child_instance, instance_method_name, node_method_name, status, children_before)
+                        if (child_instance.__class__.__name__ != instance.__class__.__name__) or (instance.pk != child_structure_node.pk):
+                            child_structure_node.navigate(child_instance, instance_method_name, node_method_name, status, children_before)
                 else:
-                    child_instance = eval("instance." + child_node.attribute)
+                    child_instance = eval("instance." + child_structure_node.attribute)
                     if not child_instance is None:
-                        child_node.navigate(child_instance, instance_method_name, node_method_name, status, children_before)
+                        child_structure_node.navigate(child_instance, instance_method_name, node_method_name, status, children_before)
             # else there's a method extracting information from other sources (e.g. Fields information from ORM model)
         if children_before and instance_method_name:
             instance_method(instance, status)
@@ -966,8 +1029,8 @@ class StructureNode(ShareableModel):
         l = []
         if self.method_to_retrieve == None:
             l = [{"app": self.model_metadata.module, "model": self.model_metadata.name}]
-        for cn in self.child_nodes.all():
-            child_app_models = cn.app_models(processed_instances)
+        for child_structure_node in self.child_nodes.all():
+            child_app_models = child_structure_node.app_models(processed_instances)
             if child_app_models:
                 l += child_app_models
         if len(l) == 0:
@@ -975,6 +1038,21 @@ class StructureNode(ShareableModel):
         else:
             return l
 
+    def sn_model_metadata(self, parent = None):
+        '''
+        A structure node now can handle a GenericForeignKey that means that self.model_metadata
+        sometimes is None; when it is a GenericForeignKey then it is always an external reference;
+        if it is a GenericForeignKey I can determine the model metadata only when navigating
+        an actual DataSet that has this structure; I do it with the parent, the attribute (which 
+        can't be None either as the root_node can't be external_reference and can't be a GenericForeignKey)
+        
+        SE E' UN GENERIC NON POSSO TROVARE IL MODELMETADATA SE NON HO L'ISTANZA  
+        '''
+        if self.model_metadata is None:
+            child = getattr(parent, self.attribute)
+            return child.get_model_metadata()
+        else:
+            return self.model_metadata
 
 class DataSetStructure(ShareableModel):
     # DSN = DataSet Structure Name
@@ -1295,16 +1373,16 @@ class DataSet(ShareableModel):
             export_dict.update(self.serialized_attributes(format=export_format))
 
         e_model_metadata = ModelMetadata.objects.get(name="DataSetStructure")
-        temp_etn = StructureNode(model_metadata=e_model_metadata, external_reference=True, is_many=False, attribute="dataset_structure")
-        tmp = self.dataset_structure.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        temp_structure_node = StructureNode(model_metadata=e_model_metadata, external_reference=True, is_many=False, attribute="dataset_structure")
+        tmp = self.dataset_structure.serialize(temp_structure_node, exported_instances=[], export_format=export_format)
         if export_format == 'DICT':
             export_dict.update(tmp)
         else:
             serialized_head += comma + tmp
         
         ks_model_metadata = ModelMetadata.objects.get(name="KnowledgeServer")
-        temp_etn = StructureNode(model_metadata=ks_model_metadata, external_reference=True, is_many=False, attribute="knowledge_server")
-        tmp = self.knowledge_server.serialize(temp_etn, exported_instances=[], export_format=export_format)
+        temp_structure_node = StructureNode(model_metadata=ks_model_metadata, external_reference=True, is_many=False, attribute="knowledge_server")
+        tmp = self.knowledge_server.serialize(temp_structure_node, exported_instances=[], export_format=export_format)
         if export_format == 'DICT':
             export_dict.update(tmp)
         else:
@@ -1313,8 +1391,8 @@ class DataSet(ShareableModel):
         if not self.dataset_structure.is_a_view:
             #if it is a view there is no first_version
             ei_model_metadata = ModelMetadata.objects.get(name="DataSet")
-            temp_etn = StructureNode(model_metadata=ei_model_metadata, external_reference=True, is_many=False, attribute="first_version")
-            tmp = self.first_version.serialize(temp_etn, exported_instances=[], export_format=export_format)
+            temp_structure_node = StructureNode(model_metadata=ei_model_metadata, external_reference=True, is_many=False, attribute="first_version")
+            tmp = self.first_version.serialize(temp_structure_node, exported_instances=[], export_format=export_format)
             if export_format == 'DICT':
                 export_dict.update(tmp)
             else:
@@ -2138,3 +2216,7 @@ def json_serial(obj):
         return serial
     raise TypeError ("Type not serializable")
         
+class ExternalReferenceNotFoundOnMaterialized(Exception):
+    """While materializing an external reference was not found, we must create 
+       a DanglingReference so that we can fix it when it comes"""
+    pass

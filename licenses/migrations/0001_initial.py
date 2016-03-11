@@ -35,6 +35,7 @@ class Migration(migrations.Migration):
                 ('image', models.CharField(blank=True, max_length=160, null=True)),
                 ('image_small', models.CharField(blank=True, max_length=160, null=True)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
             ],
             options={
                 'abstract': False,

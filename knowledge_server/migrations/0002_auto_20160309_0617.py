@@ -32,4 +32,14 @@ class Migration(migrations.Migration):
             name='dataset_I_belong_to',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet'),
         ),
+        migrations.AddField(
+            model_name='danglingreference',
+            name='structure_node',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.StructureNode'),
+        ),
+        migrations.AddField(
+            model_name='danglingreference',
+            name='UKCL_previous_version',
+            field=models.CharField(blank=True, max_length=2000, null=True),
+        ),
     ]

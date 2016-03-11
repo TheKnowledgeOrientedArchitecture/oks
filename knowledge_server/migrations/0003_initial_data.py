@@ -46,6 +46,7 @@ def forwards_func(apps, schema_editor):
     mmNotification=ModelMetadata(); mmNotification.name="Notification"; mmNotification.module="knowledge_server"; mmNotification.save(using=db_alias)
     mmNotificationReceived=ModelMetadata(); mmNotificationReceived.name="NotificationReceived"; mmNotificationReceived.module="knowledge_server"; mmNotificationReceived.save(using=db_alias)
     mmLicense=ModelMetadata();mmLicense.name="License";mmLicense.module="licenses";mmLicense.save(using=db_alias)
+    mmDanglingReference=ModelMetadata();mmDanglingReference.name="DanglingReference";mmDanglingReference.module="knowledge_server";mmDanglingReference.save(using=db_alias)
 
     # we trigger the generation of the UKCL by setting it to "" and saving
     # we couldn't do it before having the corresponding ModelMetadata
@@ -94,7 +95,6 @@ def forwards_func(apps, schema_editor):
     mmStructureNode.dataset_structure = dssDataSetStructureStructureNode; mmStructureNode.save(using=db_alias)
     en1.save(using=db_alias);en2.save(using=db_alias);en4.save(using=db_alias);
     en5.save(using=db_alias);en6.save(using=db_alias);en7.save(using=db_alias);en18.save(using=db_alias);en19.save(using=db_alias)
-     
      
     # DATASETSTRUCTURE  eOrganizationKS
     en18.child_nodes.add(en19); en18.save(using=db_alias)
@@ -178,6 +178,11 @@ def forwards_func(apps, schema_editor):
     ei.set_dataset_on_instances();
     ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
                  root=mmLicense,description="Model metadata of License",
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+    ei.save(using=db_alias);
+    ei.set_dataset_on_instances();
+    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,       
+                 root=mmDanglingReference,description="Model metadata of DanglingReference",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ei.save(using=db_alias);
     ei.set_dataset_on_instances();
