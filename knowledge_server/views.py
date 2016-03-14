@@ -266,5 +266,6 @@ def debug(request):
 
         return HttpResponse("OK ")
     except Exception as ex:
+        logger.error("views.debug: " + str(ex))
         return HttpResponse(str(ex))
 

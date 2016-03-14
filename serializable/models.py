@@ -54,16 +54,8 @@ class SerializableModel(models.Model):
                 
     def virtual_field_attributes(self): 
         attributes = []
-        for key in self._meta.virtual_field:
-#             if key.__class__.__name__ == "ManyToManyField":
+        for key in self._meta.virtual_fields:
                 attributes.append(key.name)
-        return attributes
-                
-    def related_manager_attributes(self): 
-        attributes = ""
-        for key in self._meta.fields:
-            if key.__class__.__name__ == "RelatedManager":
-                attributes += ' ' + key.name + '="' + str(getattr(self, key.name)) + '"'
         return attributes
                 
     def serialized_tags(self, parent_class=None):

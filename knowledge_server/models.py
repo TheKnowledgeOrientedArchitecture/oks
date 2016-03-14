@@ -665,7 +665,7 @@ class ShareableModel(SerializableModel):
         dangling_references = []  
         list_of_self_relationships_pointing_to_self = []      
         for child_structure_node in structure_node.child_nodes.all():
-            if child_structure_node.attribute in self.foreign_key_attributes():
+            if child_structure_node.attribute in (self.foreign_key_attributes() + self.virtual_field_attributes()):
                 # not is_many
                 # if they are nullable I do nothing
                 try:
@@ -694,9 +694,11 @@ class ShareableModel(SerializableModel):
                                 # I need to set a placeholder otherwise saving new_instance will fail if the attribute can't be null
                                 setattr(new_instance, child_structure_node.attribute, child_instance.placeholder('materialized'))
                             except Exception as ex:
+                                logger.error("Error materializing " + child_instance.UKCL + " - " + str(ex))
                                 raise ex
                 except Exception as ex:
-                    logger.warning("ShareableModel.materialize: " + self.__class__.__name__ + " " + str(self.pk) + " attribute \"" + child_structure_node.attribute + "\" " + str(ex))
+                    logger.error("ShareableModel.materialize: " + self.__class__.__name__ + " " + str(self.pk) + " attribute \"" + child_structure_node.attribute + "\" " + str(ex))
+                    raise ex
         for key in self._meta.fields:
             if key.__class__.__name__ != "ForeignKey" and self._meta.pk != key:
                 setattr(new_instance, key.name, eval("self." + key.name))
@@ -716,8 +718,9 @@ class ShareableModel(SerializableModel):
             new_instance.save(using='materialized')
         
         for child_structure_node in structure_node.child_nodes.all():
-            if not (child_structure_node.attribute in self.foreign_key_attributes()):
+            if not (child_structure_node.attribute in (self.foreign_key_attributes() + self.virtual_field_attributes())):
                 if child_structure_node.is_many:
+                    # if we have a method to retrieve the children there is nothing to be materialized
                     if not child_structure_node.method_to_retrieve:
                         child_instances = eval("self." + child_structure_node.attribute + ".all()")
                         for child_instance in child_instances:
@@ -725,7 +728,11 @@ class ShareableModel(SerializableModel):
                             if (child_instance.__class__.__name__ == self.__class__.__name__) and (self.pk == child_structure_node.pk):
                                 eval("new_instance." + child_structure_node.attribute + ".add(new_instance)")
                             else:
-                                new_child_instance = child_instance.materialize(child_structure_node, processed_instances, new_instance)
+                                if child_structure_node.attribute in self.many_to_many_attributes():
+                                    new_child_instance = child_instance.materialize(child_structure_node, processed_instances)
+                                    eval("new_instance." + child_structure_node.attribute + ".add(new_child_instance)")
+                                else:
+                                    new_child_instance = child_instance.materialize(child_structure_node, processed_instances, new_instance)
                 else:
                     # not is_many ###############################################################################
                     child_instance = eval("self." + child_structure_node.attribute)
@@ -744,7 +751,7 @@ class ShareableModel(SerializableModel):
                     eval("dr.object_with_dangling." + child_structure_node.attribute + ".add(new_instance)")
                 else:
                     setattr(dr.object_with_dangling, dr.structure_node.attribute, new_instance)
-                new_instance.save(using='materialized')
+                dr.object_with_dangling.save(using='materialized')
                 dr.delete()
             except:
                 logger.warn("Couldn't resolve a dangling reference from " + dr.UKCL_actual_instance + " to " + dr.object_with_dangling.UKCL)
@@ -976,7 +983,7 @@ class StructureNode(ShareableModel):
         if not children_before and instance_method_name:
             instance_method(instance, status)
         if not children_before and node_method_name:
-            node_method(instance, status)
+            node_method(self, status)
         # loop on children
 
         for child_structure_node in self.child_nodes.all():
@@ -998,18 +1005,32 @@ class StructureNode(ShareableModel):
         if children_before and instance_method_name:
             instance_method(instance, status)
         if children_before and node_method_name:
-            node_method(instance, status)
+            node_method(self, status)
         
     def navigate_helper_set_datasetstructure(self, instance, status):
         '''
         instance is a StructureNode, I must set its model_metadata.dataset_structure
         on both default and materialized database
         '''
+        if not 'output' in status.keys():
+            status['output'] = ""
         instance.model_metadata.dataset_structure = status['dataset'].dataset_structure
         instance.model_metadata.save()
-        mm_model_metadata = ModelMetadata.objects.using('materialized').get(UKCL=instance.model_metadata.UKCL)
-        mm_model_metadata.dataset_structure = status['dataset'].dataset_structure
-        mm_model_metadata.save()
+        try:
+            mm_model_metadata = ModelMetadata.objects.using('materialized').get(UKCL=instance.model_metadata.UKCL)
+            # TODO: next query do it just once
+            mm_dataset_structure = DataSetStructure.objects.using('materialized').get(UKCL=status['dataset'].dataset_structure.UKCL)
+            mm_model_metadata.dataset_structure = mm_dataset_structure
+            mm_model_metadata.save()
+        except ObjectDoesNotExist:
+            # navigate_helper_set_datasetstructure materialized doesn't exist yet; dataset_structure will be set when materializing
+            logger.debug("navigate_helper_set_datasetstructure materialized doesn't exist yet; dataset_structure will be set when materializing")
+        except Exception as ex:
+            logger.error('''            navigate_helper_set_datasetstructure 
+                self=%s 
+                instance=%s 
+                status['dataset']=%s''' % (self.UKCL, instance.UKCL, status['dataset'].UKCL))
+            raise ex
     
     def navigate_helper_list_by_type(self, instance, status):
         # if status['output'] is None I create a dictionary whose keys will be 
@@ -1790,6 +1811,7 @@ class DataSet(ShareableModel):
                     self.dataset_structure.navigate(self, "", "navigate_helper_set_datasetstructure")
         except Exception as ex:
             logger.error("set_released DataSet " + str(self.pk) + " '" + self.description + "': " + str(ex))
+            raise(ex)
     
 
     def delete_entire_dataset(self):
