@@ -85,7 +85,7 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
     ks_url = urllib.parse.unquote(ks_url)
     tmp_ks_url = KsUrl(ks_url)
     UKCL = urllib.parse.unquote(UKCL)
-    if tmp_ks_url.scheme != tmp_ks_url.scheme or tmp_ks_url.netloc != tmp_ks_url.netloc:
+    if this_ks.scheme != tmp_ks_url.scheme or this_ks.netloc != tmp_ks_url.netloc:
         # info on the remote ks
         ar_ks_info = ApiResponse()
         ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info', args=("JSON",))
@@ -134,18 +134,17 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
             subscribed_first_version_UKCLs.append(s.first_version_UKCL)
         datasets = []
         for ei in decoded['content']['DataSets']:
-            entity = {}
+            dataset = {}
             if 'ActualInstance' in ei.keys():
                 actual_instance_class = list(ei['ActualInstance'].keys())[0]
-                entity['actual_instance_name'] = ei['ActualInstance'][actual_instance_class]['name']
+                dataset['actual_instance_name'] = ei['ActualInstance'][actual_instance_class]['name']
             else: #is a view
-                entity['actual_instance_name'] = ei['description']
-            entity['encodedUKCL'] = urllib.parse.urlencode({'':ei['UKCL']})[1:]
-            entity['UKCL'] = urllib.parse.quote(ei['UKCL']).replace("/","%2F")
+                dataset['actual_instance_name'] = ei['description']
+            dataset['encodedUKCL'] = urllib.parse.urlencode({'':ei['UKCL']})[1:]
+            dataset['UKCL'] = urllib.parse.quote(ei['UKCL']).replace("/","%2F")
             subscribed_UKCL = ei['first_version']['UKCL'] if 'first_version' in ei else ei['UKCL']
-            if subscribed_UKCL in subscribed_first_version_UKCLs:
-                entity['subscribed'] = True
-            datasets.append(entity)
+            dataset['subscribed'] = subscribed_UKCL in subscribed_first_version_UKCLs
+            datasets.append(dataset)
         cont = RequestContext(request, {'browsing_this':browsing_this, 'datasets':datasets, 'organization': organization, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.url(True), 'external_ks': external_ks, 'es_info_json': es_info_json})
         return render_to_response('knowledge_server/datasets_of_type.html', context_instance=cont)
     

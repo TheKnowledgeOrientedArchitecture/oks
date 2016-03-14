@@ -7,7 +7,7 @@
 from django.apps.registry import apps
 from django.db import models
 from django.db.models.fields import NOT_PROVIDED
-from django.db.models.fields.related_descriptors import ReverseManyToOneDescriptor
+from django.db.models.fields.related_descriptors import ReverseManyToOneDescriptor, ManyToManyDescriptor
 from django.db.migrations import operations
 from django.db.migrations.autodetector import MigrationAutodetector
 from django.db.migrations.migration import Migration
@@ -53,6 +53,9 @@ class SerializableModel(models.Model):
         return attributes
                 
     def virtual_field_attributes(self): 
+        '''
+        see documentation for GenericForeignKey
+        ''' 
         attributes = []
         for key in self._meta.virtual_fields:
                 attributes.append(key.name)
@@ -262,14 +265,18 @@ class SerializableModel(models.Model):
     @staticmethod
     def get_parent_field_name(parent, attribute):
         '''
-        TODO: describe *ObjectsDescriptor or link to docs
-              make sure it is complete (e.g. we are not missing any other *ObjectsDescriptor)
+        TODO: describe *Descriptor or link to docs
+              make sure it is complete (e.g. we are not missing any other *Descriptor)
         '''
         related_parent = getattr(parent._meta.concrete_model, attribute)
-        if related_parent.__class__.__name__ == "ForeignRelatedObjectsDescriptor":
-            return related_parent.related.field.name
-        if related_parent.__class__.__name__ == "ReverseSingleRelatedObjectDescriptor":
-            return related_parent.field.name
+#         if related_parent.__class__.__name__ == "ForeignRelatedObjectsDescriptor":
+#             return related_parent.related.field.name
+#         if related_parent.__class__.__name__ == "ReverseSingleRelatedObjectDescriptor":
+#             return related_parent.field.name
+        # ManyToManyDescriptor must be before ReverseManyToOneDescriptor because:
+        # class ManyToManyDescriptor(ReverseManyToOneDescriptor):
+        if isinstance(related_parent, ManyToManyDescriptor):
+            return ""
         if isinstance(related_parent, ReverseManyToOneDescriptor):
             return related_parent.field.name
         raise Exception("Error get_parent_field_name, parent: " + parent.__class__.__name__ + " " + parent.id + ", attribute:\"" + attribute + '"' )

@@ -9,7 +9,6 @@ import inspect
 import json
 import logging
 import os
-import knowledge_server.utils
 import urllib
 from urllib.request import urlopen, Request
 
@@ -441,7 +440,7 @@ class ShareableModel(SerializableModel):
                     else:
                         setattr(self, key.name, xmldoc.attributes[key.name].firstChild.data)
                 except Exception as ex:
-                    logger.info("Extracting from xml \"" + key.name + "\" for object of class \"" + self.__class__.__name__ + "\" with PK " + str(self.pk) + ". Exception: " + str(ex))
+                    logger.debug("Extracting from xml \"" + key.name + "\" for object of class \"" + self.__class__.__name__ + "\" with PK " + str(self.pk) + ". Exception: " + str(ex))
         # in the previous loop I have set the pk too; I must set it to None before saving
         self.pk = None
 
@@ -449,10 +448,15 @@ class ShareableModel(SerializableModel):
         for child_structure_node in structure_node.child_nodes.all():
             if child_structure_node.attribute == 'first_version':
                 pass
-            elif child_structure_node.attribute in self.foreign_key_attributes():
+            # I must skip the import if self is a DataSet and the GenericForeignKey is 'root'
+            # this is because the export of a DataSet is done differently from any other; it
+            # starts from the root with the DataSet.dataset_structure.root_node
+            elif child_structure_node.attribute in self.virtual_field_attributes() and isinstance(self, DataSet) and child_structure_node.attribute=='root':
+                pass
+            elif child_structure_node.attribute in (self.foreign_key_attributes() + self.virtual_field_attributes()):
                 try:
                     # ASSERT: in the XML there is exactly at most one child tag
-                    child_tag = xmldoc.getElementsByTagName(child_structure_node.attribute)
+                    child_tag = [t for t in xmldoc.getElementsByTagName(child_structure_node.attribute) if t in xmldoc.childNodes]
                     if len(child_tag) == 1:
                         xml_child_node = child_tag[0] 
                         # I search for the corresponding ModelMetadata
@@ -487,7 +491,7 @@ class ShareableModel(SerializableModel):
                         if not instance is None:
                             setattr(self, child_structure_node.attribute, instance)
                 except Exception as ex:
-                    logger.error("save_from_xml: " + str(ex))
+                    logger.error("save_from_xml self=%s child_structure_node.attribute='%s' in (foreign_key + virtual_field):  -- %s" % (self.UKCL, child_structure_node.attribute, str(ex)))
                     raise Exception("save_from_xml: " + str(ex))
                  
         # I have added all attributes corresponding to ForeignKey, I can save it so that I can use it as a parent for the other attributes
@@ -506,9 +510,9 @@ class ShareableModel(SerializableModel):
             '''
             self.first_version = self
             try:
-                first_version_tag = xmldoc.getElementsByTagName('first_version')
+                first_version_tag = [t for t in xmldoc.getElementsByTagName('first_version') if t in xmldoc.childNodes]
                 if len(first_version_tag) == 1:
-                    first_version_UKCL = xmldoc.getElementsByTagName('first_version')[0].attributes["UKCL"].firstChild.data
+                    first_version_UKCL = first_version_tag[0].attributes["UKCL"].firstChild.data
                     instance = DataSet.retrieve_locally(first_version_UKCL)
                     self.first_version = instance
             except:
@@ -520,10 +524,11 @@ class ShareableModel(SerializableModel):
         # as I have just saved it and I have a local ID
         
         for child_structure_node in structure_node.child_nodes.all():
-            # I have already processed foreign keys, I skip them now
-            if child_structure_node.attribute and (not child_structure_node.attribute in self.foreign_key_attributes()):
+            # I have already processed foreign keys and virtual_field (=GenericForeignKey), I skip them now
+            if child_structure_node.attribute and (not child_structure_node.attribute in (self.foreign_key_attributes() + self.virtual_field_attributes())):
                 # ASSERT: in the XML there is exactly one child tag
-                xml_attribute_node = xmldoc.getElementsByTagName(child_structure_node.attribute)[0]
+                xml_attribute_nodes = [t for t in xmldoc.getElementsByTagName(child_structure_node.attribute) if t in xmldoc.childNodes]
+                xml_attribute_node = xml_attribute_nodes[0]
                 if child_structure_node.is_many:
                     for xml_child_node in xml_attribute_node.childNodes:
                         se = ShareableModel.model_metadata_from_xml_tag(xml_child_node)
@@ -542,11 +547,16 @@ class ShareableModel(SerializableModel):
                         else:
                             instance = actual_class()
                             # is_many = True, I need to add this instance to self
+                            
+                            tmp_log = getattr(self._meta.concrete_model, child_structure_node.attribute)
+                            logger.debug("getattr(self._meta.concrete_model, child_structure_node.attribute) %s" % tmp_log.__class__.__name__)
+                            logger.debug("self.UKCL=%s - child_structure_node.attribute='%s'" % (self.UKCL, child_structure_node.attribute))
                             instance.save_from_xml(structure_netloc, xml_child_node, child_structure_node, self)
                             related_parent = getattr(self._meta.concrete_model, child_structure_node.attribute)
                             related_list = getattr(self, child_structure_node.attribute)
-                            # if it is not there yet ...
-                            if instance.id not in [i.id for i in related_list.all()]:
+                            # if it is a manytomany it is not there yet ... 
+                            if ShareableModel.get_parent_field_name(self, child_structure_node.attribute) == "":
+#                             if instance.id not in [i.id for i in related_list.all()]:
                                 # I add it
                                 related_list.add(instance)
                                 self.save()
@@ -1409,6 +1419,16 @@ class DataSet(ShareableModel):
         else:
             serialized_head += comma + tmp
         
+        
+        # UGLY PATCH: I have to add licenses
+        # quick and dirty, I export using the shallow and take the licenses from there
+        q_and_d = self.serialize(self.shallow_structure().root_node, exported_instances=[], export_format=export_format)
+        if export_format == 'DICT':
+            export_dict.update({'licenses': q_and_d['DataSet']['licenses']})
+        else:
+            end_tag="</licenses>"
+            serialized_head += comma +q_and_d[q_and_d.find("<licenses>"):q_and_d.find(end_tag)+len(end_tag)] 
+        
         if not self.dataset_structure.is_a_view:
             #if it is a view there is no first_version
             ei_model_metadata = ModelMetadata.objects.get(name="DataSet")
@@ -1475,7 +1495,8 @@ class DataSet(ShareableModel):
         xmldoc = minidom.parseString(dataset_xml_stream)
         
         dataset_xml = xmldoc.childNodes[0].childNodes[0]
-        DataSetStructureURI = dataset_xml.getElementsByTagName("dataset_structure")[0].attributes["UKCL"].firstChild.data
+        tags = [t for t in dataset_xml.getElementsByTagName("dataset_structure") if t in dataset_xml.childNodes]
+        DataSetStructureURI = tags[0].attributes["UKCL"].firstChild.data
         # The structure netloc tells me the OKS that created the structure and the models for the nodes
         # so I will pass it to load_class in this method and in from_xml too
         dss_url = KsUrl(DataSetStructureURI)
@@ -1491,11 +1512,13 @@ class DataSet(ShareableModel):
                 actual_instances_xml = []
                 if es.is_a_view:
                     # I have a list of actual instances
-                    for instance_xml in dataset_xml.getElementsByTagName("ActualInstances")[0].childNodes:
+                    tags = [t for t in dataset_xml.getElementsByTagName("ActualInstances") if t in dataset_xml.childNodes]
+                    for instance_xml in tags[0].childNodes:
                         actual_instances_xml.append(instance_xml.childNodes[0])
                 else:
                     # I create the actual instance
-                    actual_instances_xml.append(dataset_xml.getElementsByTagName("ActualInstance")[0].childNodes[0])
+                    tags = [t for t in dataset_xml.getElementsByTagName("ActualInstance") if t in dataset_xml.childNodes]
+                    actual_instances_xml.append(tags[0].childNodes[0])
                 actual_class = OrmWrapper.load_class(structure_netloc, es.root_node.model_metadata.module, es.root_node.model_metadata.name)
                 for actual_instance_xml in actual_instances_xml:
                     # already imported ?
@@ -2114,8 +2137,9 @@ class KnowledgeServer(ShareableModel):
                     ks.save()
             # Now I can materialize it; I can use set released as I have certainly retrieved a released DataSet
             local_ei.set_released()
-        except:
-            pass
+        except Exception as ex:
+            logger.error("get_remote_ks: " + str(ex))
+            raise ex
         
         return remote_ks
 
