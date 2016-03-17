@@ -58,6 +58,7 @@ class CustomModelManager(models.Manager):
     def _bind_post_save_signal(self, model):
         models.signals.post_save.connect(model_post_save, model)
 
+
 def model_post_save(sender, **kwargs):
     if kwargs['instance'].UKCL == "":
         try:
@@ -70,6 +71,7 @@ def model_post_save(sender, **kwargs):
         if kwargs['instance'].first_version_id == None:
             kwargs['instance'].first_version_id = kwargs['instance'].pk
             kwargs['instance'].save()
+
 
 class ShareableModel(SerializableModel):
     '''
@@ -1108,6 +1110,7 @@ class StructureNode(ShareableModel):
         else:
             return self.model_metadata
 
+
 class DataSetStructure(ShareableModel):
     # DSN = DataSet Structure Name
     dataset_structure_DSN = "Dataset structure"
@@ -1243,31 +1246,20 @@ class DataSetStructure(ShareableModel):
                     # is the app missing?
                     if not app_name in global_apps.app_configs.keys():
                         # must add it
+                        dmc = DynamicModelContainer(name=app_name)
+                        dmc.save()
                         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                         management.call_command('startapp', app_name, 'oks/' + app_name, interactive=False)
                         with open(BASE_DIR + "/" + app_name + "/models.py", "a") as myfile:
                             myfile.write("from knowledge_server.models import ShareableModel\n\n\n\n")
-#                         settings.INSTALLED_APPS += (app, )
-#                         # I load the app
-#                         global_apps.app_configs = OrderedDict()
-#                         global_apps.ready = False
-#                         global_apps.populate(settings.INSTALLED_APPS)
                         settings.INSTALLED_APPS += (app_name, )
                     module = importlib.import_module(app_name + ".models")
-#                     added_modules = {}
                     for model_class in apps_code[app]:
                         # is the class missing?
                         if not hasattr(module, model_class):
                             # must add it
                             with open(BASE_DIR + "/" + app_name + "/models.py", "a") as myfile:
                                 myfile.write(apps_code[app][model_class])
-#                                 myfile.write("class aa(models.Model):\n    legalcode = models.TextField(default = \"\")")
-
-#                             # somehow populating again Apps.apps doesn't always add the news models
-#                             # so we need to do that manually and we store in a dict those we added
-#                             if not app in added_modules.keys():
-#                                 added_modules[app] = {}
-#                             added_modules[app][model_class] = apps_code[app][model_class]
                     # I need to reload the apps as I modified the files
                     global_apps.app_configs = OrderedDict()
                     global_apps.ready = False
@@ -1276,15 +1268,6 @@ class DataSetStructure(ShareableModel):
                     importlib.invalidate_caches()
                     module = importlib.reload(module)
 
-                
-#                 for app in added_modules.keys():
-#                     module = importlib.import_module(app + ".models")
-#                     for model_class in apps_code[app]:
-#                         # is it already in the config
-#                         if not model_class in global_apps.app_configs[app].models.keys():
-#                             global_apps.app_configs[app].models[model_class] = getattr(module, model_class)
-
-                
                     # eventually I can generate the migrations for the new app
                     management.call_command('makemigrations', app_name, interactive=False)
                     # and migrate it
@@ -2285,8 +2268,20 @@ def json_serial(obj):
         serial = obj.isoformat()
         return serial
     raise TypeError ("Type not serializable")
+
         
 class ExternalReferenceNotFoundOnMaterialized(Exception):
     """While materializing an external reference was not found, we must create 
        a DanglingReference so that we can fix it when it comes"""
     pass
+
+
+class DynamicModelContainer(SerializableModel):
+    '''
+    Some apps/modules/model containers
+    are imported from other OKSs; we need a list of them so that 
+    we can load them dynamically using 
+    django.core.signals.request_started 
+    '''
+    name = models.CharField(max_length=500)
+    

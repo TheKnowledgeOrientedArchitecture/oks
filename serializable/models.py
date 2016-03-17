@@ -273,22 +273,18 @@ class SerializableModel(models.Model):
               make sure it is complete (e.g. we are not missing any other *Descriptor)
         '''
         related_parent = getattr(parent._meta.concrete_model, attribute)
-#         if related_parent.__class__.__name__ == "ForeignRelatedObjectsDescriptor":
-#             return related_parent.related.field.name
-#         if related_parent.__class__.__name__ == "ReverseSingleRelatedObjectDescriptor":
-#             return related_parent.field.name
         # ManyToManyDescriptor must be before ReverseManyToOneDescriptor because:
         # class ManyToManyDescriptor(ReverseManyToOneDescriptor):
         if isinstance(related_parent, ManyToManyDescriptor):
             return ""
         if isinstance(related_parent, ReverseManyToOneDescriptor):
             return related_parent.field.name
-        msg="Error get_parent_field_name, parent: " + parent.__class__.__name__ + " " + str(parent.id) + ", attribute:\"" + attribute + '"' 
+        msg="###############################################Error get_parent_field_name, parent: " + parent.__class__.__name__ + " " + str(parent.id) + ", attribute:\"" + attribute + '" ###########################################################' 
         logger.critical(msg)
         raise Exception(msg)
 
-    
-    # Add a method to list all the relationships pointing at this model; find the comment below in delete_children
+
+    # TODO: Add a method to list all the relationships pointing at this model; find the comment below in delete_children
     # I NEED TO LIST TODO:ALL THE RELATIONSHIPS POINTING AT THIS MODEL
 
     class Meta:

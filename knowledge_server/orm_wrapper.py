@@ -14,6 +14,7 @@ import knowledge_server.models
 
 from django.apps.registry import apps as global_apps
 from django.conf import settings
+from django.core import signals
 import knowledge_server.utils
 
 logger = logging.getLogger(__name__)
@@ -149,6 +150,11 @@ class OrmWrapper():
             split_app_label.reverse()
             return ".".join(split_app_label)
 
+    @staticmethod
+    def load_dynamic_apps():
+        dmcs = knowledge_server.models.DynamicModelContainer.objects.all()
+        for dmc in dmcs:
+            OrmWrapper.load_module(dmc.name)
         
     @staticmethod
     def load_module(module_name, just_do_it=False):
@@ -169,6 +175,17 @@ class ModelContainer():
         '''
         startapp
         '''
+
+def signal_request_started(sender, environ, **kwargs):
+    path_info_ext = ""
+    if environ['PATH_INFO'].rfind(".") >=0:
+        path_info_ext = environ['PATH_INFO'][environ['PATH_INFO'].rfind("."):]
+    if path_info_ext != ".css" and path_info_ext != ".js":
+        print(str(global_apps.app_configs.keys()))
+        OrmWrapper.load_dynamic_apps()
+        print(str(global_apps.app_configs.keys()))
     
 orm_wrapper = OrmWrapper()
 
+signals.request_started.connect(signal_request_started)        
+        

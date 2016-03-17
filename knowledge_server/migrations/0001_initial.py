@@ -234,6 +234,17 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
+        migrations.CreateModel(
+            name='DynamicModelContainer',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('name', models.CharField(max_length=500)),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
         migrations.AddField(
             model_name='knowledgeserver',
             name='organization',
