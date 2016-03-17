@@ -14,6 +14,7 @@ import knowledge_server.models
 
 from django.apps.registry import apps as global_apps
 from django.conf import settings
+import knowledge_server.utils
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +46,32 @@ class OrmWrapper():
             raise(ex)
     
     @staticmethod
+    def load_classes(module_name, class_name):
+        '''
+        NOT USED
+        It returns a list of classes that have the same module and class name.
+        There can be more than one because they can live in different namespaces
+        e.g. coming from different OKSs. I procede as follows:
+        - I search on ModelMetadata
+        - from it's uri I get the netloc
+        - I invoke OrmWrapper.load_class and build the list
+        '''
+        try:
+            classes = []
+            mms = knowledge_server.models.ModelMetadata.filter(module=module_name, name=class_name)
+            for mm in mms:
+                classes.append(OrmWrapper.load_class(knowledge_server.utils.KsUrl(mm.UKCL).netloc,module_name, class_name))
+            
+            return classes        
+        except Exception as ex:
+            logger.warning("OrmWrapper.load_classes not found module_name %s, class_name %s: _%s" % (module_name, class_name, str(ex)))
+            raise(ex)
+    
+    @staticmethod
     def get_model_container_name(netloc, name):
         '''
         netloc is the netloc of the ks publisher of the ModelMetadata
-        name is the name of the ModelMetadata
+        name is the name of the module of the ModelMetadata
         container == APP in Django terminology
         If I am in the KS that created this model (I created the actual code for the ORM
         and the corresponding record (and dataset) for the ModelMetadata then the 
@@ -63,19 +86,24 @@ class OrmWrapper():
         App licenses from license.beta.thekoa.org is called
             org_thekoa_beta_license__licenses on anotheroks.example.com
         but more concisely
-            license__licenses on root.beta.thekoa.org
-        Basically the parts of the url that are shared are not included in the name. That
-        still guarantees the independence of all namespaces.
+            ___license__licenses on root.beta.thekoa.org
+        Basically the parts of the url that are shared are not included in the name. 
+        That still guarantees the independence of all namespaces.
+        See comments on get_model_metadata to see why we leave underscores in place in the concise form
         PLEASE NOTE that the root OKS is an exception as its modules "knowledge_server" and "serializable"
                     have the same name in any OKS
         '''
         try:
             if netloc == "root.beta.thekoa.org":
                 return name
+            if name in knowledge_server.models.KnowledgeServer.root_apps:
+                return name
             this_ks = knowledge_server.models.KnowledgeServer.this_knowledge_server()
             that = netloc.split('.')
             this = this_ks.netloc.split('.')
+            leading_underscores = ""
             while len(this) > 0 and len(that) > 0 and this[-1] == that[-1]:
+                leading_underscores += "_"
                 this.pop()
                 that.pop()
             
@@ -83,11 +111,44 @@ class OrmWrapper():
                 return name
             else:
                 that.reverse()
-                return "_".join(that) + "__" + name
+                return leading_underscores + "_".join(that) + "__" + name
             
         except Exception as ex:
             logger.error("OrmWrapper.get_model_container_name: " + str(ex))
             raise ex
+        
+    @staticmethod
+    def get_model_metadata_module(app_label):
+        position = app_label.rfind("__")
+        if position >= 0:
+            return app_label[position+2:]
+        else:
+            return app_label
+        
+    @staticmethod
+    def get_model_metadata_netloc(app_label):
+        # the apps in the root OKS are an exception because they have always the same label
+        # even in other OKSs
+        if app_label in knowledge_server.models.KnowledgeServer.root_apps:
+            return "root.beta.thekoa.org"
+        this_ks = knowledge_server.models.KnowledgeServer.this_knowledge_server()
+        position = app_label.rfind("__")
+        if position < 0:
+            return this_ks.netloc
+        else:
+            split_this_ks_netloc = this_ks.netloc.split(".")
+            split_this_ks_netloc.reverse()
+            # app_label is something like org_thekoa_beta...
+            # 
+            split_app_label = app_label[:position].split("_")
+            for index, item in enumerate(split_app_label):
+                if item == "":
+                    split_app_label[index] = split_this_ks_netloc[index]
+                else:
+                    break
+            split_app_label.reverse()
+            return ".".join(split_app_label)
+
         
     @staticmethod
     def load_module(module_name, just_do_it=False):

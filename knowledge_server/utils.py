@@ -9,7 +9,7 @@ import urllib
 from urllib.parse import urlparse
 
 import knowledge_server.models 
-from knowledge_server.orm_wrapper import OrmWrapper
+import knowledge_server.orm_wrapper
 
 class Choices():
     # in lower case as they are brought to lower before verification
@@ -100,7 +100,7 @@ class KsUrl(object):
                 self.is_ks_known = False
             # I search for its class
             try:
-                self.actual_class = OrmWrapper.load_class(self.netloc, self.namespace, self.class_name)
+                self.actual_class = knowledge_server.orm_wrapper.OrmWrapper.load_class(self.netloc, self.namespace, self.class_name)
             except:
                 pass
             # I search on this database

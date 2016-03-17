@@ -260,7 +260,7 @@ def debug(request):
 #             print(mm.name)
         
         from django.core import management
-#         management.call_command('migrate', "--database=materialized", interactive=False)
+        management.call_command('migrate', "--database=materialized", interactive=False)
         management.call_command('migrate', interactive=False)
 
         return HttpResponse("OK ")

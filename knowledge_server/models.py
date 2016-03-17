@@ -95,16 +95,17 @@ class ShareableModel(SerializableModel):
     def generate_UKCL(self):
         '''
         *** method that works on the same database where self is saved ***
+        UKCL is generated on records owned by this_ks
         '''
         try:
             # http://stackoverflow.com/questions/10375019/get-database-django-model-object-was-queried-from
             db_alias = self._state.db
             this_ks = KnowledgeServer.this_knowledge_server()
 
-            se = self.get_model_metadata(db_alias=db_alias)
-            name = se.name
-            id_field = se.id_field
-            namespace = se.module
+            mm = self.get_model_metadata(db_alias=db_alias)
+            name = mm.name
+            id_field = mm.id_field
+            namespace = OrmWrapper.get_model_container_name(this_ks.netloc, mm.module)
             return this_ks.url() + "/" + namespace + "/" + name + "/" + str(getattr(self, id_field))
         except Exception as es:
             logger.error("Exception 'generate_UKCL' " + self.__class__.__name__ + "." + str(self.pk) + ":" + str(es))
@@ -132,11 +133,33 @@ class ShareableModel(SerializableModel):
         
         '''
         try:
+            # self might as well not have a UKCL yet as this method is also invoked by generate_UKCL
             if class_name == "":
-                mms = ModelMetadata.objects.using(db_alias).filter(name=self.__class__.__name__)
+                # I reverse engineer the netloc of the model_metadata from the app_label/model_container
+                # example: this_ks is http://client.thekoa.org and self has "__license__licenses" as app_label
+                # then the ModelMetadata is from  http://license.thekoa.org
+                mm_netloc = OrmWrapper.get_model_metadata_netloc(self.__class__._meta.app_label)
+                # I reverse engineer the bare module of the model_metadata from the app_label/model_container
+                # example: self has "__license__licenses" as app_label, the module is "licenses"
+                mm_module = OrmWrapper.get_model_metadata_module(self.__class__._meta.app_label)
+                mms = ModelMetadata.objects.using(db_alias).filter(name=self.__class__.__name__, module=mm_module)
+                # there could be many ModelMetadata with same class name and module name
+                # example I have License in app/container licenses on servers:
+                # http://license.thekoa.org
+                # http://license.beta.thekoa.org
+                # http://oks.creativecommons.org
+                # The app labels (that will help me calculate the model_metadata netloc) will be respectively:
+                # if this_ks is http://client.thekoa.org
+                # __license__licenses
+                # __beta_license__licenses
+                # _creativecommons_oks__licenses
+                # if this_ks is http://client.beta.thekoa.org
+                # __license__licenses
+                # ___license__licenses
+                # _creativecommons_oks__licenses
                 for mm in mms.all():
                     tmp_url = KsUrl(mm.UKCL)
-                    if self.__class__._meta.app_label == OrmWrapper.get_model_container_name(tmp_url.netloc, mm.module):
+                    if mm_netloc == tmp_url.netloc:
                         return mm
                 raise("ModelMetadata not found. content_type.app_label="+self.__class__._meta.app_label)
             else:
@@ -1873,6 +1896,7 @@ class Organization(ShareableModel):
 
 
 class KnowledgeServer(ShareableModel):
+    root_apps = ['knowledge_server', 'licenses', 'serializable']
     name = models.CharField(max_length=500, blank=True)
     description = models.CharField(max_length=2000, blank=True)
     # ASSERT: only one KnowledgeServer in each KS has this_ks = True (in materialized db); I use it to know in which KS I am

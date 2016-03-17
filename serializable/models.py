@@ -4,6 +4,8 @@
 #
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
+import logging
+
 from django.apps.registry import apps
 from django.db import models
 from django.db.models.fields import NOT_PROVIDED
@@ -13,6 +15,8 @@ from django.db.migrations.autodetector import MigrationAutodetector
 from django.db.migrations.migration import Migration
 from django.db.migrations.state import ModelState, ProjectState
 
+
+logger = logging.getLogger(__name__)
 
 class SerializableModel(models.Model):
     classes_serialized_as_tags = ["CharField"]
@@ -279,7 +283,9 @@ class SerializableModel(models.Model):
             return ""
         if isinstance(related_parent, ReverseManyToOneDescriptor):
             return related_parent.field.name
-        raise Exception("Error get_parent_field_name, parent: " + parent.__class__.__name__ + " " + parent.id + ", attribute:\"" + attribute + '"' )
+        msg="Error get_parent_field_name, parent: " + parent.__class__.__name__ + " " + str(parent.id) + ", attribute:\"" + attribute + '"' 
+        logger.critical(msg)
+        raise Exception(msg)
 
     
     # Add a method to list all the relationships pointing at this model; find the comment below in delete_children
