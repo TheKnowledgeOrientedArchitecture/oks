@@ -24,6 +24,7 @@ class License(ShareableModel):
     # requires to be shared with the same license
     share_alike = models.NullBooleanField(blank=True, null=True)
     commercial_use = models.NullBooleanField(blank=True, null=True)
+    derivatives = models.NullBooleanField(blank=True, null=True)
     url_info = models.CharField(max_length=160, null = True, blank=True)
     reccomended_by_opendefinition = models.NullBooleanField(blank=True, null=True)
     conformant_for_opendefinition = models.NullBooleanField(blank=True, null=True)

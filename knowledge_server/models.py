@@ -80,7 +80,7 @@ class ShareableModel(SerializableModel):
     When a new instance of a ShareableModel is created within a dataset with the 
     new_version method, a new UKCL is generated using generate_UKCL
     '''
-    UKCL = models.CharField(max_length=2000, default='')
+    UKCL = models.CharField(max_length=2000, default='', blank=True)
     '''
     UKCL_previous_version is the UKCL of the previous version if 
     this record has been created with the new_version method.
@@ -202,6 +202,10 @@ class ShareableModel(SerializableModel):
             dss.root_node = self.shallow_structure_node(db_alias)
             dss.save()
             dss.save(using=db_alias)
+            # I need to materialize them because I might have DanglingReferences on materialized.
+            # To create them I need the StructureNode in materialized db too.
+            dss_dss = DataSetStructure.get_from_name(DataSetStructure.dataset_structure_DSN)
+            dss.materialize(dss_dss.root_node, processed_instances=[])
         return dss 
         
     def shallow_structure_node(self, db_alias='default'):
@@ -727,7 +731,7 @@ class ShareableModel(SerializableModel):
                                 dr.structure_node = StructureNode.objects.using('materialized').get(UKCL=child_structure_node.UKCL)
                                 dangling_references.append(dr)
                                 # I need to set a placeholder otherwise saving new_instance will fail if the attribute can't be null
-                                setattr(new_instance, child_structure_node.attribute, child_instance.placeholder('materialized'))
+                                setattr(new_instance, child_structure_node.attribute, child_instance.__class__.placeholder('materialized'))
                             except Exception as ex:
                                 logger.error("Error materializing " + child_instance.UKCL + " - " + str(ex))
                                 raise ex
@@ -889,6 +893,25 @@ class ShareableModel(SerializableModel):
         first_UKCLs = list(i.UKCL for i in first)
         return [item for item in second if item.UKCL in first_UKCLs]
             
+    @classmethod
+    def create_with_dataset(cls, dss, data_dict, db_alias='default', release=False, ks=None):
+        new_instance = cls()
+        for key in data_dict.keys():
+            setattr(new_instance, key, data_dict[key])
+        new_instance.save(using=db_alias)
+            
+        if not ks:
+            ks = KnowledgeServer.this_knowledge_server(db_alias)
+        new_dataset = DataSet(description='', knowledge_server=ks, dataset_structure=dss, 
+                     root=new_instance, version_major=0, version_minor=1, version_patch=0, version_description="")
+        new_dataset.save(using=db_alias)
+        if release:
+            new_dataset.set_released()
+        
+        return new_instance
+
+        
+        
     class Meta:
         abstract = True
 
@@ -977,6 +1000,15 @@ class ModelMetadata(ShareableModel):
         except Exception as ex:
             logger.error("dataset_structures type(self): " + str(type(self)) + " self.id " + str(self.id) + str(ex) + "\ndataset_structures visited_nodes_ids : " + str(visited_nodes_ids))
         return types
+
+    def get_class(self, netloc=""):
+        '''
+        when creating a dataset structure with root_node.children_for
+        the dataset_structure has not a UKCL yet, so it comes as a parameter from this_ks
+        '''
+        if netloc == "":
+            netloc = KsUrl(self.dataset_structure.UKCL).netloc
+        return OrmWrapper.load_class(netloc, self.module, self.name)
 
 
 class StructureNode(ShareableModel):
@@ -1110,6 +1142,23 @@ class StructureNode(ShareableModel):
         else:
             return self.model_metadata
 
+    def children_for(self, attributes, netloc):
+        '''
+        '''
+        cl = self.model_metadata.get_class(netloc)
+        for attribute in attributes:
+            attr_field = getattr(cl._meta.model, attribute).field
+            class_name = attr_field.opts.object_name
+            app_label = attr_field.opts.app_label
+            mm = ModelMetadata.objects.get(name=class_name, module=app_label)
+            sn = StructureNode()
+            sn.model_metadata = mm
+            sn.attribute = attribute
+            sn.is_many = attr_field.many_to_one or attr_field.many_to_many
+            sn.save()
+            self.child_nodes.add(sn)
+        self.save()
+
 
 class DataSetStructure(ShareableModel):
     # DSN = DataSet Structure Name
@@ -1149,7 +1198,7 @@ class DataSetStructure(ShareableModel):
     CHECK: Only versionable and view are listed on the OKS and other systems can subscribe to.
     '''
     name = models.CharField(max_length=200)
-    description = models.CharField(max_length=2000)
+    description = models.CharField(max_length=2000, default='')
     '''
     It is shallow when automatically created to export a ModelMetadata without following any relationship; 
     is_shallow = True means that all foreignKeys and related attributes are external references
@@ -1302,12 +1351,31 @@ class DataSetStructure(ShareableModel):
             except ValueError as ve:
                 pass
   
+    def root_model_metadata(self, model_metadata):
+        '''
+        '''
+        sn = StructureNode()
+        sn.model_metadata = model_metadata
+        sn.save()
+        self.root_node = sn
+        self.save()
+    
+    def create_model_metadata(self, name, module, name_field="", description_field=""):
+        mm=ModelMetadata();
+        mm.dataset_structure = self
+        mm.name = name
+        mm.module = module
+        mm.name_field = name_field
+        mm.description_field = description_field
+        mm.save()
+        return mm
+        
     @staticmethod
     def get_from_name(model_metadata_name):
         materialized = DataSetStructure.objects.using('materialized').get(name=model_metadata_name)
         return DataSetStructure.objects.using('default').get(UKCL=materialized.UKCL)
 
-    
+
 class DataSet(ShareableModel):
     '''
     A data set / chunk of knowledge; its data structure is described by self.dataset_structure
@@ -1358,6 +1426,10 @@ class DataSet(ShareableModel):
     # that I will put in the view only those belonging to that version
     filter_dataset = models.ForeignKey('self', null=True, blank=True, related_name="+")
     # NOT USED YET: TODO: it should be used in get_instances
+
+    # a dataset has one or more licenses; the organization that can assign licenses
+    # to this dataset is owner_organization; in case of attribution it is the one to be credited
+    owner_organization = models.ForeignKey("Organization", null=True, blank=True)
 
     # following attributes used to be in a separate class VersionableDataSet
     '''
@@ -1873,21 +1945,21 @@ class DataSet(ShareableModel):
   
    
 class Organization(ShareableModel):
-    name = models.CharField(max_length=500, blank=True)
+    name = models.CharField(max_length=500)
     description = models.CharField(max_length=2000, blank=True)
     website = models.CharField(max_length=500, blank=True)
 
 
 class KnowledgeServer(ShareableModel):
     root_apps = ['knowledge_server', 'licenses', 'serializable']
-    name = models.CharField(max_length=500, blank=True)
+    name = models.CharField(max_length=500)
     description = models.CharField(max_length=2000, blank=True)
     # ASSERT: only one KnowledgeServer in each KS has this_ks = True (in materialized db); I use it to know in which KS I am
     # this is handled when importing data about an external KS
     this_ks = models.BooleanField(default=False)
     # urlparse terminology https://docs.python.org/2/library/urlparse.html
     # scheme e.g. { "http" | "https" }
-    scheme = models.CharField(max_length=50)
+    scheme = models.CharField(max_length=50, default="http")
     # netloc e.g. "root.thekoa.org"
     netloc = models.CharField(max_length=200)
     #  html_home text that gets displayed at the home page
@@ -2098,8 +2170,7 @@ class KnowledgeServer(ShareableModel):
         d_self.this_ks = True
         d_self.UKCL = ""
         d_self.save()
-        
-        
+      
     @staticmethod
     def this_knowledge_server(db_alias='materialized'):
         '''
@@ -2150,6 +2221,46 @@ class KnowledgeServer(ShareableModel):
         
         return remote_ks
 
+    @staticmethod
+    def create_this_ks(org_ks):
+        new_org = Organization()
+        new_org.name = org_ks["Organization"]["name"]
+        new_org.website = org_ks["Organization"]["website"]
+        new_org.description = org_ks["Organization"]["description"]
+        new_org.save()
+        new_org_ks = KnowledgeServer()
+        new_org_ks.name = org_ks["KnowledgeServer"]["name"]
+        if "scheme" in org_ks["KnowledgeServer"].keys():
+            new_org_ks.scheme = org_ks["KnowledgeServer"]["scheme"]
+        new_org_ks.netloc = org_ks["KnowledgeServer"]["netloc"]
+        new_org_ks.description = org_ks["KnowledgeServer"]["description"]
+        new_org_ks.organization = new_org
+        new_org_ks.save()
+        
+        dss_org = DataSetStructure.get_from_name(DataSetStructure.organization_DSN)
+        ds = DataSet(description='', knowledge_server=new_org_ks, dataset_structure=dss_org, 
+                     root=new_org, version_major=0, version_minor=1, version_patch=0, version_description="")
+        ds.save()
+        ds.set_released()
+        
+        new_org_ks.set_as_this_ks()
+        new_org.regenerate_UKCL()
+        new_org_ks = KnowledgeServer.this_knowledge_server('default')
+        ds.regenerate_UKCL()
+        return KnowledgeServer.this_knowledge_server()
+        
+    @staticmethod
+    def register_models(model_metadata_list):
+        '''
+        It registers models for this_ks
+        '''
+        this_ks = KnowledgeServer.this_knowledge_server('default')
+        dssModelMetadataFields=DataSetStructure.get_from_name(DataSetStructure.model_metadata_DSN)
+        for mm in model_metadata_list:
+            ds = DataSet(knowledge_server=this_ks,dataset_structure=dssModelMetadataFields,root = mm,
+                         description=mm.name + " ModelMetadata",version_major=0,version_minor=1,version_patch=0,version_description="Initial, automatically created.")
+            ds.save();ds.set_released(); 
+                    
 
 class Event(ShareableModel):
     '''

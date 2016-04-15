@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
             name='Continent',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('name', models.CharField(max_length=50)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
             name='Province',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('name', models.CharField(max_length=50)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
             name='Region',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('name', models.CharField(max_length=50)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
@@ -63,7 +63,7 @@ class Migration(migrations.Migration):
             name='State',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('name', models.CharField(max_length=50)),
                 ('continent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='test1.Continent')),
@@ -78,7 +78,7 @@ class Migration(migrations.Migration):
             name='SubContinent',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('name', models.CharField(max_length=50)),
                 ('continent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='test1.Continent')),

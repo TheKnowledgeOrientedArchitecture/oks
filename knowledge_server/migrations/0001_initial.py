@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
             name='DanglingReference',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_actual_instance', models.CharField(default='', max_length=2000)),
                 ('oks_home',models.CharField(blank=True, max_length=255)),
                 ('object_with_dangling_content_type',models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='contenttypes.ContentType')),
@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
             name='DataSet',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('description', models.CharField(default='', max_length=2000)),
                 ('root_instance_id', models.PositiveIntegerField(blank=True, null=True)),
@@ -60,10 +60,10 @@ class Migration(migrations.Migration):
             name='DataSetStructure',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('name', models.CharField(max_length=200)),
-                ('description', models.CharField(max_length=2000)),
+                ('description', models.CharField(max_length=2000, default='')),
                 ('is_shallow', models.BooleanField(default=False)),
                 ('is_a_view', models.BooleanField(default=False)),
                 ('multiple_releases', models.BooleanField(default=False)),
@@ -78,7 +78,7 @@ class Migration(migrations.Migration):
             name='Event',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('type', models.CharField(default='New version', max_length=50)),
                 ('timestamp', models.DateTimeField(auto_now_add=True)),
@@ -95,12 +95,12 @@ class Migration(migrations.Migration):
             name='KnowledgeServer',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
-                ('name', models.CharField(blank=True, max_length=500)),
+                ('name', models.CharField(max_length=500)),
                 ('description', models.CharField(blank=True, max_length=2000)),
                 ('this_ks', models.BooleanField(default=False)),
-                ('scheme', models.CharField(max_length=50)),
+                ('scheme', models.CharField(max_length=50, default='http')),
                 ('netloc', models.CharField(max_length=200)),
                 ('html_home', models.CharField(default='', max_length=4000)),
                 ('html_disclaimer', models.CharField(default='', max_length=4000)),
@@ -115,7 +115,7 @@ class Migration(migrations.Migration):
             name='ModelMetadata',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('name', models.CharField(max_length=100)),
                 ('module', models.CharField(max_length=500)),
@@ -136,7 +136,7 @@ class Migration(migrations.Migration):
             name='Notification',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('sent', models.BooleanField(default=False)),
                 ('remote_url', models.CharField(max_length=200)),
@@ -152,7 +152,7 @@ class Migration(migrations.Migration):
             name='NotificationReceived',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('URL_dataset', models.CharField(max_length=200)),
                 ('URL_structure', models.CharField(max_length=200)),
@@ -169,9 +169,9 @@ class Migration(migrations.Migration):
             name='Organization',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
-                ('name', models.CharField(blank=True, max_length=500)),
+                ('name', models.CharField(max_length=500)),
                 ('description', models.CharField(blank=True, max_length=2000)),
                 ('website', models.CharField(blank=True, max_length=500)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
@@ -185,7 +185,7 @@ class Migration(migrations.Migration):
             name='StructureNode',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('attribute', models.CharField(blank=True, max_length=255)),
                 ('method_to_retrieve', models.CharField(blank=True, max_length=255, null=True)),
@@ -206,7 +206,7 @@ class Migration(migrations.Migration):
             name='SubscriptionToOther',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('URL', models.CharField(max_length=200)),
                 ('first_version_UKCL', models.CharField(max_length=200)),
@@ -221,7 +221,7 @@ class Migration(migrations.Migration):
             name='SubscriptionToThis',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('first_version_UKCL', models.CharField(default='', max_length=2000)),
                 ('remote_url', models.CharField(max_length=200)),
@@ -249,6 +249,11 @@ class Migration(migrations.Migration):
             model_name='knowledgeserver',
             name='organization',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.Organization'),
+        ),
+        migrations.AddField(
+            model_name='dataset',
+            name='owner_organization',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.Organization'),
         ),
         migrations.AddField(
             model_name='datasetstructure',

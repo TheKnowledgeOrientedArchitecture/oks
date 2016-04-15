@@ -13,6 +13,7 @@ from xml.dom import minidom
 from django.http import JsonResponse
 from django.shortcuts import render, render_to_response
 from django.template import RequestContext
+from django.views.decorators.cache import cache_page, never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 from knowledge_server.models import ApiResponse, DataSetStructure, DataSet, KnowledgeServer, SubscriptionToThis
@@ -20,7 +21,7 @@ from knowledge_server.models import SubscriptionToOther, NotificationReceived
 from knowledge_server.orm_wrapper import OrmWrapper
 from knowledge_server.utils import KsUrl
 
-
+@cache_page(60 * 600)
 def api_ks_info(request, response_format):
     '''
         #80
@@ -30,20 +31,23 @@ def api_ks_info(request, response_format):
         
         Implementation:
           it fetches this KS from the DB, takes its Organization and exports
-          it with the structure "Organization-KS" 
+          it with the structure "Organization-KS"
+        CAN BE CACHED
     '''
     response_format = response_format.upper()
     this_ks = KnowledgeServer.this_knowledge_server()    
-    es = DataSetStructure.objects.get(name = DataSetStructure.organization_DSN)
-    ei = DataSet.objects.get(dataset_structure=es, root_instance_id=this_ks.organization.id)
-    return api_dataset(request, ei.UKCL, response_format)
+    dss = DataSetStructure.objects.get(name = DataSetStructure.organization_DSN)
+    dataset = DataSet.objects.get(dataset_structure=dss, root_instance_id=this_ks.organization.id)
+    return api_dataset(request, dataset.UKCL, response_format)
 
 
+@cache_page(60 * 600)
 def api_dataset_view(request, DataSet_UKCL, root_id, response_format):
     '''
-    it returns the data of the istance with pk=root_id in the dataset (which is a view)
-    if we are browsing a view there is not just one single root that we can explore
-    but a list of instances that match the criteria; root_id tells us which one to browse
+        it returns the data of the istance with pk=root_id in the dataset (which is a view)
+        if we are browsing a view there is not just one single root that we can explore
+        but a list of instances that match the criteria; root_id tells us which one to browse
+        CAN BE CACHED
     '''
     response_format = response_format.upper()
     DataSet_UKCL_decoded = urllib.parse.unquote(DataSet_UKCL).replace("%2F","/")
@@ -74,6 +78,7 @@ def api_dataset_view(request, DataSet_UKCL, root_id, response_format):
         return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
 
 
+@cache_page(60 * 600)
 def api_dataset(request, DataSet_UKCL, response_format):
     '''
         #36
@@ -86,6 +91,7 @@ def api_dataset(request, DataSet_UKCL, response_format):
         # it creates the ModelMetadata class, 
         # fetches from the DB the one with pk = DataSet.root_instance_id
         # it runs to_xml of the ModelMetadata using DataSet.dataset_structure.root_node
+        CAN BE CACHED
     '''
     response_format = response_format.upper()
     ar = ApiResponse()
@@ -106,11 +112,11 @@ def api_dataset(request, DataSet_UKCL, response_format):
         if response_format == 'XML':
             ar.status = ApiResponse.failure
             return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
-    
+
     actual_instance_json = ""
     #this dataset is not a view; if not dataset.dataset_structure.is_a_view:
     actual_instance = dataset.root
-    
+
     if response_format == 'JSON':
         ar.content = { "DataSet": dataset.export(export_format = 'DICT') }
         ar.status = ApiResponse.success
@@ -126,6 +132,7 @@ def api_dataset(request, DataSet_UKCL, response_format):
         return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
         
 
+@cache_page(60 * 600)
 def api_catch_all(request, uri_instance):
     '''
         parameters:
@@ -138,6 +145,7 @@ def api_catch_all(request, uri_instance):
             If there is a trailing string for the response_format I use it, otherwise I apply the default xml
             The trailing string can be "/xml", "/xml/", "/json", "/json/" where each character can 
             be either upper or lower case   
+        CAN BE CACHED
     '''
     # I search for a response_format string, a UKCL has no trailing slash
     response_format = 'XML' #default
@@ -179,6 +187,7 @@ def api_catch_all(request, uri_instance):
             return render(request, 'knowledge_server/export.xml', {'xml': exported_pretty_xml}, content_type="application/xhtml+xml")
 
 
+@cache_page(60 * 600)
 def api_dataset_types(request, response_format):
     '''
         parameters:
@@ -187,11 +196,13 @@ def api_dataset_types(request, response_format):
         Implementation:
             Invoking api_datasets #64 with parameter "DataSetStructure"
             so that I get all the Structures in this_ks in a shallow export
+        CAN BE CACHED
     '''
     dss = DataSetStructure.objects.using('materialized').get(name=DataSetStructure.dataset_structure_DSN)
     return api_datasets(request, DataSetStructure_UKCL = dss.UKCL, response_format=response_format)
 
 
+@cache_page(60 * 600)
 def api_dataset_info(request, DataSet_UKCL, response_format):
     '''
         #52 
@@ -209,7 +220,7 @@ def api_dataset_info(request, DataSet_UKCL, response_format):
             the version date
             the version description
             other version metadata
-
+        CAN BE CACHED
     '''
     response_format = response_format.upper()
     DataSet_UKCL_unquoted = urllib.parse.unquote(DataSet_UKCL).replace("%2F","/")
@@ -256,6 +267,7 @@ def api_dataset_info(request, DataSet_UKCL, response_format):
         return render_to_response('knowledge_server/api_dataset_info.html', context_instance=cont)
     
     
+@cache_page(60 * 600)
 def api_datasets(request, DataSetStructure_UKCL, response_format):
     '''
         http://redmine.davide.galletti.name/issues/64
@@ -268,7 +280,9 @@ def api_datasets(request, DataSetStructure_UKCL, response_format):
         Implementation:
         # it fetches the structure from the DB, looks for all the datasets
         # with that structure; if it is not a view only those that are released; 
+        CAN BE CACHED
     '''
+    ar = ApiResponse()
     response_format = response_format.upper()
     dss = DataSetStructure.retrieve_locally(urllib.parse.unquote(DataSetStructure_UKCL).replace("%2F","/"))
     
@@ -281,29 +295,29 @@ def api_datasets(request, DataSetStructure_UKCL, response_format):
     serialized = ""
     comma = ""
     dataset_list = []
-    for ei in released_dataset:
+    for dataset in released_dataset:
         if response_format == 'JSON':
-            dataset_list.append(ei.export(export_format = "DICT", force_external_reference=True))
+            dataset_list.append(dataset.export(export_format = "DICT", force_external_reference=True))
         else:
-            serialized += ei.export(export_format = response_format, force_external_reference=True)
+            serialized += dataset.export(export_format = response_format, force_external_reference=True)
     if response_format == 'XML':
-        ar = ApiResponse()
         ar.status = ApiResponse.success
         ar.content = "<DataSets>" + serialized + "</DataSets>"
         return render(request, 'knowledge_server/export.xml', {'xml': ar.xml()}, content_type="application/xhtml+xml")
     if response_format == 'JSON':
-        ar = ApiResponse()
         ar.content = { "DataSets": dataset_list }
         ar.status = ApiResponse.success 
         return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
 
-    
+
+@never_cache
 def api_subscribe(request, UKCL, remote_url):
     '''
         #35 
         parameters:
         UKCL is the one to which I want to subscribe
         remote_url the URL this KS has to invoke to notify
+        NEVER CACHED
     '''
     # check the client KS has already subscribed; the check is done using the remote_ks (if any), remote URL otherwise
     UKCL = urllib.parse.unquote(UKCL)
@@ -324,8 +338,8 @@ def api_subscribe(request, UKCL, remote_url):
     # I try to get the remote ks info (if it is a ks) locally
     remote_ks = KnowledgeServer.get_remote_ks(remote_url)
 
-    ei = DataSet.objects.get(UKCL=UKCL)
-    first_version_UKCL = ei.first_version.UKCL
+    dataset = DataSet.objects.get(UKCL=UKCL)
+    first_version_UKCL = dataset.first_version.UKCL
     if remote_ks:
         existing_subscriptions = SubscriptionToThis.objects.filter(first_version_UKCL=first_version_UKCL, remote_ks=remote_ks)
     else:
@@ -340,23 +354,27 @@ def api_subscribe(request, UKCL, remote_url):
     return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.success, "Subscribed sucessfully", first_version_UKCL).json()}, content_type="application/json")
    
     
+@never_cache
 def api_unsubscribe(request, UKCL, remote_URL):
     '''
         #123
         parameters:
         UKCL is the one to which I want to subscribe
         remote_url the URL this KS has to invoke to notify
+        NEVER CACHED
     '''
     
     
+@cache_page(60 * 600)
 def api_dataset_structure_code(request, DataSetStructure_UKCL):
     '''
-    This API is needed just by another OKS and it is not meant to be public
-    It's goal is to provide another OKS with the information needed to generate
-    and migrate the models within a structure. TODO: Models that are external references
-    are not included.
-    The information is provided in the form of the code of the classes in a dictionary
-    that groups them by APP/MODULE
+        This API is needed just by another OKS and it is not meant to be public
+        It's goal is to provide another OKS with the information needed to generate
+        and migrate the models within a structure. TODO: Models that are external references
+        are not included.
+        The information is provided in the form of the code of the classes in a dictionary
+        that groups them by APP/MODULE
+        CAN BE CACHED
     '''
     dss = DataSetStructure.retrieve_locally(urllib.parse.unquote(DataSetStructure_UKCL).replace("%2F","/"))
     try:
@@ -365,6 +383,7 @@ def api_dataset_structure_code(request, DataSetStructure_UKCL):
     except Exception as ex:
         return render(request, 'knowledge_server/export.json', {'json': ApiResponse(ApiResponse.failure, str(ex)).json()}, content_type="application/json")
 
+@never_cache
 @csrf_exempt
 def api_notify(request):
     '''
@@ -376,6 +395,7 @@ def api_notify(request):
             URL_structure --> structure_UKCL
         first_version_UKCL: the UKCL of the first version of the DataSet for which the event has happened
         event_type: the URInstance of the EventType
+        NEVER CACHED
    '''
     first_version_UKCL = request.POST.get("first_version_UKCL", "")
     URL_dataset = request.POST.get("URL_dataset", "")

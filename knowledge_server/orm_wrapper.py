@@ -120,6 +120,9 @@ class OrmWrapper():
         
     @staticmethod
     def get_model_metadata_module(app_label):
+        '''
+        TODO: documentation
+        '''
         position = app_label.rfind("__")
         if position >= 0:
             return app_label[position+2:]
@@ -180,10 +183,10 @@ def signal_request_started(sender, environ, **kwargs):
     path_info_ext = ""
     if environ['PATH_INFO'].rfind(".") >=0:
         path_info_ext = environ['PATH_INFO'][environ['PATH_INFO'].rfind("."):]
-    if path_info_ext != ".css" and path_info_ext != ".js":
-        print(str(global_apps.app_configs.keys()))
+    # I skip those with extension ".css" or ".js"
+    extensions_to_skip = [".css", ".js"]
+    if not path_info_ext in extensions_to_skip:
         OrmWrapper.load_dynamic_apps()
-        print(str(global_apps.app_configs.keys()))
     
 orm_wrapper = OrmWrapper()
 

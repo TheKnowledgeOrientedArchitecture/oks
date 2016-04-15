@@ -5,6 +5,7 @@
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
 import logging
+from datetime import datetime
 
 from django.apps.registry import apps
 from django.db import models
@@ -232,31 +233,45 @@ class SerializableModel(models.Model):
         if export_format == 'DICT':
             metadata['Fields'] = fields
         return metadata
-    
-    def SetNotNullFields(self):
+
+    def SetNotNullFields(self, db_alias=''):
         '''
         I need to make sure that every SerializableModel can be saved on the database right after being created (*)
         hence I need to give a value to any attribute that can't be null
         (*) It's needed because during the import I can find a reference to an instance whose data is further away in the file
         then I create the instance in the DB just with the UKCL but no other data
+        Sometimes self._state.db is not set as self is not saved yet; then I must have db_alias passed explicitly
         '''
+        if db_alias == '':
+            db_alias = self._state.db
         for key in self._meta.fields:
-            if (not key.null) and key.__class__.__name__ != "ForeignKey" and (not key.primary_key):
-                if key.__class__.__name__ in ("CharField", "TextField"):
-                    if key.blank:
-                        setattr(self, key.name, "")
-                    else:
-                        setattr(self, key.name, "dummy")
-                if key.__class__.__name__ in ("IntegerField", "FloatField"):
-                    setattr(self, key.name, 0)
-                if key.__class__.__name__ in ("DateField", "DateTimeField"):
-                    setattr(self, key.name, datetime.now())
-                
-    def placeholder(self, db_alias):
-        ps = self.__class__.objects.using(db_alias).filter(is_a_placeholder=True)
+            if  (not key.null) and key.__class__.__name__ != "ForeignKey" and (not key.primary_key):
+                if (not getattr(self, key.name)):
+                    if key.default in {None, NOT_PROVIDED}:
+                        if key.__class__.__name__ in ("CharField", "TextField"):
+                            if key.blank:
+                                setattr(self, key.name, "")
+                            else:
+                                setattr(self, key.name, "dummy")
+                        elif key.__class__.__name__ in ("IntegerField", "FloatField"):
+                            setattr(self, key.name, 0)
+                        elif key.__class__.__name__ in ("DateField", "DateTimeField"):
+                            setattr(self, key.name, datetime.now())
+                        else:
+                            logger.warning("SetNotNullFields %s %s" % (key.name, key.__class__))
+                            setattr(self, key.name, key.__class__())
+            if (not key.null) and key.__class__.__name__ == "ForeignKey" and (not key.primary_key):
+                try:
+                    getattr(self, key.name)
+                except:
+                    setattr(self, key.name, key.related_model.placeholder(db_alias))
+            
+    @classmethod
+    def placeholder(cls, db_alias):
+        ps = cls.objects.using(db_alias).filter(is_a_placeholder=True)
         if len(ps.all()) == 0:
-            p = self.__class__()
-            p.SetNotNullFields()
+            p = cls()
+            p.SetNotNullFields(db_alias)
             p.save(using=db_alias)
             return p
         else:

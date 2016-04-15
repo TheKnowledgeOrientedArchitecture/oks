@@ -19,7 +19,7 @@ from django.template import RequestContext
 from django.views.decorators.csrf import csrf_exempt
 
 import knowledge_server.forms as myforms 
-from knowledge_server.models import ApiResponse, DataSet, Event, KnowledgeServer, Notification
+from knowledge_server.models import ApiResponse, DataSet, Event, KnowledgeServer, Notification, DataSetStructure
 from knowledge_server.models import NotificationReceived, SubscriptionToOther, SubscriptionToThis
 from knowledge_server.utils import KsUrl
 from knowledge_server.migrations import ks_specific
@@ -250,6 +250,34 @@ def debug(request):
     created to debug code
     '''
     try:
+        # TODO: AGGIORNARE SU STACKOVERFLOW: http://stackoverflow.com/questions/8784400/clearing-specific-cache-in-django
+        
+        from django.core.cache import cache
+        from django.utils.cache import get_cache_key, _generate_cache_header_key
+        from django.utils.encoding import escape_uri_path
+        from django.http import HttpRequest
+        
+        new_request = HttpRequest()
+        new_request.path = 'root.beta.thekoa.org/oks/api/ks_info/JSON/' ##this path works
+        new_request.META['SERVER_PORT'] = request.META['SERVER_PORT']
+        new_request.META['SERVER_NAME'] = request.META['SERVER_NAME']
+
+        key = _generate_cache_header_key("", new_request)
+        if cache.has_key(key):   
+            cache.delete(key)
+        
+        full_path = 'http://root.beta.thekoa.org/oks/api/datasets/http%253A%252F%252Froot.beta.thekoa.org%252Fknowledge_server%252FDataSetStructure%252F4/JSON/'
+        import hashlib
+        from django.utils.encoding import force_bytes, iri_to_uri
+        from django.utils.cache import _i18n_cache_key_suffix
+        # code from _generate_cache_header_key
+        url = hashlib.md5(force_bytes(iri_to_uri(full_path)))
+        cache_key = 'views.decorators.cache.cache_header.%s.%s' % ("", url.hexdigest())
+        key = _i18n_cache_key_suffix(request, cache_key)
+        if cache.has_key(key):   
+            cache.delete(key)
+        
+        return HttpResponse("OK ")
 #         d = DataSet.objects.get(pk=1)
 #         s = d.shallow_structure()
 #         rct = d.root_content_type
@@ -259,8 +287,12 @@ def debug(request):
 #             mm = structure_child_node.sn_model_metadata(d)
 #             print(mm.name)
         
+        dssContinentState=DataSetStructure()
+        dssContinentState.name="Test Continent-SubContinent-State";
+        dssContinentState.SetNotNullFields()
+        dssContinentState.save()
         from django.core import management
-        management.call_command('migrate', "--database=materialized", interactive=False)
+#         management.call_command('migrate', "--database=materialized", interactive=False)
         management.call_command('migrate', interactive=False)
 
         return HttpResponse("OK ")

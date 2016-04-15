@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
             name='License',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(default='', max_length=2000)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
                 ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
                 ('name', models.CharField(max_length=200)),
                 ('short_name', models.CharField(max_length=50)),
@@ -29,6 +29,7 @@ class Migration(migrations.Migration):
                 ('attribution', models.NullBooleanField()),
                 ('share_alike', models.NullBooleanField()),
                 ('commercial_use', models.NullBooleanField()),
+                ('derivatives', models.NullBooleanField()),
                 ('url_info', models.CharField(blank=True, max_length=160, null=True)),
                 ('reccomended_by_opendefinition', models.NullBooleanField()),
                 ('conformant_for_opendefinition', models.NullBooleanField()),
