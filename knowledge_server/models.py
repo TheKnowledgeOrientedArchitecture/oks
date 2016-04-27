@@ -1273,6 +1273,7 @@ class DataSetStructure(ShareableModel):
         #  - create the migrations
         #  - run the migrations which create the tables on the database
         #  - #########
+        # At the moment it works if the model is in a single file as it doesn't manage the imports
         app_models = self.root_node.app_models(processed_instances={})
         persistable = True
         for app_model in app_models:
@@ -1308,7 +1309,7 @@ class DataSetStructure(ShareableModel):
                         if not hasattr(module, model_class):
                             # must add it
                             with open(BASE_DIR + "/" + app_name + "/models.py", "a") as myfile:
-                                myfile.write(apps_code[app][model_class])
+                                myfile.write(apps_code[app][model_class] + "\n\n")
                     # I need to reload the apps as I modified the files
                     global_apps.app_configs = OrderedDict()
                     global_apps.ready = False
@@ -1371,9 +1372,12 @@ class DataSetStructure(ShareableModel):
         return mm
         
     @staticmethod
-    def get_from_name(model_metadata_name):
+    def get_from_name(model_metadata_name, db_alias='default'):
         materialized = DataSetStructure.objects.using('materialized').get(name=model_metadata_name)
-        return DataSetStructure.objects.using('default').get(UKCL=materialized.UKCL)
+        if db_alias=='default':
+            return DataSetStructure.objects.using('default').get(UKCL=materialized.UKCL)
+        else:
+            return materialized
 
 
 class DataSet(ShareableModel):

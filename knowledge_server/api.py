@@ -78,7 +78,7 @@ def api_dataset_view(request, DataSet_UKCL, root_id, response_format):
         return render_to_response('knowledge_server/browse_dataset.html', context_instance=cont)
 
 
-@cache_page(60 * 600)
+# @cache_page(60 * 600)
 def api_dataset(request, DataSet_UKCL, response_format):
     '''
         #36

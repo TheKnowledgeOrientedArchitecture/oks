@@ -833,8 +833,17 @@ def forwards_func(apps, schema_editor):
     ei.save(using=db_alias)
 
     # Now that I have licenses I can assign them to each initial DataSet I have created so far
+    # ccbysa40 o ccby40 ?? 
+    mm_dss = DataSetStructure.get_from_name(DataSetStructure.model_metadata_DSN, db_alias)
+    DataSetStructure.get_from_name(DataSetStructure.dataset_structure_DSN, db_alias)
+    DataSetStructure.get_from_name(DataSetStructure.organization_DSN, db_alias)
+    for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssModelMetadataFields):
+        ds.licenses.add(ccbysa40)
+    for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssDataSetStructureStructureNode):
+        ds.licenses.add(ccbysa40)
+    for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssOrganizationKS):
+        ds.licenses.add(ccbysa40)
     
-
 class Migration(migrations.Migration):
 
     dependencies = [

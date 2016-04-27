@@ -252,6 +252,37 @@ def debug(request):
     try:
         # TODO: AGGIORNARE SU STACKOVERFLOW: http://stackoverflow.com/questions/8784400/clearing-specific-cache-in-django
         
+        from licenses.models import License
+        db_alias = 'default'
+        ccbysa40 = License.objects.using(db_alias).get(short_name = "CC-BY-SA-4.0")
+        dssModelMetadataFields = DataSetStructure.get_from_name(DataSetStructure.model_metadata_DSN, db_alias)
+        dssDataSetStructureStructureNode = DataSetStructure.get_from_name(DataSetStructure.dataset_structure_DSN, db_alias)
+        dssOrganizationKS = DataSetStructure.get_from_name(DataSetStructure.organization_DSN, db_alias)
+        for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssModelMetadataFields):
+            ds.licenses.add(ccbysa40)
+            ds.save()
+        for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssDataSetStructureStructureNode):
+            ds.licenses.add(ccbysa40)
+            ds.save()
+        for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssOrganizationKS):
+            ds.licenses.add(ccbysa40)
+            ds.save()
+        db_alias = 'materialized'
+        ccbysa40 = License.objects.using(db_alias).get(short_name = "CC-BY-SA-4.0")
+        dssModelMetadataFields = DataSetStructure.get_from_name(DataSetStructure.model_metadata_DSN, db_alias)
+        dssDataSetStructureStructureNode = DataSetStructure.get_from_name(DataSetStructure.dataset_structure_DSN, db_alias)
+        dssOrganizationKS = DataSetStructure.get_from_name(DataSetStructure.organization_DSN, db_alias)
+        for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssModelMetadataFields):
+            ds.licenses.add(ccbysa40)
+            ds.save()
+        for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssDataSetStructureStructureNode):
+            ds.licenses.add(ccbysa40)
+            ds.save()
+        for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssOrganizationKS):
+            ds.licenses.add(ccbysa40)
+            ds.save()
+        return HttpResponse("OK ")
+
         from django.core.cache import cache
         from django.utils.cache import get_cache_key, _generate_cache_header_key
         from django.utils.encoding import escape_uri_path
