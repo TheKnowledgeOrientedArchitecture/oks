@@ -80,13 +80,13 @@ class ShareableModel(SerializableModel):
     When a new instance of a ShareableModel is created within a dataset with the 
     new_version method, a new UKCL is generated using generate_UKCL
     '''
-    UKCL = models.CharField(max_length=2000, default='', blank=True)
+    UKCL = models.CharField(max_length=750, default='', blank=True, db_index=True)
     '''
     UKCL_previous_version is the UKCL of the previous version if 
     this record has been created with the new_version method.
     It is used when materializing to update the relationships from old to new records
     '''
-    UKCL_previous_version = models.CharField(max_length=2000, null=True, blank=True)
+    UKCL_previous_version = models.CharField(max_length=750, null=True, blank=True, db_index=True)
     objects = CustomModelManager()
     '''
     Each instance of a ShareableModel should, sooner or later, be part of a dataset that is not a view neither shallow
@@ -924,7 +924,7 @@ class DanglingReference(ShareableModel):
     an OKS, all those of a specific type/structure, all those depending on a specific dataset ...
     Importing new data structures will attempt the resolution of existing dangling references
     '''
-    UKCL_actual_instance = models.CharField(max_length=2000, default='')
+    UKCL_actual_instance = models.CharField(max_length=750, default='', db_index=True)
     '''
     the structure_node tells us the attribute and whether is_many or not
     '''
@@ -945,7 +945,7 @@ class ModelMetadata(ShareableModel):
     A ModelMetadata roughly contains the meta-data describing a table in a database or a class if we have an ORM
     '''
     # this name corresponds to the class name
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, db_index=True)
     '''
     The module determines the app/module name containing the class
     describing the model (e.g. the object-relational mapping). A module acts as 
@@ -963,7 +963,7 @@ class ModelMetadata(ShareableModel):
     It is used to build the UKCL.
     For its use, it is not supposed to change over time.
     '''
-    module = models.CharField(max_length=500)
+    module = models.CharField(max_length=500, db_index=True)
     description = models.CharField(max_length=2000, default="")
     table_name = models.CharField(max_length=255, db_column='tableName', default="")
     id_field = models.CharField(max_length=255, db_column='idField', default="id")
@@ -1037,7 +1037,7 @@ class StructureNode(ShareableModel):
     # there is only one parent so we should change to 
     child_nodes = models.ManyToManyField('self', blank=True, symmetrical=False, related_name="parent")
     # if not external_reference all attributes are exported, otherwise only the id
-    external_reference = models.BooleanField(default=False, db_column='externalReference')
+    external_reference = models.BooleanField(default=False, db_column='externalReference', db_index=True)
     # is_many is true if the attribute correspond to a list of instances of the ModelMetadata
     is_many = models.BooleanField(default=False, db_column='isMany')
 
@@ -1444,9 +1444,9 @@ class DataSet(ShareableModel):
     '''
     first_version = models.ForeignKey('self', related_name='versions', null=True, blank=True)
     # http://semver.org/
-    version_major = models.IntegerField(null=True, blank=True)
-    version_minor = models.IntegerField(null=True, blank=True)
-    version_patch = models.IntegerField(null=True, blank=True)
+    version_major = models.IntegerField(null=True, blank=True, db_index=True)
+    version_minor = models.IntegerField(null=True, blank=True, db_index=True)
+    version_patch = models.IntegerField(null=True, blank=True, db_index=True)
     version_description = models.CharField(max_length=2000, default="")
     # release_date is the date of the release of the dataset; e.g. the date the Creative 
     # Commons Attribution 1.0 license was released
@@ -1457,7 +1457,7 @@ class DataSet(ShareableModel):
     Assert: If self.dataset_structure.multiple_releases==False: at most one instance in the VERSION SET
             has version_released = True
     '''
-    version_released = models.BooleanField(default=False)
+    version_released = models.BooleanField(default=False, db_index=True)
     '''
         http://www.dcc.ac.uk/resources/how-guides/license-research-data 
         "The option to multiply license a dataset is certainly available to you if you hold all the rights 
@@ -1952,6 +1952,7 @@ class Organization(ShareableModel):
     name = models.CharField(max_length=500)
     description = models.CharField(max_length=2000, blank=True)
     website = models.CharField(max_length=500, blank=True)
+    logo = models.CharField(max_length=500, blank=True)
 
 
 class KnowledgeServer(ShareableModel):
@@ -2274,23 +2275,23 @@ class Event(ShareableModel):
     # The DataSet
     dataset = models.ForeignKey(DataSet)
     # the event type
-    type = models.CharField(max_length=50, default="New version")
+    type = models.CharField(max_length=50, default="New version", db_index=True)
     # when it was fired
     timestamp = models.DateTimeField(auto_now_add=True)
     # if all notifications have been prepared e.g. relevant Notification instances are saved
-    processed = models.BooleanField(default=False)
+    processed = models.BooleanField(default=False, db_index=True)
 
 
 class SubscriptionToThis(ShareableModel):
     '''
     The subscriptions other systems do to my data
     '''
-    first_version_UKCL = models.CharField(default='', max_length=2000)
+    first_version_UKCL = models.CharField(default='', max_length=2000, db_index=True)
     # where to send the notification; remote_url, in the case of a KS, will be something like http://root.beta.thekoa.org/notify
     # the actual notification will have the UKCL of the DataSet and the UKCL of the EventType
     remote_url = models.CharField(max_length=200)
     # I send a first notification that can be used to get the data the first time
-    first_notification_prepared = models.BooleanField(default=False)
+    first_notification_prepared = models.BooleanField(default=False, db_index=True)
     # when I get a subscription I try to see whether on the other side there is a KnowledgeServer correctly responding to api/ks_info
     remote_ks = models.ForeignKey(KnowledgeServer, null=True, blank=True)
 
@@ -2301,7 +2302,7 @@ class Notification(ShareableModel):
     I create a  Notification; cron will send it and change its status to sent
     '''
     event = models.ForeignKey(Event)
-    sent = models.BooleanField(default=False)
+    sent = models.BooleanField(default=False, db_index=True)
     remote_url = models.CharField(max_length=200)
 
 
@@ -2311,7 +2312,7 @@ class SubscriptionToOther(ShareableModel):
     '''
     # The UKCL I am subscribing to 
     URL = models.CharField(max_length=200)
-    first_version_UKCL = models.CharField(max_length=200)
+    first_version_UKCL = models.CharField(max_length=200, db_index=True)
 
 
 class NotificationReceived(ShareableModel):
@@ -2321,7 +2322,7 @@ class NotificationReceived(ShareableModel):
     # URL to fetch the new data
     URL_dataset = models.CharField(max_length=200)
     URL_structure = models.CharField(max_length=200)
-    processed = models.BooleanField(default=False)
+    processed = models.BooleanField(default=False, db_index=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     
     

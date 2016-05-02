@@ -18,13 +18,13 @@ def forwards_func(apps, schema_editor):
     
     # this data must be created on the root ks but also on any other as it is essential for basic ks operation
     # 
-    the_koa_org = Organization();the_koa_org.id=1;the_koa_org.name="the Knowledge Oriented Architecture";
-    the_koa_org.UKCL="-";the_koa_org.website='http://www.theKOA.org';
-    the_koa_org.description="the Knowledge Oriented Architecture organization .....";the_koa_org.save(using=db_alias)
+    the_koa_org = Organization();the_koa_org.id=1;the_koa_org.name="theKOA.org";
+    the_koa_org.UKCL="-";the_koa_org.website='http://www.theKOA.org';the_koa_org.logo='http://www.thekoa.org/sites/thekoa.org/files/logothekoa.org_.png';
+    the_koa_org.description="The Knowledge Oriented Architecture organization.";the_koa_org.save(using=db_alias)
     
-    the_koa_org_ks = KnowledgeServer(pk=1, name="theKOA.org root Open Knowledge Server", scheme="http", netloc="root.beta.thekoa.org", 
+    the_koa_org_ks = KnowledgeServer(pk=1, name="Root Open Knowledge Server", scheme="http", netloc="root.beta.thekoa.org", 
                                      UKCL="-",
-                                     description="The main OKS, defining the main structures and datasets used by any other Knowledge Server.", 
+                                     description="The Open Knowledge Server serving the structures and datasets used by any other Knowledge Server.", 
                                      organization=the_koa_org, this_ks=True,html_home="root html_home",html_disclaimer="root html_disclaimer")
     the_koa_org_ks.save(using=db_alias)
     #ModelMetadata
@@ -120,109 +120,109 @@ def forwards_func(apps, schema_editor):
 
      
     # DataSet
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root = mmModelMetadata,description="Model metadata of ModelMetadata",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
      
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,       
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,       
                  root=mmStructureNode,description="Model metadata of StructureNode",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmDataSetStructure,description="Model metadata of DataSetStructure",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmOrganization,description="Model metadata of Organization",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmDataSet,description="Model metadata of DataSet",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmKnowledgeServer,description="Model metadata of KnowledgeServer",    
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmEvent,description="Model metadata of Event",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmSubscriptionToThis,description="Model metadata of SubscriptionToThis",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmSubscriptionToOther,description="Model metadata of SubscriptionToOther",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmNotification,description="Model metadata of Notification",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmNotificationReceived,description="Model metadata of NotificationReceived",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmLicense,description="Model metadata of License",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmDanglingReference,description="Model metadata of DanglingReference",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
 
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=dssModelMetadataFields,description="DataSet structure of ModelMetadata-Fields",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=dssDataSetStructureStructureNode,description="DataSet structure of DataSetStructure-StructureNode",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=dssOrganizationKS,description="DataSet structure of Organization-KnowledgeServer",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssOrganizationKS,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssOrganizationKS,owner_organization=the_koa_org,
                  root=the_koa_org,description="Organization TheKoa.org",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=esLicenseList,description="DataSet structure of List of licenses",
                  version_major=0, version_minor=1, version_patch=0, version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=dssLicense,description="DataSet structure of a License",
                  version_major=0, version_minor=1, version_patch=0, version_description="",version_released=True)
-    ei.save(using=db_alias);
-    ei.set_dataset_on_instances();
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
 
     ######## BEGIN LICENSES DATA
 
     # Let's create the organizations to which we will attribute the licenses
     data_dict = {"Organization": {"name": "Creative Commons", "website": "http://creativecommons.org", "description": ""},}
-    cc_org = Organization.create_with_dataset(dssOrganizationKS, data_dict, db_alias, the_koa_org_ks)
+    cc_org = Organization.create_with_dataset(dssOrganizationKS, data_dict, db_alias, ks=the_koa_org_ks)
 
     
     ##################### Creative Commons Attribution #####################
@@ -239,9 +239,9 @@ def forwards_func(apps, schema_editor):
     ccby10.conformant_for_opendefinition = True
     ccby10.legalcode = ''
     ccby10.save(using=db_alias)
-    ei_ccby10 = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,
+    ds_ccby10 = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,
                         root=ccby10, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei_ccby10.save(using=db_alias)
+    ds_ccby10.save(using=db_alias)
 
     ccby20 = License()
     ccby20.name = "Creative Commons Attribution 2.0 Generic"
@@ -255,9 +255,9 @@ def forwards_func(apps, schema_editor):
     ccby20.conformant_for_opendefinition = True
     ccby20.legalcode = ''
     ccby20.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ei_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds_ccby20 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccby20, version_major=2, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds_ccby20.save(using=db_alias)
 
     ccby25 = License()
     ccby25.name = "Creative Commons Attribution 2.5 Generic"
@@ -271,9 +271,9 @@ def forwards_func(apps, schema_editor):
     ccby25.conformant_for_opendefinition = True
     ccby25.legalcode = ''
     ccby25.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ei_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds_ccby25 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccby25, version_major=2, version_minor=5, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds_ccby25.save(using=db_alias)
 
     ccby30 = License()
     ccby30.name = "Creative Commons Attribution 3.0 Unported"
@@ -287,9 +287,9 @@ def forwards_func(apps, schema_editor):
     ccby30.conformant_for_opendefinition = True
     ccby30.legalcode = ''
     ccby30.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ei_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds_ccby30 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccby30, version_major=3, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds_ccby30.save(using=db_alias)
 
     ccby40 = License()
     ccby40.name = "Creative Commons Attribution 4.0 International"
@@ -303,9 +303,21 @@ def forwards_func(apps, schema_editor):
     ccby40.conformant_for_opendefinition = True
     ccby40.legalcode = ''
     ccby40.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ei_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds_ccby40 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccby40, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds_ccby40.save(using=db_alias)
+    ds_ccby40.licenses.add(ccby40)
+    ds_ccby40.save(using=db_alias)
+
+    # On creativecommons.org "Except where otherwise noted, content on this site is licensed under a Creative Commons Attribution 4.0 International license." 
+    ds_ccby10.licenses.add(ccby40)
+    ds_ccby10.save(using=db_alias)
+    ds_ccby20.licenses.add(ccby40)
+    ds_ccby20.save(using=db_alias)
+    ds_ccby25.licenses.add(ccby40)
+    ds_ccby25.save(using=db_alias)
+    ds_ccby30.licenses.add(ccby40)
+    ds_ccby30.save(using=db_alias)
 
     ##################### END Creative Commons Attribution #####################
 
@@ -322,9 +334,11 @@ def forwards_func(apps, schema_editor):
     cczero.conformant_for_opendefinition = True
     cczero.legalcode = ''
     cczero.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=cczero, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ##################### Creative Commons Attribution-ShareAlike #####################
 
@@ -340,9 +354,11 @@ def forwards_func(apps, schema_editor):
     ccbysa10.conformant_for_opendefinition = True
     ccbysa10.legalcode = ''
     ccbysa10.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbysa10, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbysa20 = License()
     ccbysa20.name = "Creative Commons Attribution-ShareAlike 2.0 Generic"
@@ -356,9 +372,11 @@ def forwards_func(apps, schema_editor):
     ccbysa20.conformant_for_opendefinition = True
     ccbysa20.legalcode = ''
     ccbysa20.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbysa20, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbysa25 = License()
     ccbysa25.name = "Creative Commons Attribution-ShareAlike 2.5 Generic"
@@ -372,9 +390,11 @@ def forwards_func(apps, schema_editor):
     ccbysa25.conformant_for_opendefinition = True
     ccbysa25.legalcode = ''
     ccbysa25.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbysa25, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbysa30 = License()
     ccbysa30.name = "Creative Commons Attribution-ShareAlike 3.0 Unported"
@@ -388,9 +408,11 @@ def forwards_func(apps, schema_editor):
     ccbysa30.conformant_for_opendefinition = True
     ccbysa30.legalcode = ''
     ccbysa30.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbysa30, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbysa40 = License()
     ccbysa40.name = "Creative Commons Attribution-ShareAlike 4.0 International"
@@ -404,9 +426,11 @@ def forwards_func(apps, schema_editor):
     ccbysa40.conformant_for_opendefinition = True
     ccbysa40.legalcode = ''
     ccbysa40.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbysa40, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ##################### END Creative Commons Attribution-ShareAlike #####################
 
@@ -424,9 +448,11 @@ def forwards_func(apps, schema_editor):
     ccbyncsa10.conformant_for_opendefinition = False
     ccbyncsa10.legalcode = ''
     ccbyncsa10.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncsa10, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbyncsa20 = License()
     ccbyncsa20.name = "Creative Commons Attribution-NonCommercial-ShareAlike 2.0 Generic"
@@ -440,9 +466,11 @@ def forwards_func(apps, schema_editor):
     ccbyncsa20.conformant_for_opendefinition = False
     ccbyncsa20.legalcode = ''
     ccbyncsa20.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncsa20, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbyncsa25 = License()
     ccbyncsa25.name = "Creative Commons Attribution-NonCommercial-ShareAlike 2.5 Generic"
@@ -456,9 +484,11 @@ def forwards_func(apps, schema_editor):
     ccbyncsa25.conformant_for_opendefinition = False
     ccbyncsa25.legalcode = ''
     ccbyncsa25.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncsa25, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbyncsa30 = License()
     ccbyncsa30.name = "Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported"
@@ -472,9 +502,11 @@ def forwards_func(apps, schema_editor):
     ccbyncsa30.conformant_for_opendefinition = False
     ccbyncsa30.legalcode = ''
     ccbyncsa30.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncsa30, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbyncsa40 = License()
     ccbyncsa40.name = "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International"
@@ -488,9 +520,11 @@ def forwards_func(apps, schema_editor):
     ccbyncsa40.conformant_for_opendefinition = False
     ccbyncsa40.legalcode = ''
     ccbyncsa40.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncsa40, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ##################### END Creative Commons NonCommercial-Attribution-ShareAlike #####################
 
@@ -509,9 +543,11 @@ def forwards_func(apps, schema_editor):
     ccbyncnd10.conformant_for_opendefinition = False
     ccbyncnd10.legalcode = ''
     ccbyncnd10.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncnd10, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbyncnd20 = License()
     ccbyncnd20.name = "Creative Commons Attribution-NonCommercial-NoDerivs 2.0 Generic"
@@ -525,9 +561,11 @@ def forwards_func(apps, schema_editor):
     ccbyncnd20.conformant_for_opendefinition = False
     ccbyncnd20.legalcode = ''
     ccbyncnd20.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncnd20, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbyncnd25 = License()
     ccbyncnd25.name = "Creative Commons Attribution-NonCommercial-NoDerivs 2.5 Generic"
@@ -541,9 +579,11 @@ def forwards_func(apps, schema_editor):
     ccbyncnd25.conformant_for_opendefinition = False
     ccbyncnd25.legalcode = ''
     ccbyncnd25.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncnd25, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbyncnd30 = License()
     ccbyncnd30.name = "Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported"
@@ -557,9 +597,11 @@ def forwards_func(apps, schema_editor):
     ccbyncnd30.conformant_for_opendefinition = False
     ccbyncnd30.legalcode = ''
     ccbyncnd30.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncnd30, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbyncnd40 = License()
     ccbyncnd40.name = "Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International"
@@ -573,9 +615,11 @@ def forwards_func(apps, schema_editor):
     ccbyncnd40.conformant_for_opendefinition = False
     ccbyncnd40.legalcode = ''
     ccbyncnd40.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbyncnd40, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ##################### END Creative Commons Attribution-NoDerivs-NonCommercial #####################
 
@@ -595,9 +639,11 @@ def forwards_func(apps, schema_editor):
     ccbync10.conformant_for_opendefinition = False
     ccbync10.legalcode = ''
     ccbync10.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbync10, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbync20 = License()
     ccbync20.name = "Creative Commons Attribution-NonCommercial 2.0 Generic"
@@ -611,9 +657,11 @@ def forwards_func(apps, schema_editor):
     ccbync20.conformant_for_opendefinition = False
     ccbync20.legalcode = ''
     ccbync20.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbync20, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbync25 = License()
     ccbync25.name = "Creative Commons Attribution-NonCommercial 2.5 Generic"
@@ -627,9 +675,11 @@ def forwards_func(apps, schema_editor):
     ccbync25.conformant_for_opendefinition = False
     ccbync25.legalcode = ''
     ccbync25.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbync25, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbync30 = License()
     ccbync30.name = "Creative Commons Attribution-NonCommercial 3.0 Unported"
@@ -643,9 +693,11 @@ def forwards_func(apps, schema_editor):
     ccbync30.conformant_for_opendefinition = False
     ccbync30.legalcode = ''
     ccbync30.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbync30, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbync40 = License()
     ccbync40.name = "Creative Commons Attribution-NonCommercial 4.0 International"
@@ -659,9 +711,11 @@ def forwards_func(apps, schema_editor):
     ccbync40.conformant_for_opendefinition = False
     ccbync40.legalcode = ''
     ccbync40.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbync40, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ##################### END Creative Commons Attribution-NonCommercial #####################
 
@@ -681,9 +735,11 @@ def forwards_func(apps, schema_editor):
     ccbynd10.conformant_for_opendefinition = False
     ccbynd10.legalcode = ''
     ccbynd10.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbynd10, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbynd20 = License()
     ccbynd20.name = "Creative Commons Attribution-NonCommercial-NoDerivs 2.0 Generic"
@@ -697,9 +753,11 @@ def forwards_func(apps, schema_editor):
     ccbynd20.conformant_for_opendefinition = False
     ccbynd20.legalcode = ''
     ccbynd20.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbynd20, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbynd25 = License()
     ccbynd25.name = "Creative Commons Attribution-NonCommercial-NoDerivs 2.5 Generic"
@@ -713,9 +771,11 @@ def forwards_func(apps, schema_editor):
     ccbynd25.conformant_for_opendefinition = False
     ccbynd25.legalcode = ''
     ccbynd25.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbynd25, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbynd30 = License()
     ccbynd30.name = "Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported"
@@ -729,9 +789,11 @@ def forwards_func(apps, schema_editor):
     ccbynd30.conformant_for_opendefinition = False
     ccbynd30.legalcode = ''
     ccbynd30.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbynd30, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ccbynd40 = License()
     ccbynd40.name = "Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International"
@@ -745,9 +807,11 @@ def forwards_func(apps, schema_editor):
     ccbynd40.conformant_for_opendefinition = False
     ccbynd40.legalcode = ''
     ccbynd40.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
                  root=ccbynd40, version_major=4, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(ccby40)
+    ds.save(using=db_alias)
 
     ##################### END Creative Commons Attribution-NoDerivatives #####################
 
@@ -755,6 +819,165 @@ def forwards_func(apps, schema_editor):
     adrm = License()
     adrm.name = "Against DRM"
     adrm.short_name = ""
+    adrm.legalcode = '''
+<p>
+<strong>1. Definitions</strong><br /><br />
+
+<strong>Access control mechanism</strong>: a technological measure which, in the ordinary course of its operation, requires the application of information, or a process or a treatment, with the authority of the copyright owner or related rights owner, to gain access to the work.<br /><br />
+
+<strong>Acts authorised by licensor</strong>: acts concerning granted rights (in particular, act of access, act of copy, act of modification, act of sharing).<br /><br />
+
+<strong>Acts not authorised by licensor</strong>: acts concerning copyright or possible moral rights.<br /><br />
+
+<strong>Author/s</strong>: the creator/s of an original work or the creator/s of a derivative work.<br /><br />
+
+<strong>Broadcasting</strong>: the use of any means of distribution over a distance, such as telegraph, telephone, radio, television and other comparable media, including communication to the public by satellite and cable retransmission.<br /><br />
+
+<strong>Copy control mechanism</strong>: a technological measure which, in the ordinary course of its operation, prevents, restricts, or otherwise limits the exercise of a right of the copyright owner or related rights owner.<br /><br />
+
+<strong>Derivative work</strong>: a work based upon the copyrightable work released under the terms and the conditions of this license.<br /><br />
+
+<strong>Distribution</strong>: the marketing, the placing in circulation or the making available to the public, by whatever means and for whatever purpose, of a work or of copies thereof.<br /><br />
+
+<strong>Elaboration</strong>: all forms of modification, adaptation and transformation of a work.<br /><br />
+
+<strong>Lending</strong>: the making available for use of originals, of copies or of carriers of copyright works, for a limited period of time and for purposes other than those referred to in the paragraph 16.<br /><br />
+
+<strong>Licensee</strong>: the person acquiring rights under the terms and the conditions of this license.<br /><br />
+
+<strong>Licensor</strong>: the person offering the work under the terms and the conditions of this license.<br /><br />
+
+<strong>Moral rights</strong>: the author's right, recognized in some countries, to claim authorship of the work and to object to any distortion, mutilation or other modification of, or other derogatory action in relation to, the said work, which would be prejudicial to his honor or reputation; other author's rights recognized as moral rights in some countries.<br /><br />
+
+<strong>Original work</strong>: a work not based upon another work.<br /><br />
+
+<strong>Related rights</strong>: the rights that belong to the performers, the producers of phonograms and broadcasting organizations in relation to their performances, phonograms and broadcasts respectively.<br /><br />
+
+<strong>Rental</strong>: the making available for use of originals, of copies or of carriers of copyright works, for a limited period of time and for direct or indirect economic or commercial advantage.<br /><br />
+
+<strong>Reproduction</strong>: the multiplication of copies of a work by any means, such as copying by hand, printing, lithography, engraving, photography, phonography, cinematography and any other process of reproduction.<br /><br />
+
+<strong>Transcription</strong>: the use of means suitable for transforming an oral work into a written work or into a work reproduced by one of the methods referred to in the preceding paragraph.<br /><br />
+
+<strong>Translation</strong>: the translation of the work into another language or dialect.<br /><br />
+
+<strong>Work</strong>: the copyrightable work released under the terms and the conditions of this license.<br /><br /></p>
+
+
+<p>
+<strong>2. License's area of applicability</strong><br /><br />
+
+This license concerns copyright and related rights: this license does not treat any other right.<br /><br />
+
+Nothing in this license is intended to prevent or restrict the exercise of rights not treated in this license,
+such as rights concerning privacy, private property, sale and other personal or private rights.<br /><br />
+
+Nothing in this license is intended to prevent or restrict the private use of any lawful technological measure.<br /><br />
+
+Nothing in this license is intended to prevent or restrict any limitation on the exclusive rights of the copyright owner or related rights owner under copyright law or other applicable law.<br /><br />
+
+This license is applicable to the works of the mind having a creative character and belonging to literature, music, figurative arts, architecture, theater or cinematography, whatever their mode or form of expression.<br /><br /></p>
+
+
+<p>
+<strong>3. Object</strong><br /><br />
+
+In particular, this license is applicable to:<br /><br />
+
+a. literary, dramatic, scientific, didactic and religious works, whether in written or oral form;<br /><br />
+
+b. musical works and compositions, with or without words, dramatico-musical works and musical variations that themselves constitute original works;<br /><br />
+
+c. choreographic works and works of dumb show, the form of which is fixed in writing or otherwise;<br /><br />
+
+d. works of sculpture, painting, drawing, engraving and similar figurative arts, including scenic art;<br /><br />
+
+e. architectural plans and works;<br /><br />
+
+f. works of cinematographic art, whether silent or with sound;<br /><br />
+
+g. works of photographic art and works expressed with processes analogous to photography;<br /><br />
+
+h. industrial design works that have creative character or inherent artistic character;<br /><br />
+
+i. collective works formed by the assembling of works, or parts of works, and possessing the character of a self-contained creation resulting from selection and coordination with a specific literary, scientific, didactic, religious, political or artistic aim, such as encyclopedias, dictionaries, anthologies, magazines and newspapers;<br /><br />
+
+j. works of a creative character derived from any such work, such as translations into another language, transformations into any other literary or artistic form, modifications and additions constituting a substantial remodeling of the original work, adaptations, arrangements, abridgments and variations which do not constitute an original work.<br /><br /></p>
+
+
+<p>
+<strong>4. Grant of rights</strong><br /><br />
+
+Licensor authorizes licensee to exercise the following rights:<br />
+a. right of reproduction;<br />
+b. right of distribution;<br />
+c. right of publishing (also in a collection);<br />
+d. right of public performance or recitation;<br />
+e. right of broadcasting;<br />
+f. right of modification;<br />
+g. right of elaboration;<br />
+h. right of transcription;<br />
+i. right of translation;<br />
+j. right of lending;<br />
+k. right of rental;<br />
+l. right of commercial use.<br /><br /></p>
+
+
+<p>
+<strong>5. Related rights and sublicensing</strong><br /><br />
+
+Licensor declares to be related rights owner and he authorizes licensee to exercise them.<br /><br />
+
+If the work is not object of related rights, preceding paragraph must be considered as void and having no legal effect.<br /><br />
+
+Licensee may not sublicense the work.<br /><br /></p>
+
+
+<p>
+<strong>6. No DRM</strong><br /><br />
+
+This license is incompatible with any technology, device or component that, in the normal course of its operation, is designed to prevent or restrict acts which are authorised or not authorised by licensor:
+this incompatibility causes the inapplicability of the license to the work.<br /><br />
+
+In particular:<br />
+a. it is not possible to release validly under this license works or derivative works whose access control mechanism and/or copy control mechanism prevents or restricts quantitatively and/or qualitatively access to, fruition, copy, modification and/or sharing of them;<br />
+b. in conformity with this license, it is not allowed to prevent or restrict quantitatively and/or qualitatively access to, fruition, copy, modification, and/or sharing of works or derivative works through an access control mechanism and/or a copy control mechanism;<br />
+c. in conformity with this license, it is not allowed to prevent or restrict the exercise of a granted right through any digital, analog or physical method.<br /><br /></p>
+
+
+<p>
+<strong>7. Copyleft clause</strong><br /><br />
+
+Derivative works, performances of the work, phonograms in which the work is fixed, broadcastings of the work must be released with a license that provides:<br />
+a. the renunciation to exclusive exercise of rights referred to in the articles 4 and 5;<br />
+b. the same type of clause described in article 6;<br />
+c. the same type of clause described in this article.<br /><br /></p>
+
+
+<p>
+<strong>8. Resolutory clause</strong><br /><br />
+
+Any breach of this license (in particular, the breach of the articles 6 and 7) will automatically void this license, without the necessity of any communication from licensor.<br />
+
+<br /></p>
+
+
+<p>
+<strong>9. DISCLAIMER</strong><br /><br />
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, LICENSOR OFFERS THE WORK "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES ARE DISCLAIMED. TO THE EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT WILL LICENSOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES HOWEVER CAUSED.<br /><br /></p>
+
+
+<p>
+<strong>10. Copyright notice</strong><br /><br />
+
+[Original work] Copyright (C) [year/s] [name/s of author/s]<br />
+[Work] Copyright (C) [year/s] [name/s of author/s]<br />
+[Derivative work] Copyright (C) [year/s] [name/s of author/s]<br /><br />
+
+Licensee must keep intact copyright notice and all notices that refer to this license.<br /><br />
+
+Licensee must include a copy of this license with every copy of the work the licensee distributes, publicly demonstrates or publicly performs.<br /><br /></p>'''
     adrm.attribution = True
     adrm.share_alike = True
     adrm.commercial_use = True
@@ -764,9 +987,11 @@ def forwards_func(apps, schema_editor):
     adrm.conformant_for_opendefinition = True
     adrm.legalcode = ''
     adrm.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,
                  root=adrm, version_major=2, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
+    ds.licenses.add(adrm)
+    ds.save(using=db_alias)
 
     
     
@@ -783,9 +1008,9 @@ def forwards_func(apps, schema_editor):
     pddl.conformant_for_opendefinition = True
     pddl.legalcode = ''
     pddl.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=pddl, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
 
     # Open Data Commons Attribution License 
     odcby = License()
@@ -800,9 +1025,9 @@ def forwards_func(apps, schema_editor):
     odcby.conformant_for_opendefinition = True
     odcby.legalcode = ''
     odcby.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=odcby, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
 
     # Open Data Commons Open Database License 
     odbl = License()
@@ -817,32 +1042,32 @@ def forwards_func(apps, schema_editor):
     odbl.conformant_for_opendefinition = True
     odbl.legalcode = ''
     odbl.save(using=db_alias)
-    ei = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
                  root=odbl, version_major=1, version_minor=0, version_patch=0, version_description="")
-    ei.save(using=db_alias)
+    ds.save(using=db_alias)
 
     ######## END LICENSES DATA
 
     # 2 DataSet/Views "License List"
     # opendefinition.org conformant
-    ei = DataSet(knowledge_server=the_koa_org_ks, filter_text="conformant_for_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant licenses.")
-    ei.save(using=db_alias)
+    ds = DataSet(knowledge_server=the_koa_org_ks, filter_text="conformant_for_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant licenses.")
+    ds.save(using=db_alias)
 
     # opendefinition.org conformant and reccomended
-    ei = DataSet(knowledge_server=the_koa_org_ks, filter_text="reccomended_by_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant and reccomended licenses.")
-    ei.save(using=db_alias)
+    ds = DataSet(knowledge_server=the_koa_org_ks, filter_text="reccomended_by_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant and reccomended licenses.")
+    ds.save(using=db_alias)
 
     # Now that I have licenses I can assign them to each initial DataSet I have created so far
     # ccbysa40 o ccby40 ?? 
-    mm_dss = DataSetStructure.get_from_name(DataSetStructure.model_metadata_DSN, db_alias)
-    DataSetStructure.get_from_name(DataSetStructure.dataset_structure_DSN, db_alias)
-    DataSetStructure.get_from_name(DataSetStructure.organization_DSN, db_alias)
     for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssModelMetadataFields):
         ds.licenses.add(ccbysa40)
+        ds.save()
     for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssDataSetStructureStructureNode):
         ds.licenses.add(ccbysa40)
+        ds.save()
     for ds in DataSet.objects.using(db_alias).filter(dataset_structure=dssOrganizationKS):
         ds.licenses.add(ccbysa40)
+        ds.save()
     
 class Migration(migrations.Migration):
 

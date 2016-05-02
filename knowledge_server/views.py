@@ -69,6 +69,7 @@ def ks_explorer(request):
     return render_to_response('knowledge_server/ks_explorer_entities.html', context_instance=cont)
 
 
+@login_required
 def ks_explorer_form(request):
     form = myforms.ExploreOtherKSForm()
     this_ks = KnowledgeServer.this_knowledge_server()
@@ -231,6 +232,7 @@ def disclaimer(request):
     return render_to_response('knowledge_server/disclaimer.html', context_instance=cont)
 
 
+@login_required
 def subscriptions(request):
     '''
     '''
@@ -245,6 +247,7 @@ def subscriptions(request):
     return render_to_response('knowledge_server/subscriptions.html', context_instance=cont)
 
 
+@login_required
 def debug(request):
     '''
     created to debug code

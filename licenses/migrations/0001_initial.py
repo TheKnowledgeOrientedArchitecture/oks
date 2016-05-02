@@ -19,8 +19,8 @@ class Migration(migrations.Migration):
             name='License',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('UKCL', models.CharField(blank=True, default='', max_length=2000)),
-                ('UKCL_previous_version', models.CharField(blank=True, max_length=2000, null=True)),
+                ('UKCL', models.CharField(blank=True, default='', max_length=750, db_index=True)),
+                ('UKCL_previous_version', models.CharField(blank=True, max_length=750, null=True, db_index=True)),
                 ('name', models.CharField(max_length=200)),
                 ('short_name', models.CharField(max_length=50)),
                 ('human_readable', models.TextField(blank=True, null=True)),
@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
                 ('image', models.CharField(blank=True, max_length=160, null=True)),
                 ('image_small', models.CharField(blank=True, max_length=160, null=True)),
                 ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
-                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False)),
+                ('is_a_placeholder',models.BooleanField(db_column='oks_internals_placeholder', default=False, db_index=True)),
             ],
             options={
                 'abstract': False,

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class SerializableModel(models.Model):
     classes_serialized_as_tags = ["CharField"]
-    is_a_placeholder = models.BooleanField(default=False, db_column='oks_internals_placeholder')
+    is_a_placeholder = models.BooleanField(default=False, db_column='oks_internals_placeholder', db_index=True)
 
     def generic_content_types_attributes(self):
         '''

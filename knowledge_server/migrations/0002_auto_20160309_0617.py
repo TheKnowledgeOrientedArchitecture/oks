@@ -40,6 +40,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='danglingreference',
             name='UKCL_previous_version',
-            field=models.CharField(blank=True, max_length=2000, null=True),
+            field=models.CharField(blank=True, max_length=750, null=True, db_index=True),
         ),
     ]
