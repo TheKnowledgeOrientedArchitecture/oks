@@ -156,7 +156,6 @@ def home(request):
     return render(request, 'knowledge_server/home.html', context_instance=cont)
 
 
-    
 @login_required
 def this_ks_unsubscribes_to(request, UKCL):
     '''

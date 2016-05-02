@@ -10,22 +10,27 @@
 
 
 {% block content %}
-	<div class="row-fluid">
-		<h3>Dataset: <strong>{{ dataset.description }}</strong> </h3>
+	<div typeof="dcat:Dataset" resource="{{ dataset.UKCL }}" class="row-fluid">
+		<h3>Dataset: <strong property="dct:title">{{ dataset.root.p_name }}</strong>
+		{% if dataset.description %}<br>{% endif %}<span property="dct:description">{{ dataset.description }}</span>
+		</h3>
         <h3>Type: <strong>{{ dataset.dataset_structure.name }}</strong></h3>
-        <h4>Published by:</h4>
-        {% autoescape off %}{% ks_info ks %}{% endautoescape %}
+        <h4><div property="dct:publisher" resource="{{ ks.organization.website }}">
+            Published by: <a href="{{ ks.organization.website }}" about="{{ ks.organization.website }}" property="foaf:homepage">
+                <span property="foaf:name">{{ ks.organization.name }}</span>
+            </a>
+        </div></h4>
         <hr>
-    	{% autoescape off %}{% version_instance_info dataset instances %}{% endautoescape %}
+    	{% autoescape off %}{% version_instance_info dataset instances %}
+    	Distributions:<br />
+    	{{ dataset.p_distributions }}{% endautoescape %}
         {% if all_versions_with_instances|length > 0 %}
         <hr>
 			<h3>... has the following versions:</h3> 
 			<ul>
 			{% for version_with_instance in all_versions_with_instances %}
 			    <li>
-			    	{% version_instance_info version_with_instance.dataset version_with_instance.model_metadata %}
-			        <p><strong><a href="{{ version_with_instance.dataset.UKCL }}">{{ version_with_instance.model_metadata.name }}</a></strong> <br>
-			        <i>{{ version_with_instance.model_metadata.description }}</i></p>
+			    	{% autoescape off %}{% version_instance_info version_with_instance.dataset version_with_instance.model_metadata %}{% endautoescape %}
 			    </li>
 			{% endfor %}
             </ul>

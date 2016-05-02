@@ -32,11 +32,15 @@ def version_instance_info(dataset, instances, *args, **kwargs):
         ret_string += ' get it in <a href="' + xml_url + '">XML</a> or '
         ret_string += '<a href="' + json_url + '">JSON</a>)<br>'
         if not dataset.dataset_structure.is_a_view:
-            ret_string += 'Version ' + ('' if dataset.version_released else '(<font color="red">not released</font>) ') + str(dataset.version_major) + '.' + str(dataset.version_minor) + '.' + str(dataset.version_patch) + ' - ' + str(dataset.version_date)
+            ret_string += 'Version ' + ('<strong>' if dataset.version_released else '(<font color="red">not released</font>) ') + str(dataset.version_major) + '.' + str(dataset.version_minor) + '.' + str(dataset.version_patch) + '</strong> - ' + str(dataset.version_date)
         if not dataset.licenses is None:
-            ret_string += '<br>Licenses: '
+            ret_string += '<br>Licenses:<ul>'
         for l in dataset.licenses.all():
-            ret_string += '<br> ' + l.name
+            ret_string +=  ('<li property="dct:license" resource="%s">' % l.url_info)
+            ret_string +=  ('<a href="{%s}">' % l.url_info)
+            ret_string +=  ('<span property="dct:title">%s</span></a></li>' % l.name)
+        if not dataset.licenses is None:
+            ret_string += '</ul>'
         if dataset.version_released or dataset.dataset_structure.is_a_view:
             ret_string += '</p>'
         else:  

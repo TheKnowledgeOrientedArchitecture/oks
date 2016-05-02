@@ -94,6 +94,11 @@ class ShareableModel(SerializableModel):
     '''
     dataset_I_belong_to = models.ForeignKey("DataSet", null=True, blank=True, related_name='+')
 
+    @property
+    def p_name(self):
+        mm = self.get_model_metadata()
+        return getattr(self, mm.name_field)
+
     def generate_UKCL(self):
         '''
         *** method that works on the same database where self is saved ***
@@ -132,7 +137,7 @@ class ShareableModel(SerializableModel):
         There can be more than one class with the same name in different apps e.g. coming from different
         OKSs; we need to find the app name as well so that we check if it matches the model metadata UKCL
         finds the instance of class ModelMetadata where the name corresponds to the name of the class of self
-        
+        TODO: should we make it work by default on db_alias=self._state.db ?
         '''
         try:
             # self might as well not have a UKCL yet as this method is also invoked by generate_UKCL
@@ -165,7 +170,7 @@ class ShareableModel(SerializableModel):
                         return mm
                 raise("ModelMetadata not found. content_type.app_label="+self.__class__._meta.app_label)
             else:
-                # TBC we don't have a way to check the app yet
+                # TBC we don't have a way to check the app yet so THIS COULD RAISE AN EXCEPTION
                 return ModelMetadata.objects.using(db_alias).get(name=class_name)
         except Exception as ex:
             logger.error('get_model_metadata - db_alias = ' + db_alias + ' - class_name self.__class__.__name__= ' + class_name + " " + self.__class__.__name__ + " -- " + str(ex))
@@ -1465,7 +1470,28 @@ class DataSet(ShareableModel):
     '''
     licenses = models.ManyToManyField("licenses.License")
 
+    @property
+    def p_release_date(self):
+        return self.release_date.strftime('%Y-%m-%dT%H:%M:%S+00:00')
     
+    @property
+    def p_distributions(self):
+        '''
+<div property='dcat:distribution' typeof='dcat:Distribution'>
+    <span property="dct:title">JSON</span><span content='application/json' property='dcat:mediaType'/> <a href='{link to data}' property='dcat:accessURL'>Download</a>
+</div>
+        '''
+        dist_html = "<div property='dcat:distribution' typeof='dcat:Distribution'>"
+        dist_html += "<span property='dct:title'>JSON</span><span content='application/json' property='dcat:mediaType'/> "
+        dist_html += "<a href='" + reverse('api_dataset_view', args=(urllib.parse.quote(self.UKCL).replace("/","%2F"),self.root.pk,"JSON")) + "' property='dcat:accessURL'>Download</a>"
+        dist_html += "</div>"
+        dist_html += "<div property='dcat:distribution' typeof='dcat:Distribution'>"
+        dist_html += "<span property='dct:title'>XML</span><span content='application/xml' property='dcat:mediaType'/> "
+        dist_html += "<a href='" + reverse('api_dataset_view', args=(urllib.parse.quote(self.UKCL).replace("/","%2F"),self.root.pk,"XML")) + "' property='dcat:accessURL'>Download</a>"
+        dist_html += "</div>"
+        return dist_html
+    
+
     def export(self, export_format='XML', force_external_reference=False):
         '''
         it exports, serializing it, a dataset; starting from the root the serialization is based on the dataset structure

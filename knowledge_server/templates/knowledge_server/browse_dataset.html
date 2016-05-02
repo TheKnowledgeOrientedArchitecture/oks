@@ -10,9 +10,18 @@
 
 
 {% block content %}
-	<div class="row-fluid">
+	<div typeof="dcat:Dataset" resource="{{ dataset.UKCL }}" class="row-fluid">
 	{{ dataset_UKCL }}
-		<h3>Data set: {{ dataset.UKCL }}{% if actual_instance %}<br>"{{ actual_instance.name }}"{% endif %}<br>Type: {{ dataset.dataset_structure.name }}</h3>
+		<h3>Data set: {{ dataset.UKCL }}<br>"<strong property="dct:title">{{ dataset.root.p_name }}</strong>"
+		{% if dataset.description %}<br>{% endif %}<span property="dct:description">{{ dataset.description }}</span>
+		<br>Created: <span property="dct:created" content='{{ dataset.p_release_date }}' datatype='xsd:dateTime'>{{ dataset.release_date }}</span>
+        <div property="dct:publisher" resource="{{ this_ks.organization.website }}">
+            Published by: <a href="{{ this_ks.organization.website }}" about="{{ this_ks.organization.website }}" property="foaf:homepage">
+                <span property="foaf:name">{{ this_ks.organization.name }}</span>
+            </a>
+        </div>
+        Type: {{ dataset.dataset_structure.name }}
+        </h3>
     	<p> Get the data in <a href="{% url 'api_dataset' DataSet_UKCL "XML" %}">XML</a> or <a href="{% url 'api_dataset' DataSet_UKCL "JSON" %}">JSON</a>.<br>
     	{% if actual_instance %}{% autoescape off %}{% browse_json_data actual_instance actual_instance_json sn %}{% endautoescape %}{% endif %}
     </div>
