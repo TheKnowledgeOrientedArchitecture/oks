@@ -12,10 +12,9 @@ from knowledge_server.models import Organization, KnowledgeServer, DataSet, Data
 def forwards_func(apps, schema_editor):
     org_ks={
       "Organization": {"name": "A test Organization", "website": "http://new_org.example.com", "description": ""}, 
-      "KnowledgeServer": {"name": "A demo OKS used as a client to perform testing.", "netloc": "client.beta.thekoa.org", "description": "", "html_home": "", "html_disclaimer": ""}
+      "KnowledgeServer": {"name": "A demo OKS populated with some test data.", "netloc": "test.beta.thekoa.org", "description": "", "html_home": "", "html_disclaimer": ""}
      }
     KnowledgeServer.create_this_ks(org_ks)
-    
 
 
 class Migration(migrations.Migration):
