@@ -239,7 +239,7 @@ def forwards_func(apps, schema_editor):
     ccby10.conformant_for_opendefinition = True
     ccby10.legalcode = ''
     ccby10.save(using=db_alias)
-    ds_ccby10 = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,
+    ds_ccby10 = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16",
                         root=ccby10, version_major=1, version_minor=0, version_patch=0, version_description="")
     ds_ccby10.save(using=db_alias)
 
@@ -255,7 +255,7 @@ def forwards_func(apps, schema_editor):
     ccby20.conformant_for_opendefinition = True
     ccby20.legalcode = ''
     ccby20.save(using=db_alias)
-    ds_ccby20 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds_ccby20 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
                  root=ccby20, version_major=2, version_minor=0, version_patch=0, version_description="")
     ds_ccby20.save(using=db_alias)
 
@@ -271,7 +271,7 @@ def forwards_func(apps, schema_editor):
     ccby25.conformant_for_opendefinition = True
     ccby25.legalcode = ''
     ccby25.save(using=db_alias)
-    ds_ccby25 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds_ccby25 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
                  root=ccby25, version_major=2, version_minor=5, version_patch=0, version_description="")
     ds_ccby25.save(using=db_alias)
 
@@ -282,12 +282,12 @@ def forwards_func(apps, schema_editor):
     ccby30.share_alike = False
     ccby30.commercial_use = True
     ccby30.derivatives = True
-    ccby30.url_info = "http://creativecommons.org/licenses/by/2.0"
+    ccby30.url_info = "http://creativecommons.org/licenses/by/3.0"
     ccby30.reccomended_by_opendefinition = False
     ccby30.conformant_for_opendefinition = True
     ccby30.legalcode = ''
     ccby30.save(using=db_alias)
-    ds_ccby30 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds_ccby30 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
                  root=ccby30, version_major=3, version_minor=0, version_patch=0, version_description="")
     ds_ccby30.save(using=db_alias)
 
@@ -303,7 +303,7 @@ def forwards_func(apps, schema_editor):
     ccby40.conformant_for_opendefinition = True
     ccby40.legalcode = ''
     ccby40.save(using=db_alias)
-    ds_ccby40 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds_ccby40 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
                  root=ccby40, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds_ccby40.save(using=db_alias)
     ds_ccby40.licenses.add(ccby40)
@@ -354,8 +354,8 @@ def forwards_func(apps, schema_editor):
     ccbysa10.conformant_for_opendefinition = True
     ccbysa10.legalcode = ''
     ccbysa10.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=ccbysa10, version_major=4, version_minor=0, version_patch=0, version_description="")
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16",
+                 root=ccbysa10, version_major=1, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -372,8 +372,8 @@ def forwards_func(apps, schema_editor):
     ccbysa20.conformant_for_opendefinition = True
     ccbysa20.legalcode = ''
     ccbysa20.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=ccbysa20, version_major=4, version_minor=0, version_patch=0, version_description="")
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
+                 root=ccbysa20, version_major=2, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -390,8 +390,8 @@ def forwards_func(apps, schema_editor):
     ccbysa25.conformant_for_opendefinition = True
     ccbysa25.legalcode = ''
     ccbysa25.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=ccbysa25, version_major=4, version_minor=0, version_patch=0, version_description="")
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01",
+                 root=ccbysa25, version_major=2, version_minor=5, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -408,8 +408,8 @@ def forwards_func(apps, schema_editor):
     ccbysa30.conformant_for_opendefinition = True
     ccbysa30.legalcode = ''
     ccbysa30.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=ccbysa30, version_major=4, version_minor=0, version_patch=0, version_description="")
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
+                 root=ccbysa30, version_major=3, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -426,7 +426,7 @@ def forwards_func(apps, schema_editor):
     ccbysa40.conformant_for_opendefinition = True
     ccbysa40.legalcode = ''
     ccbysa40.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
                  root=ccbysa40, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -448,8 +448,8 @@ def forwards_func(apps, schema_editor):
     ccbyncsa10.conformant_for_opendefinition = False
     ccbyncsa10.legalcode = ''
     ccbyncsa10.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=ccbyncsa10, version_major=4, version_minor=0, version_patch=0, version_description="")
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16", 
+                 root=ccbyncsa10, version_major=1, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -466,8 +466,8 @@ def forwards_func(apps, schema_editor):
     ccbyncsa20.conformant_for_opendefinition = False
     ccbyncsa20.legalcode = ''
     ccbyncsa20.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=ccbyncsa20, version_major=4, version_minor=0, version_patch=0, version_description="")
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
+                 root=ccbyncsa20, version_major=2, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -484,8 +484,8 @@ def forwards_func(apps, schema_editor):
     ccbyncsa25.conformant_for_opendefinition = False
     ccbyncsa25.legalcode = ''
     ccbyncsa25.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=ccbyncsa25, version_major=4, version_minor=0, version_patch=0, version_description="")
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
+                 root=ccbyncsa25, version_major=2, version_minor=5, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -502,8 +502,8 @@ def forwards_func(apps, schema_editor):
     ccbyncsa30.conformant_for_opendefinition = False
     ccbyncsa30.legalcode = ''
     ccbyncsa30.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=ccbyncsa30, version_major=4, version_minor=0, version_patch=0, version_description="")
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
+                 root=ccbyncsa30, version_major=3, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -520,7 +520,7 @@ def forwards_func(apps, schema_editor):
     ccbyncsa40.conformant_for_opendefinition = False
     ccbyncsa40.legalcode = ''
     ccbyncsa40.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
                  root=ccbyncsa40, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -543,7 +543,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd10.conformant_for_opendefinition = False
     ccbyncnd10.legalcode = ''
     ccbyncnd10.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16", 
                  root=ccbyncnd10, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -561,7 +561,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd20.conformant_for_opendefinition = False
     ccbyncnd20.legalcode = ''
     ccbyncnd20.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
                  root=ccbyncnd20, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -579,7 +579,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd25.conformant_for_opendefinition = False
     ccbyncnd25.legalcode = ''
     ccbyncnd25.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
                  root=ccbyncnd25, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -597,7 +597,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd30.conformant_for_opendefinition = False
     ccbyncnd30.legalcode = ''
     ccbyncnd30.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
                  root=ccbyncnd30, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -615,7 +615,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd40.conformant_for_opendefinition = False
     ccbyncnd40.legalcode = ''
     ccbyncnd40.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
                  root=ccbyncnd40, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -639,7 +639,7 @@ def forwards_func(apps, schema_editor):
     ccbync10.conformant_for_opendefinition = False
     ccbync10.legalcode = ''
     ccbync10.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16", 
                  root=ccbync10, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -657,7 +657,7 @@ def forwards_func(apps, schema_editor):
     ccbync20.conformant_for_opendefinition = False
     ccbync20.legalcode = ''
     ccbync20.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
                  root=ccbync20, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -675,7 +675,7 @@ def forwards_func(apps, schema_editor):
     ccbync25.conformant_for_opendefinition = False
     ccbync25.legalcode = ''
     ccbync25.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
                  root=ccbync25, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -693,7 +693,7 @@ def forwards_func(apps, schema_editor):
     ccbync30.conformant_for_opendefinition = False
     ccbync30.legalcode = ''
     ccbync30.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
                  root=ccbync30, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -711,7 +711,7 @@ def forwards_func(apps, schema_editor):
     ccbync40.conformant_for_opendefinition = False
     ccbync40.legalcode = ''
     ccbync40.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
                  root=ccbync40, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -735,7 +735,7 @@ def forwards_func(apps, schema_editor):
     ccbynd10.conformant_for_opendefinition = False
     ccbynd10.legalcode = ''
     ccbynd10.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16", 
                  root=ccbynd10, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -753,7 +753,7 @@ def forwards_func(apps, schema_editor):
     ccbynd20.conformant_for_opendefinition = False
     ccbynd20.legalcode = ''
     ccbynd20.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
                  root=ccbynd20, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -771,7 +771,7 @@ def forwards_func(apps, schema_editor):
     ccbynd25.conformant_for_opendefinition = False
     ccbynd25.legalcode = ''
     ccbynd25.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
                  root=ccbynd25, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -789,7 +789,7 @@ def forwards_func(apps, schema_editor):
     ccbynd30.conformant_for_opendefinition = False
     ccbynd30.legalcode = ''
     ccbynd30.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
                  root=ccbynd30, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
@@ -807,7 +807,7 @@ def forwards_func(apps, schema_editor):
     ccbynd40.conformant_for_opendefinition = False
     ccbynd40.legalcode = ''
     ccbynd40.save(using=db_alias)
-    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
+    ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
                  root=ccbynd40, version_major=4, version_minor=0, version_patch=0, version_description="")
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
