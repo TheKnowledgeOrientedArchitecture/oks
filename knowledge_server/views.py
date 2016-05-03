@@ -85,6 +85,7 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
     response_format = response_format.upper()
     ks_url = urllib.parse.unquote(ks_url)
     tmp_ks_url = KsUrl(ks_url)
+    q_UKCL = UKCL
     UKCL = urllib.parse.unquote(UKCL)
     if this_ks.scheme != tmp_ks_url.scheme or this_ks.netloc != tmp_ks_url.netloc:
         # info on the remote ks
@@ -110,9 +111,9 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
     es_info_json = json.loads(response.read().decode("utf-8"))
     
     if response_format == 'XML':
-        local_url = reverse('api_datasets', args=(urllib.parse.quote(UKCL).replace("/","%2F"),response_format))
+        local_url = reverse('api_datasets', args=(q_UKCL,response_format))
     if response_format == 'JSON' or response_format == 'BROWSE':
-        local_url = reverse ('api_datasets', args=(urllib.parse.quote(UKCL).replace("/","%2F"),'JSON'))
+        local_url = reverse ('api_datasets', args=(q_UKCL,'JSON'))
     response = urlopen(ks_url + local_url)
     datasets = response.read().decode("utf-8")
     if response_format == 'XML':

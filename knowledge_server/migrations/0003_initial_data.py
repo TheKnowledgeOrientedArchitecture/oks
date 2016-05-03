@@ -121,7 +121,7 @@ def forwards_func(apps, schema_editor):
      
     # DataSet
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
-                 root = mmModelMetadata,description="Model metadata of ModelMetadata",
+                 root = mmModelMetadata,description="Model metadata of ModelMetadata",creation_date="2015-08-31",
                  version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
@@ -221,7 +221,7 @@ def forwards_func(apps, schema_editor):
     ######## BEGIN LICENSES DATA
 
     # Let's create the organizations to which we will attribute the licenses
-    data_dict = {"Organization": {"name": "Creative Commons", "website": "http://creativecommons.org", "description": ""},}
+    data_dict = {"name": "Creative Commons", "website": "http://creativecommons.org", "description": ""}
     cc_org = Organization.create_with_dataset(dssOrganizationKS, data_dict, db_alias, ks=the_koa_org_ks)
 
     

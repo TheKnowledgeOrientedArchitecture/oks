@@ -20,7 +20,7 @@ from django.db.migrations.state import ModelState, ProjectState
 logger = logging.getLogger(__name__)
 
 class SerializableModel(models.Model):
-    classes_serialized_as_tags = ["CharField"]
+    types_serialized_as_tags = ["CharField"]
     is_a_placeholder = models.BooleanField(default=False, db_column='oks_internals_placeholder', db_index=True)
 
     def generic_content_types_attributes(self):
@@ -75,7 +75,7 @@ class SerializableModel(models.Model):
             <KnowledgeServer .....  > ....   <html_home><![CDATA[<strong>Welcome!</strong>]]></html_home>  ... </KnowledgeServer>
         
         ###########################################################################
-        Current policy is to have CharField as tags; see classes_serialized_as_tags
+        Current policy is to have CharField as tags; see types_serialized_as_tags
         ###########################################################################
         '''
         attributes = ""
@@ -90,7 +90,7 @@ class SerializableModel(models.Model):
                     value = ""
                 # if it is an instance of a class that has to be serialized as tags and it is not an 
                 # attribute of the parent_class I serialize it as a tag with CDATA
-                if key.__class__.__name__ in SerializableModel.classes_serialized_as_tags and (not key.name in parent_class_attributes):
+                if key.__class__.__name__ in SerializableModel.types_serialized_as_tags and (not key.name in parent_class_attributes):
                     attributes += '<' + key.name + '><![CDATA[' + str(value) + ']]></' + key.name + '>'
         return attributes
     
@@ -118,7 +118,7 @@ class SerializableModel(models.Model):
                     # as attribute unless it is an attribute of the parent_class ( that is a normally 
                     # ShareableModel class whose attributes should not contain characters that need to be
                     # put into CDATA tags ) 
-                    if (not key.__class__.__name__ in SerializableModel.classes_serialized_as_tags) or key.name in parent_class_attributes:
+                    if (not key.__class__.__name__ in SerializableModel.types_serialized_as_tags) or key.name in parent_class_attributes:
                         attributes += ' ' + key.name + '="' + str(value) + '"'  
                 if format == 'JSON':
                     attributes += comma + '"' + key.name + '" : "' + str(value) + '"'

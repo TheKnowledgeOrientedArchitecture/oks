@@ -42,6 +42,7 @@ class Migration(migrations.Migration):
                 ('description', models.CharField(default='', max_length=2000)),
                 ('root_instance_id', models.PositiveIntegerField(blank=True, null=True)),
                 ('filter_text', models.CharField(blank=True, max_length=200, null=True)),
+                ('creation_date', models.DateTimeField(blank=True, null=True)),
                 ('version_major', models.IntegerField(blank=True, null=True, db_index=True)),
                 ('version_minor', models.IntegerField(blank=True, null=True, db_index=True)),
                 ('version_patch', models.IntegerField(blank=True, null=True, db_index=True)),

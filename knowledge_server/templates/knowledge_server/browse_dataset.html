@@ -11,7 +11,6 @@
 
 {% block content %}
 	<div typeof="dcat:Dataset" resource="{{ dataset.UKCL }}" class="row-fluid">
-	{{ dataset_UKCL }}
 		<h3>Data set: {{ dataset.UKCL }}<br>"<strong property="dct:title">{{ dataset.root.p_name }}</strong>"
 		{% if dataset.description %}<br>{% endif %}<span property="dct:description">{{ dataset.description }}</span>
 		<br>Created: <span property="dct:created" content='{{ dataset.p_release_date }}' datatype='xsd:dateTime'>{{ dataset.release_date }}</span>

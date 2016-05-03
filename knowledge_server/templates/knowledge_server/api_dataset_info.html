@@ -15,24 +15,39 @@
 		{% if dataset.description %}<br>{% endif %}<span property="dct:description">{{ dataset.description }}</span>
 		</h3>
         <h3>Type: <strong>{{ dataset.dataset_structure.name }}</strong></h3>
+        {% if dataset.owner_organization %}
+            <h3>Creator/owner: <strong>{% if dataset.owner_organization.website %}<a href="{{ dataset.owner_organization.website }}" target="_blank">{% endif %}{{ dataset.owner_organization.name }}{% if dataset.owner_organization.website %}</a>{% endif %}</strong></h3>
+        {% endif %}
         <h4><div property="dct:publisher" resource="{{ ks.organization.website }}">
             Published by: <a href="{{ ks.organization.website }}" about="{{ ks.organization.website }}" property="foaf:homepage">
                 <span property="foaf:name">{{ ks.organization.name }}</span>
             </a>
         </div></h4>
-        <hr>
-    	{% autoescape off %}{% version_instance_info dataset instances %}
+        Version {% if dataset.version_released %}<strong>{% else %}(<font color="red">not released</font>) {% endif %}
+        {{ dataset.version_major }}.{{ dataset.version_minor }}.{{ dataset.version_patch }}
+        {% if dataset.version_released %}</strong>{% endif %}{% if dataset.creation_date %} - {{ dataset.creation_date }}{% endif %}<br>
+        Licenses:
+        <ul>
+            {% for l in dataset.licenses.all %}
+                <li property="dct:license" resource="{{ l.url_info }}">
+                  <a target="_blank" href="{{ l.url_info }}"><span property="dct:title">{{ l.name }}</span></a>
+                </li>
+            {% endfor %}        
+        </ul>
     	Distributions:<br />
-    	{{ dataset.p_distributions }}{% endautoescape %}
+    	{% autoescape off %}{{ dataset.p_distributions }}{% endautoescape %}
         {% if all_versions_with_instances|length > 0 %}
         <hr>
-			<h3>... has the following versions:</h3> 
+			<h3>Other versions:</h3> 
 			<ul>
-			{% for version_with_instance in all_versions_with_instances %}
-			    <li>
-			    	{% autoescape off %}{% version_instance_info version_with_instance.dataset version_with_instance.model_metadata %}{% endautoescape %}
-			    </li>
-			{% endfor %}
+            {% for version_with_instance in all_versions_with_instances %}
+              <li>
+                <a href="{% url 'api_dataset_info' version_with_instance.dataset.q_UKCL "html" %}">{{ version_with_instance.dataset.root.p_name }}</a><br>
+                Version {% if version_with_instance.dataset.version_released %}<strong>{% else %}(<font color="red">not released</font>) {% endif %}
+                {{ version_with_instance.dataset.version_major }}.{{ version_with_instance.dataset.version_minor }}.{{ version_with_instance.dataset.version_patch }}
+                {% if version_with_instance.dataset.version_released %}</strong>{% endif %}{% if version_with_instance.dataset.creation_date %} - {{ version_with_instance.dataset.creation_date }}{% endif %}<br>
+              </li>
+            {% endfor %}
             </ul>
         {% else %}
             <h3>This is the only published version of this dataset.</h3> 

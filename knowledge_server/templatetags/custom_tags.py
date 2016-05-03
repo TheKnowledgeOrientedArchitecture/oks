@@ -21,34 +21,6 @@ def ks_info(ks, *args, **kwargs):
     return ret_html
 
 @register.simple_tag
-def version_instance_info(dataset, instances, *args, **kwargs):
-    DataSet_UKCL = urllib.parse.quote(dataset.UKCL).replace("/","%2F")
-    ret_string = ''
-    for instance in instances:
-        html_url = reverse('api_dataset_view', args=(DataSet_UKCL,instance.pk,"html")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_UKCL,"html"))
-        xml_url = reverse('api_dataset_view', args=(DataSet_UKCL,instance.pk,"XML")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_UKCL,"XML"))
-        json_url = reverse('api_dataset_view', args=(DataSet_UKCL,instance.pk,"JSON")) if dataset.dataset_structure.is_a_view else reverse('api_dataset', args=(DataSet_UKCL,"JSON"))
-        ret_string +=  '<p>"' + instance.name + '" (<a href="' + html_url + '">browse the data</a> or'
-        ret_string += ' get it in <a href="' + xml_url + '">XML</a> or '
-        ret_string += '<a href="' + json_url + '">JSON</a>)<br>'
-        if not dataset.dataset_structure.is_a_view:
-            ret_string += 'Version ' + ('<strong>' if dataset.version_released else '(<font color="red">not released</font>) ') + str(dataset.version_major) + '.' + str(dataset.version_minor) + '.' + str(dataset.version_patch) + '</strong> - ' + str(dataset.version_date)
-        if not dataset.licenses is None:
-            ret_string += '<br>Licenses:<ul>'
-        for l in dataset.licenses.all():
-            ret_string +=  ('<li property="dct:license" resource="%s">' % l.url_info)
-            ret_string +=  ('<a href="{%s}">' % l.url_info)
-            ret_string +=  ('<span property="dct:title">%s</span></a></li>' % l.name)
-        if not dataset.licenses is None:
-            ret_string += '</ul>'
-        if dataset.version_released or dataset.dataset_structure.is_a_view:
-            ret_string += '</p>'
-        else:  
-            ret_string += '<br>Click <a href="' + reverse('release_dataset', args=(DataSet_UKCL,)) + '" target="_blank">here</a> to release it.</p>'
-        ret_string += '<hr>'
-    return ret_string
-
-@register.simple_tag
 def browse_json_data(actual_instance, exported_json, esn, *args, **kwargs):
     json_data = json.loads(exported_json)[esn.model_metadata.name]
     

@@ -4,6 +4,14 @@
 #
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
+'''
+These models should be mad thinner in order to represent only the 
+Data Access or Persistence Layer
+Whatever is not related to persistence should be moved to the Domain or
+Business Layer
+'''
+
+
 import importlib
 import inspect
 import json
@@ -94,6 +102,10 @@ class ShareableModel(SerializableModel):
     '''
     dataset_I_belong_to = models.ForeignKey("DataSet", null=True, blank=True, related_name='+')
 
+    @property
+    def q_UKCL(self):
+        return urllib.parse.quote(self.UKCL).replace("/","%2F")
+        
     @property
     def p_name(self):
         mm = self.get_model_metadata()
@@ -464,7 +476,7 @@ class ShareableModel(SerializableModel):
             '''
             if key.__class__.__name__ != "ForeignKey" and (not parent or key.name != field_name):
                 try:
-                    if key.__class__.__name__ in SerializableModel.classes_serialized_as_tags and (not key.name in list(key.name for key in ShareableModel._meta.fields)):
+                    if key.__class__.__name__ in SerializableModel.types_serialized_as_tags and (not key.name in list(key.name for key in ShareableModel._meta.fields)):
                         child_tag = xmldoc.getElementsByTagName(key.name)[0]
                         setattr(self, key.name, child_tag.firstChild.data)
                     elif key.__class__.__name__ == "BooleanField":
@@ -1439,7 +1451,8 @@ class DataSet(ShareableModel):
     # a dataset has one or more licenses; the organization that can assign licenses
     # to this dataset is owner_organization; in case of attribution it is the one to be credited
     owner_organization = models.ForeignKey("Organization", null=True, blank=True)
-
+    # creation_date when the owner organization has published the data 
+    creation_date = models.DateTimeField(null=True, blank=True)
     # following attributes used to be in a separate class VersionableDataSet
     '''
     An Instance belongs to a set of instances which are basically the same but with a different version.
@@ -1481,14 +1494,18 @@ class DataSet(ShareableModel):
     <span property="dct:title">JSON</span><span content='application/json' property='dcat:mediaType'/> <a href='{link to data}' property='dcat:accessURL'>Download</a>
 </div>
         '''
-        dist_html = "<div property='dcat:distribution' typeof='dcat:Distribution'>"
-        dist_html += "<span property='dct:title'>JSON</span><span content='application/json' property='dcat:mediaType'/> "
-        dist_html += "<a href='" + reverse('api_dataset_view', args=(urllib.parse.quote(self.UKCL).replace("/","%2F"),self.root.pk,"JSON")) + "' property='dcat:accessURL'>Download</a>"
-        dist_html += "</div>"
-        dist_html += "<div property='dcat:distribution' typeof='dcat:Distribution'>"
-        dist_html += "<span property='dct:title'>XML</span><span content='application/xml' property='dcat:mediaType'/> "
-        dist_html += "<a href='" + reverse('api_dataset_view', args=(urllib.parse.quote(self.UKCL).replace("/","%2F"),self.root.pk,"XML")) + "' property='dcat:accessURL'>Download</a>"
-        dist_html += "</div>"
+        dist_html = "<ul><li property='dcat:distribution' typeof='dcat:Distribution'>"
+        dist_html += "<span content='application/json' property='dcat:mediaType'/> "
+        dist_html += "<a href='" + reverse('api_dataset_view', args=(self.q_UKCL,self.root.pk,"JSON")) + "' property='dcat:accessURL'><span property='dct:title'>JSON</span></a>"
+        dist_html += "</li>"
+        dist_html += "<li property='dcat:distribution' typeof='dcat:Distribution'>"
+        dist_html += "<span content='application/xml' property='dcat:mediaType'/> "
+        dist_html += "<a href='" + reverse('api_dataset_view', args=(self.q_UKCL,self.root.pk,"XML")) + "' property='dcat:accessURL'><span property='dct:title'>XML</span></a>"
+        dist_html += "</li>"
+        dist_html += "<li property='dcat:distribution' typeof='dcat:Distribution'>"
+        dist_html += "<span content='application/html' property='dcat:mediaType'/> "
+        dist_html += "<a href='" + reverse('api_dataset_view', args=(self.q_UKCL,self.root.pk,"HTML")) + "' property='dcat:accessURL'><span property='dct:title'>View it in the browser</span></a>"
+        dist_html += "</li></ul>"
         return dist_html
     
 
@@ -2312,7 +2329,7 @@ class SubscriptionToThis(ShareableModel):
     '''
     The subscriptions other systems do to my data
     '''
-    first_version_UKCL = models.CharField(default='', max_length=2000, db_index=True)
+    first_version_UKCL = models.CharField(default='', max_length=750, db_index=True)
     # where to send the notification; remote_url, in the case of a KS, will be something like http://root.beta.thekoa.org/notify
     # the actual notification will have the UKCL of the DataSet and the UKCL of the EventType
     remote_url = models.CharField(max_length=200)

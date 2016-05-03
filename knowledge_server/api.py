@@ -256,11 +256,11 @@ def api_dataset_info(request, DataSet_UKCL, response_format):
             if v.UKCL != dataset.UKCL:
                 version_with_instance = {}
                 version_with_instance['dataset'] = v
-                version_with_instance['model_metadata'] = []
+                version_with_instance['root'] = []
                 # views have no version by themselves; only their components have and they can be different
                 # so if we are here we are not in a view hence there is just one instance: 
                 #         I get root and not .get_instances()
-                version_with_instance['model_metadata'].append(v.root)
+                version_with_instance['root'].append(v.root)
                 all_versions_with_instances.append(version_with_instance)
         this_ks = KnowledgeServer.this_knowledge_server()
         cont = RequestContext(request, {'DataSet_UKCL': DataSet_UKCL, 'dataset': dataset, 'all_versions_with_instances': all_versions_with_instances, 'ks': dataset.knowledge_server, 'instances': instances, 'this_ks':this_ks, 'this_ks_encoded_url':this_ks.url(True) })
