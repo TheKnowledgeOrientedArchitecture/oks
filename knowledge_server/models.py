@@ -5,7 +5,7 @@
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
 '''
-These models should be mad thinner in order to represent only the 
+These models should be made thinner in order to represent only the 
 Data Access or Persistence Layer
 Whatever is not related to persistence should be moved to the Domain or
 Business Layer

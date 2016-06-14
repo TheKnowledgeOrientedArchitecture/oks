@@ -10,7 +10,7 @@ import urllib
 from datetime import datetime
 from xml.dom import minidom
 
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, render_to_response
 from django.template import RequestContext
 from django.views.decorators.cache import cache_page, never_cache
@@ -243,8 +243,9 @@ def api_dataset_info(request, DataSet_UKCL, response_format):
     if response_format == 'JSON':
         ar = ApiResponse()
         ar.content = { "DataSet": dataset.export(export_format = "DICT", force_external_reference=True), "Versions": all_versions_list }
-        ar.status = ApiResponse.success 
-        return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
+        ar.status = ApiResponse.success
+        return HttpResponse(ar.json(), content_type = "application/json") 
+#         return render(request, 'knowledge_server/export.json', {'json': ar.json()}, content_type="application/json")
     if response_format == 'HTML' or response_format == 'BROWSE':
         if dataset.dataset_structure.is_a_view:
             instances = dataset.get_instances()

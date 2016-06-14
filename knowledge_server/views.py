@@ -4,7 +4,7 @@
 #
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
-import json
+from json import loads as json_loads 
 import logging
 import urllib
 
@@ -108,7 +108,7 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
     # info on the DataSetStructure
     # TODO: the following call relies on api_catch_all; use dataset_info instead
     response = urlopen(UKCL + "/json")
-    es_info_json = json.loads(response.read().decode("utf-8"))
+    es_info_json = json_loads(response.read().decode("utf-8"))
     
     if response_format == 'XML':
         local_url = reverse('api_datasets', args=(q_UKCL,response_format))
@@ -122,7 +122,7 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
         return render(request, 'knowledge_server/export.json', {'json': datasets}, content_type="application/json")
     if response_format == 'BROWSE':
         # parse
-        decoded = json.loads(datasets)
+        decoded = json_loads(datasets)
         # I prepare a list of UKCL of root so that I can check which I have subscribed to
         first_version_UKCLs = []
         for ei in decoded['content']['DataSets']:
@@ -247,12 +247,29 @@ def subscriptions(request):
     return render_to_response('knowledge_server/subscriptions.html', context_instance=cont)
 
 
+def json(request):
+    '''
+    micro test for json
+    '''
+    try:
+        ar = ApiResponse()
+        ar.content = { "DataSet": "Versions"}
+        ar.status = ApiResponse.success
+        return HttpResponse(ar.json(), content_type = "application/json") 
+    except Exception as ex:
+        logger.error("views.debug: " + str(ex))
+        return HttpResponse(str(ex))
+
 @login_required
 def debug(request):
     '''
     created to debug code
     '''
     try:
+        ar = ApiResponse()
+        ar.content = { "DataSet": "Versions"}
+        ar.status = ApiResponse.success
+        return HttpResponse(ar.json(), content_type = "application/json") 
         # TODO: AGGIORNARE SU STACKOVERFLOW: http://stackoverflow.com/questions/8784400/clearing-specific-cache-in-django
         
         from licenses.models import License

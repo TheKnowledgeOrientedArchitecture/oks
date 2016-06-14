@@ -12,6 +12,7 @@ from knowledge_server import api
 
 urlpatterns = [
     url(r'^debug/$', views.debug),
+    url(r'^json/$', views.json),
     url(r'^cron/$', views.cron, name='cron'),
     url(r'^ks_explorer_form/$', views.ks_explorer_form, name='ks_explorer_form'),
     url(r'^ks_explorer/$', views.ks_explorer, name='ks_explorer'),
