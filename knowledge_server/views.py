@@ -85,6 +85,7 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
     response_format = response_format.upper()
     ks_url = urllib.parse.unquote(ks_url)
     tmp_ks_url = KsUrl(ks_url)
+    
     q_UKCL = UKCL
     UKCL = urllib.parse.unquote(UKCL)
     if this_ks.scheme != tmp_ks_url.scheme or this_ks.netloc != tmp_ks_url.netloc:
@@ -266,10 +267,15 @@ def debug(request):
     created to debug code
     '''
     try:
+        from django.core import management
+        management.call_command('migrate', 'assess', interactive=False)
+        return HttpResponse('OK')
+    
         ar = ApiResponse()
         ar.content = { "DataSet": "Versions"}
         ar.status = ApiResponse.success
-        return HttpResponse(ar.json(), content_type = "application/json") 
+        return HttpResponse(ar.json(), content_type = "application/json")
+     
         # TODO: AGGIORNARE SU STACKOVERFLOW: http://stackoverflow.com/questions/8784400/clearing-specific-cache-in-django
         
         from licenses.models import License

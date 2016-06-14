@@ -132,7 +132,8 @@ class ShareableModel(SerializableModel):
     
     def regenerate_UKCL(self):
         '''
-        Creating initial data like current knowledge server can live some record with the wrong UKCL based on old KnowledgeServer.netloc
+        Creating initial data like current knowledge server can leave some record with the wrong 
+        UKCL based on old KnowledgeServer.netloc
         This method fixes UKCL on both materialized and default db
         '''
         m_self = self.__class__.objects.using('materialized').get(UKCL=self.UKCL)
@@ -2200,12 +2201,23 @@ class KnowledgeServer(ShareableModel):
         Invoked on a KnowledgeServer with this_ks set to False
         It sets it to True on both default and materialized and set it to False to the one that had it set to True
         '''
-        m_this_ks = KnowledgeServer.this_knowledge_server('materialized')
-        d_this_ks = KnowledgeServer.this_knowledge_server('default')
-        m_this_ks.this_ks = False
-        m_this_ks.save()
-        d_this_ks.this_ks = False
-        d_this_ks.save()
+        try:
+            m_this_ks = KnowledgeServer.this_knowledge_server('materialized')
+            d_this_ks = KnowledgeServer.this_knowledge_server('default')
+            m_this_ks.this_ks = False
+            m_this_ks.save()
+            d_this_ks.this_ks = False
+            d_this_ks.save()
+        except Exception as ex:
+            '''
+            When creating a new dataset for the organization that contains this_ks
+            I have to set this_ks to False right after new_version; when releasing
+            the new version is copied to the materialized database and the old version
+            is deleted; we are left without this_ks in the materialized for (hopefully)
+            a short while e.g. until this method is executed. Hence if I don't find
+            this_ks on the db it is no problem; I will have it again in a minute.
+            '''
+            logger.info("set_as_this_ks: " + str(ex))
         
         m_self = KnowledgeServer.objects.using('materialized').get(UKCL=self.UKCL)
         d_self = KnowledgeServer.objects.using('default').get(UKCL=self.UKCL)
@@ -2271,29 +2283,58 @@ class KnowledgeServer(ShareableModel):
 
     @staticmethod
     def create_this_ks(org_ks):
-        new_org = Organization()
-        new_org.name = org_ks["Organization"]["name"]
-        new_org.website = org_ks["Organization"]["website"]
-        new_org.description = org_ks["Organization"]["description"]
-        new_org.save()
-        new_org_ks = KnowledgeServer()
-        new_org_ks.name = org_ks["KnowledgeServer"]["name"]
-        if "scheme" in org_ks["KnowledgeServer"].keys():
-            new_org_ks.scheme = org_ks["KnowledgeServer"]["scheme"]
-        new_org_ks.netloc = org_ks["KnowledgeServer"]["netloc"]
-        new_org_ks.description = org_ks["KnowledgeServer"]["description"]
-        new_org_ks.organization = new_org
-        new_org_ks.save()
+        '''
+        org_ks is a dictionary with main fields for Organization and KnowledgeServer
+        It is intended to make it easy to initialize a new KS juts providing the dictionary
+        This method is better invoked in a migration which is processed before any new dataset or 
+        any new instance of any class that inherits from ShareableModel is created.
         
-        dss_org = DataSetStructure.get_from_name(DataSetStructure.organization_DSN)
-        ds = DataSet(description='', knowledge_server=new_org_ks, dataset_structure=dss_org, 
-                     root=new_org, version_major=0, version_minor=1, version_patch=0, version_description="")
-        ds.save()
+        create_this_ks takes care of creating the Organization and the KnowledgeServer,
+        the relevant DataSet which is then released. After this method data and dataset
+        can be safely created and released. The Organization and the KnowledgeServer
+        hereby created will own all newly created data. Invoking this method more than
+        once in the lifetime of an instance of OKS does not make sense.
+        If Organization is not in the dictionary, the existing one of current OKS is 
+        used (e.g. TheKoa.org)  
+        '''
+        if "Organization" in org_ks.keys():
+            new_org = Organization()
+            new_org.name = org_ks["Organization"]["name"]
+            new_org.website = org_ks["Organization"]["website"]
+            new_org.description = org_ks["Organization"]["description"]
+            new_org.save()
+        else:
+            this_ks = KnowledgeServer.this_knowledge_server('default')
+            ds = this_ks.dataset_I_belong_to.new_version()
+            ''' This is a very special dataset as it includes this_knowledge_server
+                now we have two KnowledgeServer instances with this_ks = True
+                before materializing it (via set_released) I must set the flag
+                to False; I do it now
+            ''' 
+            old_this_ks = ds.root.knowledgeserver_set.filter(this_ks = True)[0]
+            old_this_ks.this_ks = False
+            old_this_ks.save()
+            new_org = ds.root
+        new_ks = KnowledgeServer()
+        new_ks.name = org_ks["KnowledgeServer"]["name"]
+        if "scheme" in org_ks["KnowledgeServer"].keys():
+            new_ks.scheme = org_ks["KnowledgeServer"]["scheme"]
+        new_ks.netloc = org_ks["KnowledgeServer"]["netloc"]
+        new_ks.description = org_ks["KnowledgeServer"]["description"]
+        new_ks.organization = new_org
+        new_ks.save()
+        
+        if "Organization" in org_ks.keys():
+            dss_org = DataSetStructure.get_from_name(DataSetStructure.organization_DSN)
+            ds = DataSet(description='', knowledge_server=new_ks, dataset_structure=dss_org, 
+                         root=new_org, version_major=0, version_minor=1, version_patch=0, version_description="")
+            ds.save()
         ds.set_released()
         
-        new_org_ks.set_as_this_ks()
-        new_org.regenerate_UKCL()
-        new_org_ks = KnowledgeServer.this_knowledge_server('default')
+        new_ks.set_as_this_ks()
+        if "Organization" in org_ks.keys():
+            new_org.regenerate_UKCL()
+        new_ks = KnowledgeServer.this_knowledge_server('default')
         ds.regenerate_UKCL()
         return KnowledgeServer.this_knowledge_server()
         
