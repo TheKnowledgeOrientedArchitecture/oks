@@ -14,7 +14,7 @@ from knowledge_server.utils import KsUrl
 def forwards_func(apps, schema_editor):
     org_ks={
       "Organization": {"name": "A test Organization", "website": "http://new_org.example.com", "description": ""}, 
-      "KnowledgeServer": {"name": "A test OKS.", "netloc": "test.thekoa.org", "description": "It has some datasets and structures", "html_home": "", "html_disclaimer": ""}
+      "KnowledgeServer": {"name": "A test OKS.", "netloc": "geo.beta.thekoa.org", "description": "It has some datasets and structures", "html_home": "", "html_disclaimer": ""}
      }
     KnowledgeServer.create_this_ks(org_ks)
     this_ks_d = KnowledgeServer.this_knowledge_server('default')
