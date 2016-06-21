@@ -268,7 +268,7 @@ def debug(request):
     '''
     try:
         from django.core import management
-        management.call_command('migrate', 'assess', interactive=False)
+        management.call_command('migrate', 'geo', interactive=False)
         return HttpResponse('OK')
     
         ar = ApiResponse()
