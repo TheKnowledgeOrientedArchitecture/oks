@@ -898,12 +898,9 @@ class ShareableModel(SerializableModel):
         '''
         It returns an instance of a ShareableModel stored in this KS
         It searches on the UKCL field
+        The caller must catch and handle the exception when it's not found
         '''
-        actual_instance = None
-        try:
-            actual_instance = cls.objects.get(UKCL=UKCL)
-        except Exception as ex:
-            raise ex
+        actual_instance = cls.objects.get(UKCL=UKCL)
         return actual_instance
 
     @staticmethod

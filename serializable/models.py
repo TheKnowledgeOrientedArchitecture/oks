@@ -112,20 +112,20 @@ class SerializableModel(models.Model):
             if key.__class__.__name__ != "ForeignKey":
                 value = getattr(self, key.name)
                 if value is None:
-                    value = ""
-                if format == 'XML':
+                    pass # I do not export an attribute that can be None/null
+                elif format == 'XML':
                     # if it is an instance of a class that has to be serialized as tags I do not serialize it
                     # as attribute unless it is an attribute of the parent_class ( that is a normally 
                     # ShareableModel class whose attributes should not contain characters that need to be
                     # put into CDATA tags ) 
                     if (not key.__class__.__name__ in SerializableModel.types_serialized_as_tags) or key.name in parent_class_attributes:
                         attributes += ' ' + key.name + '="' + str(value) + '"'  
-                if format == 'JSON':
+                elif format == 'JSON':
                     attributes += comma + '"' + key.name + '" : "' + str(value) + '"'
                     comma = ", "
-                if format == 'DICT':
+                elif format == 'DICT':
                     tmp_dict[key.name] = value
-                if format == 'HTML':
+                elif format == 'HTML':
                     attributes += comma + key.name + ' : "' + str(value) + '"'
                     comma = "<br>"
         if format == 'DICT':
