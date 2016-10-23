@@ -265,11 +265,47 @@ def json(request):
 def debug(request):
     '''
     created to debug code
+
+    Args:
+        request: 
     '''
     try:
         from django.core import management
-        management.call_command('migrate', 'geo', interactive=False)
+#         management.call_command('migrate', "--database=materialized", interactive=False)
+#         management.call_command('migrate', 'ap', interactive=False)
+#         management.call_command('migrate', interactive=False)
+        management.call_command('migrate', 'ap', interactive=False)
+        return HttpResponse("OK")
+
+        import scrapy
+
+        class DmozItem(scrapy.Item):
+            title = scrapy.Field()
+            link = scrapy.Field()
+            desc = scrapy.Field()
+        
+        class DmozSpider(scrapy.Spider):
+            name = "dmoz"
+            allowed_domains = ["dmoz.org"]
+            start_urls = [
+                "http://www.dmoz.org/Computers/Programming/Languages/Python/",
+            ]
+        
+            def parse(self, response):
+                for href in response.css("ul.directory.dir-col > li > a::attr('href')"):
+                    url = response.urljoin(href.extract())
+                    yield scrapy.Request(url, callback=self.parse_dir_contents)
+        
+            def parse_dir_contents(self, response):
+                for sel in response.xpath('//ul/li'):
+                    item = DmozItem()
+                    item['title'] = sel.xpath('a/text()').extract()
+                    item['link'] = sel.xpath('a/@href').extract()
+                    item['desc'] = sel.xpath('text()').extract()
+                    yield item
+
         return HttpResponse('OK')
+
     
         ar = ApiResponse()
         ar.content = { "DataSet": "Versions"}
@@ -348,9 +384,6 @@ def debug(request):
         dssContinentState.name="Test Continent-SubContinent-State";
         dssContinentState.SetNotNullFields()
         dssContinentState.save()
-        from django.core import management
-#         management.call_command('migrate', "--database=materialized", interactive=False)
-        management.call_command('migrate', interactive=False)
 
         return HttpResponse("OK ")
     except Exception as ex:

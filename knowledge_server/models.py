@@ -45,6 +45,7 @@ from serializable.models import SerializableModel
 
 logger = logging.getLogger(__name__)
 
+
 class CustomModelManager(models.Manager):
     '''
     Created to be used by ShareableModel so that all classes that inherit 
@@ -81,8 +82,11 @@ def model_post_save(sender, **kwargs):
             kwargs['instance'].save()
 
 
+
 class ShareableModel(SerializableModel):
     '''
+    ShareableModel is the superclass of all classes, including the ones you define in your apps, that
+    can be shared via a KnowledgeServer 
     UKCL Uniform Knowledge Chunk Locator
     UKCL is the unique identifier of this ShareableModel in this KS
     When a new instance of a ShareableModel is created within a dataset with the 
@@ -104,6 +108,7 @@ class ShareableModel(SerializableModel):
 
     @property
     def q_UKCL(self):
+        # Quoted UKCL
         return urllib.parse.quote(self.UKCL).replace("/","%2F")
         
     @property
@@ -931,6 +936,7 @@ class ShareableModel(SerializableModel):
         abstract = True
 
 
+
 class DanglingReference(ShareableModel):
     '''
     Moving data chunks across OKSs means ending up having external_reference to data that is not available in the same db
@@ -953,6 +959,7 @@ class DanglingReference(ShareableModel):
     object_with_dangling_content_type = models.ForeignKey(ContentType, null=True, blank=True)
     object_with_dangling_instance_id = models.PositiveIntegerField(null=True, blank=True)
     object_with_dangling = GenericForeignKey('object_with_dangling_content_type', 'object_with_dangling_instance_id')
+
 
 
 class ModelMetadata(ShareableModel):
@@ -1024,6 +1031,7 @@ class ModelMetadata(ShareableModel):
         if netloc == "":
             netloc = KsUrl(self.dataset_structure.UKCL).netloc
         return OrmWrapper.load_class(netloc, self.module, self.name)
+
 
 
 class StructureNode(ShareableModel):
@@ -1157,7 +1165,7 @@ class StructureNode(ShareableModel):
         else:
             return self.model_metadata
 
-    def children_for(self, attributes, netloc):
+    def children_nodes_for( self, attributes, netloc ):
         '''
         '''
         cl = self.model_metadata.get_class(netloc)
@@ -1169,6 +1177,25 @@ class StructureNode(ShareableModel):
             sn = StructureNode()
             sn.model_metadata = mm
             sn.attribute = attribute
+            sn.is_many = attr_field.many_to_one or attr_field.many_to_many
+            sn.save()
+            self.child_nodes.add(sn)
+        self.save()
+
+
+    def children_external_references_nodes_for ( self, attributes, netloc ):
+        '''
+        '''
+        cl = self.model_metadata.get_class(netloc)
+        for attribute in attributes:
+            attr_field = getattr(cl._meta.model, attribute).field
+            class_name = attr_field.related_model().__class__.__name__    #attr_field.opts.object_name
+            app_label = attr_field.related_model()._meta.app_label        #attr_field.opts.app_label
+            mm = ModelMetadata.objects.get(name=class_name, module=app_label)
+            sn = StructureNode()
+            sn.model_metadata = mm
+            sn.attribute = attribute
+            sn.external_reference = True
             sn.is_many = attr_field.many_to_one or attr_field.many_to_many
             sn.save()
             self.child_nodes.add(sn)
@@ -1238,6 +1265,7 @@ class DataSetStructure(ShareableModel):
     '''
     multiple_releases = models.BooleanField(default=False)
     
+    
     def navigate(self, dataset, instance_method_name, node_method_name, children_before = True):
         '''
         Many methods do things on each node navigating in the structure
@@ -1259,6 +1287,7 @@ class DataSetStructure(ShareableModel):
             self.root_node.navigate(instance, instance_method_name, node_method_name, status, children_before)
         return status['output']
 
+
     def classes_code(self):
         '''
         '''
@@ -1278,6 +1307,7 @@ class DataSetStructure(ShareableModel):
             if not app_model['model'] in code_per_app[app_model['app']].keys():
                 code_per_app[app_model['app']][app_model['model']] = inspect.getsource(c)
         return code_per_app
+
 
     def make_persistable(self):
         # If the owner of this structure is not this OKS I must check that I can persist each instance on each node.
@@ -1308,12 +1338,14 @@ class DataSetStructure(ShareableModel):
                 apps_code = ar.content
                 for app in apps_code:
                     app_name = OrmWrapper.get_model_container_name(netloc, app)
+                    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     # is the app missing?
+                    logger.debug("make_persistable: is %s in app_config.keys=" % app_name)
                     if not app_name in global_apps.app_configs.keys():
+                        logger.debug("make_persistable: %s NOT in app_config.keys=" % app_name)
                         # must add it
                         dmc = DynamicModelContainer(name=app_name)
                         dmc.save()
-                        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                         management.call_command('startapp', app_name, 'oks/' + app_name, interactive=False)
                         with open(BASE_DIR + "/" + app_name + "/models.py", "a") as myfile:
                             myfile.write("from knowledge_server.models import ShareableModel\n\n\n\n")
@@ -1333,14 +1365,18 @@ class DataSetStructure(ShareableModel):
                     importlib.invalidate_caches()
                     module = importlib.reload(module)
 
+                    logger.debug("make_persistable: makemigrations %s " % app_name)
                     # eventually I can generate the migrations for the new app
                     management.call_command('makemigrations', app_name, interactive=False)
                     # and migrate it
+                    logger.debug("make_persistable: migrate %s " % app_name)
                     management.call_command('migrate', app_name, interactive=False)                
+                    logger.debug("make_persistable: migrate --database=materialized %s " % app_name)
                     management.call_command('migrate', "--database=materialized", app_name, interactive=False)
                 persistable = True
             
         return persistable
+
 
     def models_and_migration(self):
         '''
@@ -1367,6 +1403,7 @@ class DataSetStructure(ShareableModel):
             except ValueError as ve:
                 pass
   
+  
     def root_model_metadata(self, model_metadata):
         '''
         '''
@@ -1376,7 +1413,13 @@ class DataSetStructure(ShareableModel):
         self.root_node = sn
         self.save()
     
+    
     def create_model_metadata(self, name, module, name_field="", description_field=""):
+        """
+
+        Returns:
+            ModelMetadata:
+        """
         mm=ModelMetadata();
         mm.dataset_structure = self
         mm.name = name
@@ -1393,6 +1436,7 @@ class DataSetStructure(ShareableModel):
             return DataSetStructure.objects.using('default').get(UKCL=materialized.UKCL)
         else:
             return materialized
+
 
 
 class DataSet(ShareableModel):
@@ -1989,11 +2033,13 @@ class DataSet(ShareableModel):
         return DataSet.objects.get(first_version=self.first_version, version_major=version_major__max, version_minor=version_minor__max, version_patch=version_patch__max)
   
    
+
 class Organization(ShareableModel):
     name = models.CharField(max_length=500)
     description = models.CharField(max_length=2000, blank=True)
     website = models.CharField(max_length=500, blank=True)
     logo = models.CharField(max_length=500, blank=True)
+
 
 
 class KnowledgeServer(ShareableModel):
@@ -2346,6 +2392,7 @@ class KnowledgeServer(ShareableModel):
             ds = DataSet(knowledge_server=this_ks,dataset_structure=dssModelMetadataFields,root = mm,
                          description=mm.name + " ModelMetadata",version_major=0,version_minor=1,version_patch=0,version_description="Initial, automatically created.")
             ds.save();ds.set_released(); 
+
                     
 
 class Event(ShareableModel):
@@ -2363,6 +2410,7 @@ class Event(ShareableModel):
     processed = models.BooleanField(default=False, db_index=True)
 
 
+
 class SubscriptionToThis(ShareableModel):
     '''
     The subscriptions other systems do to my data
@@ -2377,6 +2425,7 @@ class SubscriptionToThis(ShareableModel):
     remote_ks = models.ForeignKey(KnowledgeServer, null=True, blank=True)
 
 
+
 class Notification(ShareableModel):
     '''
     When an event happens for an instance, for each corresponding subscription
@@ -2387,6 +2436,7 @@ class Notification(ShareableModel):
     remote_url = models.CharField(max_length=200)
 
 
+
 class SubscriptionToOther(ShareableModel):
     '''
     The subscriptions I make to other systems' data
@@ -2394,6 +2444,7 @@ class SubscriptionToOther(ShareableModel):
     # The UKCL I am subscribing to 
     URL = models.CharField(max_length=200)
     first_version_UKCL = models.CharField(max_length=200, db_index=True)
+
 
 
 class NotificationReceived(ShareableModel):
@@ -2406,6 +2457,7 @@ class NotificationReceived(ShareableModel):
     processed = models.BooleanField(default=False, db_index=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     
+
     
 class ApiResponse():
     '''
@@ -2466,11 +2518,13 @@ def json_serial(obj):
         return serial
     raise TypeError ("Type not serializable")
 
+
         
 class ExternalReferenceNotFoundOnMaterialized(Exception):
     """While materializing an external reference was not found, we must create 
        a DanglingReference so that we can fix it when it comes"""
     pass
+
 
 
 class DynamicModelContainer(SerializableModel):
