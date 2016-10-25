@@ -22,6 +22,9 @@ urlpatterns = [
     url(r'^this_ks_subscribes_to/(?P<UKCL>[\w|=|%|.]+)/$', views.this_ks_subscribes_to, name='this_ks_subscribes_to'),
     url(r'^this_ks_unsubscribes_to/(?P<UKCL>[\w|=|%|.]+)/$', views.this_ks_unsubscribes_to, name='this_ks_unsubscribes_to'),
     url(r'^release_dataset/(?P<Dataset_UKCL>[\w|=|%|.]+)/$', views.release_dataset, name='release_dataset'),
+    url( r'^upload_page', views.upload_page, name='upload_page' ),
+    url( r'^perform_import', views.perform_import, name='perform_import' ),
+
 
                        ###################   API   ####################
     #36:

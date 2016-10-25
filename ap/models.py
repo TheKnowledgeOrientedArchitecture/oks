@@ -6,7 +6,7 @@
 
 from django.contrib.auth.models import User
 from django.db import models
-from knowledge_server.models import ShareableModel, DataSetStructure, DataSet, ModelMetadata
+from knowledge_server.models import ShareableModel, ModelMetadata, DataSetStructure, DataSet, Workflow, WorkflowStatus
 
 
 class Widget(ShareableModel):
@@ -30,50 +30,8 @@ class Attribute(ShareableModel):
         return self.simple_entity.name + "." + self.name
 
 
-class Workflow(ShareableModel):
-    '''
-    Is a list of WorkflowMethods; the work-flow is somehow abstract, its methods do not specify details of 
-    the operation but just the statuses
-    '''
-    name = models.CharField(max_length=100)
-    description = models.CharField(max_length=2000, blank=True)
-    # A workflow deals only with one type of dataset; any constraint on the DataSetStructure e.g. is_shallow=False? is_a_view=False? Direi entrambi ...
-    type = models.ForeignKey(DataSetStructure)
-    '''
-    '    A dataset, even though its type can have more workflows, can be managed only by one workflow.
-    '    When a workflow gets a new version, datasets managed by it can either migrate to the new version 
-    '    or continue their life within the old version. TODO: we must add metadata to define the migration
-    '''
-
-
 # ASSERT: I metodi di un wf devono avere impatto solo su ModelMetadata contenute nella struttura
-#     tutte le istanze nei nodi del DSS condividono lo stato del WorkflowDataSet
-
-
-class WorkflowStatus(ShareableModel):
-    '''
-    TODO: We need to have some statuses that are available to any entity and some just to specific entities; how?
-    Maybe we can add a type to the statuses so that we can say that a status is of type "Initial" or "Closed"
-    and the type can have some functional implications: e.g. "Closed" are not listed in a default view.
-    Do we really need what's above?????? 
-    '''
-    # initial means the workflow can be spawned in this state
-    initial = models.BooleanField()
-    # if create_dataset is true an instance of the dataset is created
-    create_dataset = models.BooleanField()
-
-    final = models.BooleanField()
-    name = models.CharField(max_length=100)
-    workflow = models.ManyToManyField(Workflow, blank=True, related_name='statuses')
-    description = models.CharField(max_length=2000, blank=True)
-
-
-class WorkflowDataSet(DataSet):
-    '''
-    '    A DataSet with workflow
-    '''
-    workflow = models.OneToOneField(Workflow, related_name='workflow_dataset')
-    current_status = models.ForeignKey(WorkflowStatus)
+#     tutte le istanze nei nodi del DSS condividono lo stato del DataSet
 
 
 class WorkflowMethod(ShareableModel):
@@ -91,8 +49,12 @@ class WorkflowMethod(ShareableModel):
     name = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     create_instance = models.BooleanField(default=False)
+    # script_precondition is a ?JSON? script that evaluates to True if the method can be executed on the dataset;
+    # it can be used to perform controls other than on permissions
     script_precondition = models.TextField(blank=True)
+    # script_postcondition ??? what's for?
     script_postcondition = models.TextField(blank=True)
+    # script_premethod name of a method to be invoked before
     script_premethod = models.TextField(blank=True)
     script_postmethod = models.TextField(blank=True)
 
@@ -114,7 +76,7 @@ class WorkflowTransition():
     '''
     '    It describes the execution of a method 
     '''
-    instance = models.ForeignKey(WorkflowDataSet, related_name='transitions')
+    instance = models.ForeignKey(DataSet, related_name='transitions')
     workflow_method = models.ForeignKey(WorkflowMethod)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     notes = models.TextField()

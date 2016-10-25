@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import logging
 from django.db import migrations
 from knowledge_server.models import Organization, KnowledgeServer, ModelMetadata, StructureNode, DataSetStructure, DataSet
+from ap.models import Workflow, WorkflowStatus
 from licenses.models import License
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,11 @@ def forwards_func(apps, schema_editor):
     mmNotificationReceived=ModelMetadata(); mmNotificationReceived.name="NotificationReceived"; mmNotificationReceived.module="knowledge_server"; mmNotificationReceived.save(using=db_alias)
     mmLicense=ModelMetadata();mmLicense.name="License";mmLicense.module="licenses";mmLicense.save(using=db_alias)
     mmDanglingReference=ModelMetadata();mmDanglingReference.name="DanglingReference";mmDanglingReference.module="knowledge_server";mmDanglingReference.save(using=db_alias)
+    mm_workflow=ModelMetadata(name="Workflow",module="knowledge_server",name_field="name",description_field="description");mm_workflow.save(using=db_alias)
+    mm_workflow_status = ModelMetadata( name="WorkflowStatus", module="knowledge_server", name_field="name",
+                                 description_field="description" );
+    mm_workflow_status.save( using=db_alias )
+
 
     # we trigger the generation of the UKCL by setting it to "" and saving
     # we couldn't do it before having the corresponding ModelMetadata
@@ -118,103 +124,164 @@ def forwards_func(apps, schema_editor):
     esLicenseList.root_node = en21;esLicenseList.name = "List of licenses";esLicenseList.description = "List of all released licenses";
     esLicenseList.save(using=db_alias)
 
-     
+    # Default Workflow
+    default_wf = Workflow()
+    default_wf.name = "Default workflow"
+    default_wf.description = "This is the default workflow. It can be applied to any type of dataset. It has operations to perform the creation of a new version and the release."
+    # TODO: add operations to perform the creation of a new version and the release
+    default_wf.save(using=db_alias)
+
+    # WorkflowStatus(es)
+    # There are common statuses: "New" and "Released"
+    # "New" is a newly created dataset; if the workflow is the default it will stay "New" until it gets released
+    # "Released" means that editing is finished and the content of the dataset is frozen
+    # Method DatasSet.new_version creates a DateSet and sets its state to "New"
+    # Method DatasSet.set_released creates a DateSet and sets its state to "Released"
+    wf_status_new = WorkflowStatus()
+    wf_status_new.name = "New"
+    wf_status_new.initial = True
+    wf_status_new.create_dataset = True
+    wf_status_new.description = ""
+    wf_status_new.save(using=db_alias)
+    wf_status_new.workflows.add(default_wf)
+    wf_status_new.save(using=db_alias)
+
+    wf_status_released = WorkflowStatus()
+    wf_status_released.name = "Released"
+    wf_status_released.initial = True
+    wf_status_released.create_dataset = True
+    wf_status_released.description = ""
+    wf_status_released.save(using=db_alias)
+    wf_status_released.workflows.add(default_wf)
+    wf_status_released.save(using=db_alias)
+
     # DataSet
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root = mmModelMetadata,description="Model metadata of ModelMetadata",creation_date="2015-08-31",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
      
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,       
                  root=mmStructureNode,description="Model metadata of StructureNode",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmDataSetStructure,description="Model metadata of DataSetStructure",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmOrganization,description="Model metadata of Organization",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmDataSet,description="Model metadata of DataSet",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmKnowledgeServer,description="Model metadata of KnowledgeServer",    
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmEvent,description="Model metadata of Event",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmSubscriptionToThis,description="Model metadata of SubscriptionToThis",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmSubscriptionToOther,description="Model metadata of SubscriptionToOther",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmNotification,description="Model metadata of Notification",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmNotificationReceived,description="Model metadata of NotificationReceived",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmLicense,description="Model metadata of License",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
                  root=mmDanglingReference,description="Model metadata of DanglingReference",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+                 root=mm_workflow,description="Model metadata of Workflow",
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
+    ds.save(using=db_alias);
+    ds.set_dataset_on_instances();
+    ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssModelMetadataFields,owner_organization=the_koa_org,
+                 root=mm_workflow_status,description="Model metadata of WorkflowStatus",
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
 
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=dssModelMetadataFields,description="DataSet structure of ModelMetadata-Fields",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=dssDataSetStructureStructureNode,description="DataSet structure of DataSetStructure-StructureNode",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=dssOrganizationKS,description="DataSet structure of Organization-KnowledgeServer",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks,dataset_structure=dssOrganizationKS,owner_organization=the_koa_org,
                  root=the_koa_org,description="Organization TheKoa.org",
-                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True)
+                 version_major=0,version_minor=1,version_patch=0,version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=esLicenseList,description="DataSet structure of List of licenses",
-                 version_major=0, version_minor=1, version_patch=0, version_description="",version_released=True)
+                 version_major=0, version_minor=1, version_patch=0, version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssDataSetStructureStructureNode,owner_organization=the_koa_org,
                  root=dssLicense,description="DataSet structure of a License",
-                 version_major=0, version_minor=1, version_patch=0, version_description="",version_released=True)
+                 version_major=0, version_minor=1, version_patch=0, version_description="",version_released=True
+                 ,workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias);
     ds.set_dataset_on_instances();
 
@@ -222,7 +289,7 @@ def forwards_func(apps, schema_editor):
 
     # Let's create the organizations to which we will attribute the licenses
     data_dict = {"name": "Creative Commons", "website": "http://creativecommons.org", "description": ""}
-    cc_org = Organization.create_with_dataset(dssOrganizationKS, data_dict, db_alias, ks=the_koa_org_ks)
+    cc_org = Organization.create_with_dataset(dssOrganizationKS, data_dict, default_wf, wf_status_released, db_alias, ks=the_koa_org_ks)
 
     
     ##################### Creative Commons Attribution #####################
@@ -240,7 +307,7 @@ def forwards_func(apps, schema_editor):
     ccby10.legalcode = ''
     ccby10.save(using=db_alias)
     ds_ccby10 = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16",
-                        root=ccby10, version_major=1, version_minor=0, version_patch=0, version_description="")
+                        root=ccby10, version_major=1, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds_ccby10.save(using=db_alias)
 
     ccby20 = License()
@@ -256,7 +323,7 @@ def forwards_func(apps, schema_editor):
     ccby20.legalcode = ''
     ccby20.save(using=db_alias)
     ds_ccby20 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
-                 root=ccby20, version_major=2, version_minor=0, version_patch=0, version_description="")
+                 root=ccby20, version_major=2, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds_ccby20.save(using=db_alias)
 
     ccby25 = License()
@@ -272,7 +339,7 @@ def forwards_func(apps, schema_editor):
     ccby25.legalcode = ''
     ccby25.save(using=db_alias)
     ds_ccby25 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
-                 root=ccby25, version_major=2, version_minor=5, version_patch=0, version_description="")
+                 root=ccby25, version_major=2, version_minor=5, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds_ccby25.save(using=db_alias)
 
     ccby30 = License()
@@ -288,7 +355,7 @@ def forwards_func(apps, schema_editor):
     ccby30.legalcode = ''
     ccby30.save(using=db_alias)
     ds_ccby30 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
-                 root=ccby30, version_major=3, version_minor=0, version_patch=0, version_description="")
+                 root=ccby30, version_major=3, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds_ccby30.save(using=db_alias)
 
     ccby40 = License()
@@ -304,7 +371,7 @@ def forwards_func(apps, schema_editor):
     ccby40.legalcode = ''
     ccby40.save(using=db_alias)
     ds_ccby40 = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ds_ccby10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
-                 root=ccby40, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccby40, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds_ccby40.save(using=db_alias)
     ds_ccby40.licenses.add(ccby40)
     ds_ccby40.save(using=db_alias)
@@ -335,7 +402,7 @@ def forwards_func(apps, schema_editor):
     cczero.legalcode = ''
     cczero.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org, 
-                 root=cczero, version_major=1, version_minor=0, version_patch=0, version_description="")
+                 root=cczero, version_major=1, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -355,7 +422,7 @@ def forwards_func(apps, schema_editor):
     ccbysa10.legalcode = ''
     ccbysa10.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16",
-                 root=ccbysa10, version_major=1, version_minor=0, version_patch=0, version_description="")
+                 root=ccbysa10, version_major=1, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -373,7 +440,7 @@ def forwards_func(apps, schema_editor):
     ccbysa20.legalcode = ''
     ccbysa20.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
-                 root=ccbysa20, version_major=2, version_minor=0, version_patch=0, version_description="")
+                 root=ccbysa20, version_major=2, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -391,7 +458,7 @@ def forwards_func(apps, schema_editor):
     ccbysa25.legalcode = ''
     ccbysa25.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01",
-                 root=ccbysa25, version_major=2, version_minor=5, version_patch=0, version_description="")
+                 root=ccbysa25, version_major=2, version_minor=5, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -409,7 +476,7 @@ def forwards_func(apps, schema_editor):
     ccbysa30.legalcode = ''
     ccbysa30.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
-                 root=ccbysa30, version_major=3, version_minor=0, version_patch=0, version_description="")
+                 root=ccbysa30, version_major=3, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -427,7 +494,7 @@ def forwards_func(apps, schema_editor):
     ccbysa40.legalcode = ''
     ccbysa40.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbysa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
-                 root=ccbysa40, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbysa40, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -449,7 +516,7 @@ def forwards_func(apps, schema_editor):
     ccbyncsa10.legalcode = ''
     ccbyncsa10.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16", 
-                 root=ccbyncsa10, version_major=1, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncsa10, version_major=1, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -467,7 +534,7 @@ def forwards_func(apps, schema_editor):
     ccbyncsa20.legalcode = ''
     ccbyncsa20.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
-                 root=ccbyncsa20, version_major=2, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncsa20, version_major=2, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -485,7 +552,7 @@ def forwards_func(apps, schema_editor):
     ccbyncsa25.legalcode = ''
     ccbyncsa25.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
-                 root=ccbyncsa25, version_major=2, version_minor=5, version_patch=0, version_description="")
+                 root=ccbyncsa25, version_major=2, version_minor=5, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -503,7 +570,7 @@ def forwards_func(apps, schema_editor):
     ccbyncsa30.legalcode = ''
     ccbyncsa30.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
-                 root=ccbyncsa30, version_major=3, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncsa30, version_major=3, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -521,7 +588,7 @@ def forwards_func(apps, schema_editor):
     ccbyncsa40.legalcode = ''
     ccbyncsa40.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncsa10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
-                 root=ccbyncsa40, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncsa40, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -544,7 +611,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd10.legalcode = ''
     ccbyncnd10.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16", 
-                 root=ccbyncnd10, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncnd10, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -562,7 +629,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd20.legalcode = ''
     ccbyncnd20.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
-                 root=ccbyncnd20, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncnd20, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -580,7 +647,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd25.legalcode = ''
     ccbyncnd25.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
-                 root=ccbyncnd25, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncnd25, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -598,7 +665,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd30.legalcode = ''
     ccbyncnd30.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
-                 root=ccbyncnd30, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncnd30, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -616,7 +683,7 @@ def forwards_func(apps, schema_editor):
     ccbyncnd40.legalcode = ''
     ccbyncnd40.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbyncnd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
-                 root=ccbyncnd40, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbyncnd40, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -640,7 +707,7 @@ def forwards_func(apps, schema_editor):
     ccbync10.legalcode = ''
     ccbync10.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16", 
-                 root=ccbync10, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbync10, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -658,7 +725,7 @@ def forwards_func(apps, schema_editor):
     ccbync20.legalcode = ''
     ccbync20.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
-                 root=ccbync20, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbync20, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -676,7 +743,7 @@ def forwards_func(apps, schema_editor):
     ccbync25.legalcode = ''
     ccbync25.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
-                 root=ccbync25, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbync25, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -694,7 +761,7 @@ def forwards_func(apps, schema_editor):
     ccbync30.legalcode = ''
     ccbync30.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
-                 root=ccbync30, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbync30, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -712,7 +779,7 @@ def forwards_func(apps, schema_editor):
     ccbync40.legalcode = ''
     ccbync40.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbync10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
-                 root=ccbync40, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbync40, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -736,7 +803,7 @@ def forwards_func(apps, schema_editor):
     ccbynd10.legalcode = ''
     ccbynd10.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2002-12-16", 
-                 root=ccbynd10, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbynd10, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -754,7 +821,7 @@ def forwards_func(apps, schema_editor):
     ccbynd20.legalcode = ''
     ccbynd20.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2004-05-25", 
-                 root=ccbynd20, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbynd20, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -772,7 +839,7 @@ def forwards_func(apps, schema_editor):
     ccbynd25.legalcode = ''
     ccbynd25.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2005-06-01", 
-                 root=ccbynd25, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbynd25, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -790,7 +857,7 @@ def forwards_func(apps, schema_editor):
     ccbynd30.legalcode = ''
     ccbynd30.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2007-02-23", 
-                 root=ccbynd30, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbynd30, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -808,7 +875,7 @@ def forwards_func(apps, schema_editor):
     ccbynd40.legalcode = ''
     ccbynd40.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, first_version_id=ccbynd10.id, dataset_structure=dssLicense,version_released=True,owner_organization=cc_org,creation_date="2013-11-25", 
-                 root=ccbynd40, version_major=4, version_minor=0, version_patch=0, version_description="")
+                 root=ccbynd40, version_major=4, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(ccby40)
     ds.save(using=db_alias)
@@ -988,7 +1055,7 @@ Licensee must include a copy of this license with every copy of the work the lic
     adrm.legalcode = ''
     adrm.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True,
-                 root=adrm, version_major=2, version_minor=0, version_patch=0, version_description="")
+                 root=adrm, version_major=2, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
     ds.licenses.add(adrm)
     ds.save(using=db_alias)
@@ -1009,7 +1076,7 @@ Licensee must include a copy of this license with every copy of the work the lic
     pddl.legalcode = ''
     pddl.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
-                 root=pddl, version_major=1, version_minor=0, version_patch=0, version_description="")
+                 root=pddl, version_major=1, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
 
     # Open Data Commons Attribution License 
@@ -1026,7 +1093,7 @@ Licensee must include a copy of this license with every copy of the work the lic
     odcby.legalcode = ''
     odcby.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
-                 root=odcby, version_major=1, version_minor=0, version_patch=0, version_description="")
+                 root=odcby, version_major=1, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
 
     # Open Data Commons Open Database License 
@@ -1043,18 +1110,18 @@ Licensee must include a copy of this license with every copy of the work the lic
     odbl.legalcode = ''
     odbl.save(using=db_alias)
     ds = DataSet(knowledge_server=the_koa_org_ks, dataset_structure=dssLicense,version_released=True, 
-                 root=odbl, version_major=1, version_minor=0, version_patch=0, version_description="")
+                 root=odbl, version_major=1, version_minor=0, version_patch=0, version_description="",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
 
     ######## END LICENSES DATA
 
     # 2 DataSet/Views "License List"
     # opendefinition.org conformant
-    ds = DataSet(knowledge_server=the_koa_org_ks, filter_text="conformant_for_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant licenses.")
+    ds = DataSet(knowledge_server=the_koa_org_ks, filter_text="conformant_for_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant licenses.",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
 
     # opendefinition.org conformant and reccomended
-    ds = DataSet(knowledge_server=the_koa_org_ks, filter_text="reccomended_by_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant and reccomended licenses.")
+    ds = DataSet(knowledge_server=the_koa_org_ks, filter_text="reccomended_by_opendefinition=True", dataset_structure=esLicenseList, description="All opendefinition.org conformant and reccomended licenses.",workflow=default_wf,current_status=wf_status_released)
     ds.save(using=db_alias)
 
     # Now that I have licenses I can assign them to each initial DataSet I have created so far
@@ -1073,6 +1140,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('knowledge_server', '0002_auto_20160309_0617'),
+        ('ap', '0001_initial'),
     ]
 
     operations = [

@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('knowledge_server', '0003_initial_data'),
+        ('knowledge_server', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -148,30 +148,6 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='Workflow',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('is_a_placeholder', models.BooleanField(db_column='oks_internals_placeholder', db_index=True, default=False)),
-                ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
-                ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
-                ('name', models.CharField(max_length=100)),
-                ('description', models.CharField(blank=True, max_length=2000)),
-            ],
-            options={
-                'abstract': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='WorkflowDataSet',
-            fields=[
-                ('dataset_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='knowledge_server.DataSet')),
-            ],
-            options={
-                'abstract': False,
-            },
-            bases=('knowledge_server.dataset',),
-        ),
-        migrations.CreateModel(
             name='WorkflowMethod',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -192,59 +168,20 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
-        migrations.CreateModel(
-            name='WorkflowStatus',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('is_a_placeholder', models.BooleanField(db_column='oks_internals_placeholder', db_index=True, default=False)),
-                ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
-                ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
-                ('initial', models.BooleanField()),
-                ('create_dataset', models.BooleanField()),
-                ('final', models.BooleanField()),
-                ('name', models.CharField(max_length=100)),
-                ('description', models.CharField(blank=True, max_length=2000)),
-                ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
-                ('workflow', models.ManyToManyField(blank=True, related_name='statuses', to='ap.Workflow')),
-            ],
-            options={
-                'abstract': False,
-            },
-        ),
         migrations.AddField(
             model_name='workflowmethod',
             name='final_status',
-            field=models.ForeignKey(blank=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='ap.WorkflowStatus'),
+            field=models.ForeignKey(blank=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.WorkflowStatus'),
         ),
         migrations.AddField(
             model_name='workflowmethod',
             name='initial_statuses',
-            field=models.ManyToManyField(blank=True, related_name='_workflowmethod_initial_statuses_+', to='ap.WorkflowStatus'),
+            field=models.ManyToManyField(blank=True, related_name='_workflowmethod_initial_statuses_+', to='knowledge_server.WorkflowStatus'),
         ),
         migrations.AddField(
             model_name='workflowmethod',
             name='workflows',
-            field=models.ManyToManyField(related_name='methods', to='ap.Workflow'),
-        ),
-        migrations.AddField(
-            model_name='workflowdataset',
-            name='current_status',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='ap.WorkflowStatus'),
-        ),
-        migrations.AddField(
-            model_name='workflowdataset',
-            name='workflow',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='workflow_dataset', to='ap.Workflow'),
-        ),
-        migrations.AddField(
-            model_name='workflow',
-            name='dataset_I_belong_to',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet'),
-        ),
-        migrations.AddField(
-            model_name='workflow',
-            name='type',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.DataSetStructure'),
+            field=models.ManyToManyField(related_name='methods', to='knowledge_server.Workflow'),
         ),
         migrations.AddField(
             model_name='widget',
@@ -359,7 +296,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='application',
             name='workflows',
-            field=models.ManyToManyField(related_name='applications', to='ap.Workflow'),
+            field=models.ManyToManyField(related_name='applications', to='knowledge_server.Workflow'),
         ),
         migrations.AddField(
             model_name='attributeinamethod',

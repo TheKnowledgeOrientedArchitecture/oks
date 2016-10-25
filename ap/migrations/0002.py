@@ -6,10 +6,10 @@
 
 from __future__ import unicode_literals
 
-from django.db import models, migrations
-from knowledge_server.models import KnowledgeServer, DataSet, DataSetStructure
-from ap.models import Application
-from knowledge_server.utils import KsUrl
+from django.db import migrations
+
+from knowledge_server.models import KnowledgeServer, DataSet, DataSetStructure, Workflow
+
 
 def forwards_func(apps, schema_editor):
     this_ks_d = KnowledgeServer.this_knowledge_server('default')
@@ -19,8 +19,7 @@ def forwards_func(apps, schema_editor):
     dss_workflow.SetNotNullFields()
     dss_workflow.save()
 
-    mm_workflow = dss_workflow.create_model_metadata(name="Workflow",module="ap",name_field="name",description_field="description")
-    mm_workflow_status = dss_workflow.create_model_metadata(name="WorkflowStatus",module="ap",name_field="name",description_field="description")
+    mm_workflow = Workflow().get_model_metadata(db_alias='default')
     mm_workflow_method = dss_workflow.create_model_metadata(name="WorkflowMethod",module="ap",name_field="name",description_field="description")
     mm_attribute = dss_workflow.create_model_metadata(name="Attribute",module="ap",name_field="",description_field="")
     mm_widget = dss_workflow.create_model_metadata(name="Widget",module="ap",name_field="",description_field="")
@@ -31,7 +30,7 @@ def forwards_func(apps, schema_editor):
     # It creates a DataSet for each of them; having the DataSetStructure makes it
     # possible to release and materialize the datasets with dangling references that will be
     # resolved once the dss is released and materialized. 
-    KnowledgeServer.register_models([mm_workflow, mm_workflow_status, mm_workflow_method, mm_attribute_in_a_method, mm_permission_statement, mm_attribute, mm_widget, mm_permission_holder])
+    KnowledgeServer.register_models([mm_workflow_method, mm_attribute_in_a_method, mm_permission_statement, mm_attribute, mm_widget, mm_permission_holder])
 
     # it creates the root node from the ModelMetadata provided
     dss_workflow.root_model_metadata(mm_workflow)

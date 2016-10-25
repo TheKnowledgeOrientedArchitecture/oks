@@ -8,7 +8,7 @@ import urllib
 
 from urllib.parse import urlparse
 
-import knowledge_server.models 
+import knowledge_server.models
 import knowledge_server.orm_wrapper
 
 class Choices():
@@ -26,10 +26,17 @@ class KsUrl(object):
 
     def __init__(self, url):
         '''
-        only syntactic check
-        uu= urlunparse([o.scheme, o.netloc, o.path, o.params, o.query, o.fragment])
-        uu= urlunparse([o.scheme, o.netloc, o.path, o.params, o.query, ''])
-        così possiamo rimuovere il fragment e params query in modo da ripulire l'url ed essere più forgiving sulle api; da valutare
+        '   The followin attributes are used only when searching on the database
+        '''
+        self.knowledge_server = None
+        self.is_ks_known = None
+        self.actual_class = None
+        self.actual_instance = None
+        '''
+        '   only syntactic check
+        '   uu= urlunparse([o.scheme, o.netloc, o.path, o.params, o.query, o.fragment])
+        '   uu= urlunparse([o.scheme, o.netloc, o.path, o.params, o.query, ''])
+        '   così possiamo rimuovere il fragment e params query in modo da ripulire l'url ed essere più forgiving sulle api; da valutare
         '''
         self.url = url.strip()
         self.parsed = urlparse(self.url)

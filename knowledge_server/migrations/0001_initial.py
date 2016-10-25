@@ -34,6 +34,37 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
+            name='Workflow',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('is_a_placeholder', models.BooleanField(db_column='oks_internals_placeholder', db_index=True, default=False)),
+                ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
+                ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
+                ('name', models.CharField(max_length=100)),
+                ('description', models.CharField(blank=True, max_length=2000)),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='WorkflowStatus',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('is_a_placeholder', models.BooleanField(db_column='oks_internals_placeholder', db_index=True, default=False)),
+                ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
+                ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
+                ('initial', models.BooleanField(default=False)),
+                ('create_dataset', models.BooleanField(default=False)),
+                ('final', models.BooleanField(default=False)),
+                ('name', models.CharField(max_length=100)),
+                ('description', models.CharField(blank=True, max_length=2000)),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
             name='DataSet',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -247,6 +278,13 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
+        migrations.CreateModel(
+            name='UploadedFile',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('docfile', models.FileField(upload_to='documents/%Y/%m/%d')),
+            ],
+        ),
         migrations.AddField(
             model_name='knowledgeserver',
             name='organization',
@@ -281,5 +319,28 @@ class Migration(migrations.Migration):
             model_name='dataset',
             name='knowledge_server',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.KnowledgeServer'),
+        ),
+        migrations.AddField(
+            model_name='workflowstatus',
+            name='dataset_I_belong_to',
+            field=models.ForeignKey( blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                     related_name='+', to='knowledge_server.DataSet' ),
+        ),
+        migrations.AddField(
+            model_name='workflowstatus',
+            name='workflows',
+            field=models.ManyToManyField( blank=True, related_name='statuses', to='knowledge_server.Workflow' ),
+        ),
+        migrations.AddField(
+            model_name='workflow',
+            name='dataset_I_belong_to',
+            field=models.ForeignKey( blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                     related_name='+', to='knowledge_server.DataSet' ),
+        ),
+        migrations.AddField(
+            model_name='workflow',
+            name='type',
+            field=models.ForeignKey( blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                     to='knowledge_server.DataSetStructure' ),
         ),
     ]
