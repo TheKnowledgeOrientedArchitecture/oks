@@ -25,6 +25,8 @@ from lxml import etree
 from xml.dom import minidom
 
 from django.apps.registry import apps as global_apps
+from django.db.migrations import operations
+from django.db.migrations.migration import Migration
 from django.conf import settings
 from django.core import management
 from django.core.urlresolvers import reverse
@@ -36,6 +38,7 @@ from django.db.migrations.autodetector import MigrationAutodetector
 from django.db.migrations.graph import MigrationGraph
 from django.db.migrations.state import ModelState, ProjectState
 from django.db.models import Max, Q
+from django.db.models.fields import NOT_PROVIDED
 from django.db.models.manager import ManagerDescriptor
 
 from knowledge_server.utils import KsUrl
@@ -1091,7 +1094,7 @@ class ModelMetadata( ShareableModel ):
     '''
     dataset_structure attribute is not in NORMAL FORM! When not null it tells in which DataSetStructure is this 
     ModelMetadata; a ModelMetadata must be in only one DataSetStructure for version/state purposes! 
-    It can be in as many DataSetStructure-views as needed.
+    It can be in as many DataSetStructure-views as you need.
     '''
     dataset_structure = models.ForeignKey( "DataSetStructure", null=True, blank=True )
 
@@ -1131,6 +1134,207 @@ class ModelMetadata( ShareableModel ):
         if netloc == "":
             netloc = KsUrl( self.dataset_structure.UKCL ).netloc
         return OrmWrapper.load_class( netloc, self.module, self.name )
+
+    @property
+    def related_fields(self):
+        '''
+        # code from MigrationAutodetector.generate_created_models
+        # Gather related fields
+
+        Returns:
+            A dictionary of related_fields
+        '''
+
+        model = global_apps.get_model( self.module, self.name )
+        model_opts = model._meta
+        related_fields = {}
+        primary_key_rel = None
+        for field in model_opts.local_fields:
+            if field.rel:
+                if field.rel.to:
+                    if field.primary_key:
+                        primary_key_rel = field.rel.to
+                    elif not field.rel.parent_link:
+                        related_fields[ field.name ] = field
+                # through will be none on M2Ms on swapped-out models;
+                # we can treat lack of through as auto_created=True, though.
+                if getattr( field.rel, "through", None ) and not field.rel.through._meta.auto_created:
+                    related_fields[ field.name ] = field
+        for field in model_opts.local_many_to_many:
+            if field.rel.to:
+                related_fields[ field.name ] = field
+            if getattr( field.rel, "through", None ) and not field.rel.through._meta.auto_created:
+                related_fields[ field.name ] = field
+        return related_fields
+
+    @property
+    def non_related_fields(self):
+        model = global_apps.get_model( self.module, self.name )
+        model_opts = model._meta
+        return {f.name: f for f in model_opts.fields if f not in self.related_fields.values( )}
+
+    def orm_metadata(self, export_format):
+        '''
+
+        '''
+        # model = apps.get_model(self.module, self.name)
+        # model_opts = model._meta
+        #         old_project_state = ProjectState()
+        #         new_project_state = ProjectState()
+        # #         new_project_state.add_model(model)
+        #         autodetector = MigrationAutodetector(old_project_state, new_project_state)
+        #         autodetector.generated_operations = {}
+        #
+        #         # code from MigrationAutodetector.generate_created_models
+        #         # Gather related fields
+        #         related_fields = {}
+        #         primary_key_rel = None
+        #         for field in model_opts.local_fields:
+        #             if field.rel:
+        #                 if field.rel.to:
+        #                     if field.primary_key:
+        #                         primary_key_rel = field.rel.to
+        #                     elif not field.rel.parent_link:
+        #                         related_fields[field.name] = field
+        #                 # through will be none on M2Ms on swapped-out models;
+        #                 # we can treat lack of through as auto_created=True, though.
+        #                 if getattr(field.rel, "through", None) and not field.rel.through._meta.auto_created:
+        #                     related_fields[field.name] = field
+        #         for field in model_opts.local_many_to_many:
+        #             if field.rel.to:
+        #                 related_fields[field.name] = field
+        #             if getattr(field.rel, "through", None) and not field.rel.through._meta.auto_created:
+        #                 related_fields[field.name] = field
+        #         # Are there unique/index_together to defer?
+        # #         unique_together = model_state.options.pop('unique_together', None)
+        # #         index_together = model_state.options.pop('index_together', None)
+        # #         order_with_respect_to = model_state.options.pop('order_with_respect_to', None)
+        #         # Depend on the deletion of any possible proxy version of us
+        #         dependencies = [
+        #             (self.module, self.name, None, False),
+        #         ]
+        #         # Depend on all bases
+        # #         for base in model_state.bases:
+        # #             if isinstance(base, six.string_types) and "." in base:
+        # #                 base_app_label, base_name = base.split(".", 1)
+        # #                 dependencies.append((base_app_label, base_name, None, True))
+        #         # Depend on the other end of the primary key if it's a relation
+        #         if primary_key_rel:
+        #             dependencies.append((
+        #                 primary_key_rel._meta.app_label,
+        #                 primary_key_rel._meta.object_name,
+        #                 None,
+        #                 True
+        #             ))
+        #         # Generate creation operation
+        #         autodetector.add_operation(
+        #             self.module,
+        #             operations.CreateModel(
+        #                 name=self.name,
+        #                 fields=[d for d in model_opts.fields if d not in related_fields.values()],
+        #                 options=model_opts,
+        #                 bases=self.__class__.__bases__,
+        #                 managers=model_opts.managers,
+        #             ),
+        #             dependencies=dependencies,
+        #             beginning=True,
+        #         )
+
+        # autodetector.generated_operations
+        metadata = None
+        fields = [ ]
+        if export_format == 'XML':
+            metadata = "<Fields>"
+        if export_format == 'JSON':
+            metadata = '"Fields": ['
+        if export_format == 'DICT':
+            metadata = {}
+        # for field in autodetector.generated_operations[self.module][0].fields:
+        for field in self.non_related_fields.values( ):
+            if export_format == 'XML':
+                sf = ('<Field class_name="%s" name="%s">' % (field.__class__.__name__, field.name))
+                sf += "</Field>"
+            if export_format == 'JSON':
+                sf = (
+                '{"name": "%s", "type": "%s", "null": "%s"' % (field.name, field.__class__.__name__, str( field.null )))
+                if field.max_length != None:
+                    sf += ', "max_length": "' + str( field.max_length ) + '"'
+                sf += ', "is_relation": "' + str( field.is_relation ) + '", "column": "' + field.column + '"'
+                if field.default not in {None, NOT_PROVIDED}:
+                    sf += ', "default": "' + str( field.default ) + '"'
+                sf += '}'
+            if export_format == 'DICT':
+                sf = {
+                    "name": field.name,
+                    "class_name": field.__class__.__name__,
+                    "attname": field.attname,
+                    "auto_created": field.auto_created,
+                    "blank": field.blank,
+                    "choices": json.dumps( field.choices ),
+                    "concrete": field.concrete,
+                    "db_column": field.db_column,
+                    "db_index": field.db_index,
+                    "empty_strings_allowed": field.empty_strings_allowed,
+                    "is_relation": field.is_relation,
+                    "many_to_many": field.many_to_many,
+                    "many_to_one": field.many_to_one,
+                    "max_length": field.max_length,
+                    "null": field.null,
+                    "one_to_many": field.one_to_many,
+                    "primary_key": field.primary_key,
+                    "serialize": field.serialize,
+                    "unique": field.unique
+                }
+                if field.default not in {None, NOT_PROVIDED}:
+                    sf[ "default" ] = field.default
+            fields.append( sf )
+        for field in self.related_fields.values( ):
+            if export_format == 'XML':
+                sf = ('<Field class_name="%s" name="%s">' % (field.__class__.__name__, field.name))
+                sf += "</Field>"
+            if export_format == 'JSON':
+                sf = (
+                '{"name": "%s", "type": "%s", "null": "%s"' % (field.name, field.__class__.__name__, str( field.null )))
+                if field.max_length != None:
+                    sf += ', "max_length": "' + str( field.max_length ) + '"'
+                sf += ', "is_relation": "' + str( field.is_relation ) + '", "column": "' + field.column + '"'
+                if field.default not in {None, NOT_PROVIDED}:
+                    sf += ', "default": "' + str( field.default ) + '"'
+                sf += '}'
+            if export_format == 'DICT':
+                sf = {
+                    "name": field.name,
+                    "class_name": field.__class__.__name__,
+                    "attname": field.attname,
+                    "auto_created": field.auto_created,
+                    "blank": field.blank,
+                    "choices": json.dumps( field.choices ),
+                    "concrete": field.concrete,
+                    "db_column": field.db_column,
+                    "db_index": field.db_index,
+                    "empty_strings_allowed": field.empty_strings_allowed,
+                    "is_relation": field.is_relation,
+                    "many_to_many": field.many_to_many,
+                    "many_to_one": field.many_to_one,
+                    "max_length": field.max_length,
+                    "null": field.null,
+                    "one_to_many": field.one_to_many,
+                    "primary_key": field.primary_key,
+                    "remote_field_name": field.remote_field.name,
+                    "remote_class": field.remote_field.model.__name__,
+                    "serialize": field.serialize,
+                    "unique": field.unique
+                }
+                if field.default not in {None, NOT_PROVIDED}:
+                    sf[ "default" ] = field.default
+            fields.append( sf )
+        if export_format == 'XML':
+            metadata += " ".join( fields ) + "</Fields>"
+        if export_format == 'JSON':
+            metadata += ", ".join( fields ) + "]"
+        if export_format == 'DICT':
+            metadata[ 'Fields' ] = fields
+        return metadata
 
 
 class StructureNode( ShareableModel ):
@@ -1435,8 +1639,7 @@ class DataSetStructure( ShareableModel ):
                                       root_content_type_id=ContentType.objects.get( model='DataSetStructure' ).id )
             #            ds = DataSet.objects.get(root_instance_id=self.id, root_content_type=ContentType.objects.get_for_model(DataSetStructure._meta.model))
             ar = ApiResponse( )
-            ar.invoke_oks_api( ds.knowledge_server.url( ), 'api_dataset_structure_code',
-                               args=(urllib.parse.urlencode( {'': self.UKCL} )[ 1: ],) )
+            ar.invoke_oks_api( ds.knowledge_server.url( ), 'api_dataset_structure_code') + ("?UKCL=%s" % self.UKCL)
             if ar.status == ApiResponse.success:
                 apps_code = ar.content
                 for app in apps_code:
@@ -1513,6 +1716,16 @@ class DataSetStructure( ShareableModel ):
         sn.save( )
         self.root_node = sn
         self.save( )
+
+    def create_many_model_metadata(self, models):
+        """
+        Returns:
+            tuple of ModelMetadata: defined according to the list of dictionaries models:
+        """
+        model_metadatas = ()
+        for model in models:
+            model_metadatas += (self.create_model_metadata(model['name'], model['module'], model['name_field'], model['description_field']),)
+        return model_metadatas
 
     def create_model_metadata(self, name, module, name_field="", description_field=""):
         """
@@ -1693,18 +1906,18 @@ class DataSet( ShareableModel ):
         '''
         dist_html = "<ul><li property='dcat:distribution' typeof='dcat:Distribution'>"
         dist_html += "<span content='application/json' property='dcat:mediaType'/> "
-        dist_html += "<a href='" + reverse( 'api_dataset_view', args=(
-        self.q_UKCL, self.root.pk, "JSON") ) + "' property='dcat:accessURL'><span property='dct:title'>JSON</span></a>"
+        dist_html += "<a href='" + reverse( 'api_dataset_view' ) + ("?UKCL=%s&id=%s&format=JSON" %(self.q_UKCL, self.root.pk)) \
+                     + "' property='dcat:accessURL'><span property='dct:title'>JSON</span></a>"
         dist_html += "</li>"
         dist_html += "<li property='dcat:distribution' typeof='dcat:Distribution'>"
         dist_html += "<span content='application/xml' property='dcat:mediaType'/> "
-        dist_html += "<a href='" + reverse( 'api_dataset_view', args=(
-        self.q_UKCL, self.root.pk, "XML") ) + "' property='dcat:accessURL'><span property='dct:title'>XML</span></a>"
+        dist_html += "<a href='" + reverse( 'api_dataset_view' ) + ("?UKCL=%s&id=%s&format=XML" %(self.q_UKCL, self.root.pk)) \
+                     + "' property='dcat:accessURL'><span property='dct:title'>XML</span></a>"
         dist_html += "</li>"
         dist_html += "<li property='dcat:distribution' typeof='dcat:Distribution'>"
         dist_html += "<span content='application/html' property='dcat:mediaType'/> "
-        dist_html += "<a href='" + reverse( 'api_dataset_view', args=(self.q_UKCL, self.root.pk,
-                                                                      "HTML") ) + "' property='dcat:accessURL'><span property='dct:title'>View it in the browser</span></a>"
+        dist_html += "<a href='" + reverse( 'api_dataset_view')  + ("?UKCL=%s&id=%s&format=HTML" %(self.q_UKCL, self.root.pk)) \
+                     + "' property='dcat:accessURL'><span property='dct:title'>View it in the browser</span></a>"
         dist_html += "</li></ul>"
         return dist_html
 
@@ -2536,6 +2749,9 @@ class KnowledgeServer( ShareableModel ):
         once in the lifetime of an instance of OKS does not make sense.
         If Organization is not in the dictionary, the existing one of current OKS is 
         used (e.g. TheKoa.org)  
+
+        Returns:
+            KnowledgeServer: this_ks the newly created one
         '''
         if "Organization" in org_ks.keys( ):
             new_org = Organization( )
@@ -2659,16 +2875,41 @@ class ApiResponse( ):
     success = "success"
     failure = "failure"
 
-    def __init__(self, status="", message="", content="",
+    def __init__(self, status="", message="", content="", request=None, format=None,
                  datetime_generated_utc=datetime.utcnow( )):  # , deprecated=False, deprecation_message=""):
         self.status = status
         self.message = message
+        self.request = request
+        self.format = format
         self.content = content
         self.response = ""
         self.datetime_generated_utc = datetime_generated_utc
 
     #         self.deprecation_message = deprecation_message
     #         self.deprecated = deprecated
+
+    @property
+    def response_format(self):
+        if self.format:
+            return self.format
+        default_format = "XML"
+        if self.request:
+            # we try the GET parameter first
+            if 'format' in self.request.GET.keys( ):
+                return self.request.GET[ 'format' ].upper( )
+            try:
+                accept_header = self.request.META[ 'HTTP_ACCEPT' ]
+                if accept_header == 'application/json':
+                    return 'JSON'
+                elif accept_header == 'application/xml':
+                    return 'XML'
+                elif accept_header[:9] == 'text/html':
+                    # 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    return 'HTML'
+            except:
+                return default_format
+        else:
+            return default_format
 
     def urlopen(self, remote_url):
         response = urlopen( remote_url )

@@ -18,6 +18,19 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
+            name='WorkflowsMethods',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('is_a_placeholder', models.BooleanField(db_column='oks_internals_placeholder', db_index=True, default=False)),
+                ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
+                ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
+                ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
             name='Application',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -39,6 +52,9 @@ class Migration(migrations.Migration):
                 ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
                 ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
                 ('name', models.CharField(blank=True, max_length=255)),
+                ('order', models.IntegerField( null=True ),
+                ),
+
             ],
             options={
                 'abstract': False,
@@ -65,6 +81,7 @@ class Migration(migrations.Migration):
                 ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
                 ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
                 ('name', models.CharField(blank=True, max_length=255)),
+                ('description', models.TextField( blank=True )),
             ],
             options={
                 'abstract': False,
@@ -91,6 +108,7 @@ class Migration(migrations.Migration):
                 ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
                 ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
                 ('name', models.CharField(blank=True, max_length=255)),
+                ('application', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='ap.Application')),
             ],
             options={
                 'abstract': False,
@@ -105,18 +123,6 @@ class Migration(migrations.Migration):
                 ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
                 ('name', models.CharField(blank=True, max_length=255)),
                 ('surname', models.CharField(blank=True, max_length=255)),
-            ],
-            options={
-                'abstract': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='PermissionHolder',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('is_a_placeholder', models.BooleanField(db_column='oks_internals_placeholder', db_index=True, default=False)),
-                ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
-                ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
             ],
             options={
                 'abstract': False,
@@ -148,6 +154,22 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
+            name='AttributeGroup',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('is_a_placeholder', models.BooleanField(db_column='oks_internals_placeholder', db_index=True, default=False)),
+                ('UKCL', models.CharField(blank=True, db_index=True, default='', max_length=750)),
+                ('UKCL_previous_version', models.CharField(blank=True, db_index=True, max_length=750, null=True)),
+                ('name', models.CharField(blank=True, max_length=255)),
+                ('dataset_I_belong_to', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet')),
+                ('widgets', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='ap.Widget')),
+                ('description', models.TextField( blank=True )),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
             name='WorkflowMethod',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -168,6 +190,63 @@ class Migration(migrations.Migration):
                 'abstract': False,
             },
         ),
+        migrations.CreateModel(
+            name='ApplicationStructureNodeSearch',
+            fields=[
+                ('id', models.AutoField( auto_created=True, primary_key=True, serialize=False, verbose_name='ID' )),
+                ('is_a_placeholder',
+                 models.BooleanField( db_column='oks_internals_placeholder', db_index=True, default=False )),
+                ('UKCL', models.CharField( blank=True, db_index=True, default='', max_length=750 )),
+                ('UKCL_previous_version', models.CharField( blank=True, db_index=True, max_length=750, null=True )),
+                ('application', models.ForeignKey( on_delete=django.db.models.deletion.CASCADE, to='ap.Application' )),
+                ('dataset_I_belong_to',
+                 models.ForeignKey( blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    related_name='+', to='knowledge_server.DataSet' )),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='AttributeInASearch',
+            fields=[
+                ('id', models.AutoField( auto_created=True, primary_key=True, serialize=False, verbose_name='ID' )),
+                ('is_a_placeholder',
+                 models.BooleanField( db_column='oks_internals_placeholder', db_index=True, default=False )),
+                ('UKCL', models.CharField( blank=True, db_index=True, default='', max_length=750 )),
+                ('UKCL_previous_version', models.CharField( blank=True, db_index=True, max_length=750, null=True )),
+                ('string_partial', models.BooleanField( )),
+                ('string_case_sensitivy', models.BooleanField( )),
+                ('integer_interval', models.BooleanField( )),
+                ('attribute', models.ForeignKey( on_delete=django.db.models.deletion.CASCADE, to='ap.Attribute' )),
+                ('dataset_I_belong_to',
+                 models.ForeignKey( blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    related_name='+', to='knowledge_server.DataSet' )),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='ModelMetadataSearch',
+            fields=[
+                ('id', models.AutoField( auto_created=True, primary_key=True, serialize=False, verbose_name='ID' )),
+                ('is_a_placeholder',
+                 models.BooleanField( db_column='oks_internals_placeholder', db_index=True, default=False )),
+                ('UKCL', models.CharField( blank=True, db_index=True, default='', max_length=750 )),
+                ('UKCL_previous_version', models.CharField( blank=True, db_index=True, max_length=750, null=True )),
+                ('name', models.CharField( max_length=100 )),
+                ('description', models.CharField( blank=True, max_length=2000 )),
+                ('dataset_I_belong_to',
+                 models.ForeignKey( blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    related_name='+', to='knowledge_server.DataSet' )),
+                ('model_metadata',
+                 models.ForeignKey( on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.ModelMetadata' )),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
         migrations.AddField(
             model_name='workflowmethod',
             name='final_status',
@@ -181,12 +260,32 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='workflowmethod',
             name='workflows',
-            field=models.ManyToManyField(related_name='methods', to='knowledge_server.Workflow'),
+            field=models.ManyToManyField(related_name='methods', through='ap.WorkflowsMethods', to='knowledge_server.Workflow'),
+        ),
+        migrations.AddField(
+            model_name='workflowsmethods',
+            name='structure_node',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.StructureNode'),
+        ),
+        migrations.AddField(
+            model_name='workflowsmethods',
+            name='workflow',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.Workflow'),
+        ),
+        migrations.AddField(
+            model_name='workflowsmethods',
+            name='method',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='ap.WorkflowMethod'),
         ),
         migrations.AddField(
             model_name='widget',
             name='dataset_I_belong_to',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet'),
+        ),
+        migrations.AddField(
+            model_name='permissionstatement',
+            name='workflow',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.Workflow'),
         ),
         migrations.AddField(
             model_name='permissionstatement',
@@ -200,23 +299,23 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='permissionstatement',
-            name='permission_holder',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='ap.PermissionHolder'),
+            name='group',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='ap.KSGroup'),
         ),
         migrations.AddField(
-            model_name='permissionholder',
-            name='dataset_I_belong_to',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet'),
+            model_name='permissionstatement',
+            name='role',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='ap.KSRole'),
+        ),
+        migrations.AddField(
+            model_name='permissionstatement',
+            name='user',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='ap.KSUser'),
         ),
         migrations.AddField(
             model_name='ksuser',
             name='dataset_I_belong_to',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet'),
-        ),
-        migrations.AddField(
-            model_name='ksuser',
-            name='permission_holder',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='ap.PermissionHolder'),
         ),
         migrations.AddField(
             model_name='ksuser',
@@ -230,11 +329,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='ksrole',
-            name='permission_holder',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='ap.PermissionHolder'),
-        ),
-        migrations.AddField(
-            model_name='ksrole',
             name='users',
             field=models.ManyToManyField(related_name='roles', to='ap.KSUser'),
         ),
@@ -242,11 +336,6 @@ class Migration(migrations.Migration):
             model_name='ksgroup',
             name='dataset_I_belong_to',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet'),
-        ),
-        migrations.AddField(
-            model_name='ksgroup',
-            name='permission_holder',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='ap.PermissionHolder'),
         ),
         migrations.AddField(
             model_name='ksgroup',
@@ -275,13 +364,19 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='attribute',
+            name='group',
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='ap.AttributeGroup'),
+        ),
+        migrations.AddField(
+            model_name='attribute',
             name='dataset_I_belong_to',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.DataSet'),
         ),
         migrations.AddField(
             model_name='attribute',
-            name='model_metadata',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.ModelMetadata'),
+            name='structure_node',
+            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='+', to='knowledge_server.StructureNode'),
+            preserve_default=False,
         ),
         migrations.AddField(
             model_name='attribute',
@@ -302,5 +397,20 @@ class Migration(migrations.Migration):
             model_name='attributeinamethod',
             name='custom_widget',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='ap.Widget'),
+        ),
+        migrations.AddField(
+            model_name='attributeinasearch',
+            name='search',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='ap.ModelMetadataSearch'),
+        ),
+        migrations.AddField(
+            model_name='applicationstructurenodesearch',
+            name='model_metadata_search',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='ap.ModelMetadataSearch'),
+        ),
+        migrations.AddField(
+            model_name='applicationstructurenodesearch',
+            name='structure_node',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='knowledge_server.StructureNode'),
         ),
     ]

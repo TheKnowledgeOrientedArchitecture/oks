@@ -6,7 +6,7 @@
 
 from django.contrib.auth.models import User
 from django.db import models
-from knowledge_server.models import ShareableModel, ModelMetadata, DataSetStructure, DataSet, Workflow, WorkflowStatus
+from knowledge_server.models import DataSetStructure, DataSet, ModelMetadata, ShareableModel, StructureNode, Workflow, WorkflowStatus
 
 
 class Widget(ShareableModel):
@@ -18,20 +18,51 @@ class Widget(ShareableModel):
 
 class AttributeType(ShareableModel):
     name = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
     widgets = models.ManyToManyField(Widget, blank=True)  # TODO farlo passare da una classe e aggiungere attributo default
 
 
-class Attribute(ShareableModel):
+class AttributeGroup(ShareableModel):
+    '''
+    '   A group of attributes can be managed by a single widget
+    '''
     name = models.CharField(max_length=255, blank=True)
-    model_metadata = models.ForeignKey(ModelMetadata, null=True, blank=True)
+    description = models.TextField(blank=True)
+    widgets = models.ForeignKey(Widget)
+
+
+class Attribute(ShareableModel):
+    '''
+    '   To identify the attribute we use its name; we will get all its details from the Field in the class' model
+    '   we get the model from the ModelMetadata istance of the StructureNode.
+    '   In Django terms Attribute = Field
+    '''
+    name = models.CharField(max_length=255, blank=True)
+    # A structure can have many nodes holding records of the same type (same ModelMetadata); an attribute in a
+    # method must affect only on a specific node; usign the name we can determin the exact field/attribute
+    structure_node = models.ForeignKey(StructureNode, related_name='+')
     type = models.ForeignKey(AttributeType)
+    order = models.IntegerField(null=True)
+    group = models.ForeignKey(AttributeGroup, null=True)
 
     def __str__ ( self ):
         return self.simple_entity.name + "." + self.name
 
+    # ASSERT: I metodi di un wf devono avere impatto solo su ModelMetadata contenute nella struttura
+    #     tutte le istanze nei nodi del DSS condividono lo stato del DataSet
 
-# ASSERT: I metodi di un wf devono avere impatto solo su ModelMetadata contenute nella struttura
-#     tutte le istanze nei nodi del DSS condividono lo stato del DataSet
+
+class WorkflowsMethods(ShareableModel):
+    '''
+    '   Extra attributes for ManyToMany between workflows and methods
+    '   A method in a specific workflow (and hence specific structure)
+    '   works primarily on a specific node wchich can be root or any
+    '   intermediate one.
+    '   Here it is:
+    '''
+    structure_node = models.ForeignKey(StructureNode, related_name='+')
+    workflow = models.ForeignKey( Workflow )
+    method = models.ForeignKey( "WorkflowMethod" )
 
 
 class WorkflowMethod(ShareableModel):
@@ -44,7 +75,7 @@ class WorkflowMethod(ShareableModel):
     '''
     initial_statuses = models.ManyToManyField(WorkflowStatus, blank=True, related_name="+")
     final_status = models.ForeignKey(WorkflowStatus, blank=True, related_name="+")
-    workflows = models.ManyToManyField(Workflow, related_name="methods")
+    workflows = models.ManyToManyField(Workflow, related_name="methods", through=WorkflowsMethods)
     attributes = models.ManyToManyField(Attribute, through='AttributeInAMethod')
     name = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
@@ -103,41 +134,68 @@ class Application(ShareableModel):
         return self.name
 
 
-class PermissionHolder(ShareableModel):
-    pass
-
-
-class PermissionStatement(ShareableModel):
+class ModelMetadataSearch(ShareableModel):
     '''
-    '    It states that a PermissionHolder can perform something
+    '   In Applications We need to search on ModelMetadata sets
+    '   If there is no search a default textual search on name_field
+    '   and description_field (if they exist) is used.
     '''
-    permission_holder = models.ForeignKey(PermissionHolder)
-    methods = models.ManyToManyField(WorkflowMethod, blank=True, related_name='permission')
+    name = models.CharField( max_length=100 )
+    description = models.CharField( max_length=2000, blank=True )
+    model_metadata = models.ForeignKey( ModelMetadata )
 
+
+class ApplicationStructureNodeSearch(ShareableModel):
+    '''
+    '   In an application I can specify which search should be used in a specific node
+    '''
+    application = models.ForeignKey( Application )
+    structure_node = models.ForeignKey( StructureNode )
+    model_metadata_search = models.ForeignKey( ModelMetadataSearch )
+
+
+class AttributeInASearch( ShareableModel ):
+    '''
+    '''
+    attribute = models.ForeignKey(Attribute)
+    search = models.ForeignKey(ModelMetadataSearch)
+    string_partial = models.BooleanField()
+    string_case_sensitivy = models.BooleanField()
+    integer_interval = models.BooleanField()
 
 class KSUser(ShareableModel):
     user = models.ForeignKey(User, blank=True, null=True)  # id_user = models.IntegerField(default=1)
     name = models.CharField(max_length=255, blank=True)
     surname = models.CharField(max_length=255, blank=True)
-    permission_holder = models.OneToOneField(PermissionHolder)
 
     def __str__ ( self ):
         return self.name + " " + self.surname + (" (" + self.user.username + ")" if self.user else "")
 
-
 class KSRole(ShareableModel):
     name = models.CharField(max_length=255, blank=True)
-    permission_holder = models.OneToOneField(PermissionHolder)
     users = models.ManyToManyField(KSUser, related_name="roles")
+    # A role can live across many applications or can be specific to one application
+    application = models.ForeignKey(Application, null=True, blank=True)
 
     def __str__ ( self ):
         return self.name
 
-
 class KSGroup(ShareableModel):
     name = models.CharField(max_length=255, blank=True)
-    permission_holder = models.OneToOneField(PermissionHolder)
     users = models.ManyToManyField(KSUser, related_name="groups")
 
     def __str__ ( self ):
         return self.name
+
+class PermissionStatement(ShareableModel):
+    '''
+    '    It states that a permission holder  (user, role, group) can perform something
+    '''
+    # at least one of the following three hold this permission
+    user = models.ForeignKey(KSUser, null=True, blank=True)
+    role = models.ForeignKey(KSRole, null=True, blank=True)
+    group = models.ForeignKey(KSGroup, null=True, blank=True)
+    methods = models.ManyToManyField(WorkflowMethod, blank=True, related_name='permission')
+    # A WorkflowMethod can be in many Workflows; I must specify for which Workflow this permission holds
+    # if null it holds for all of them  <-- TODO: CHECK: I AM NOT SURE I WANT THIS-
+    workflow = models.ForeignKey(Workflow, null=True, blank=True)

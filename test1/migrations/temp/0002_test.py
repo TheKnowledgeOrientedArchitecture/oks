@@ -24,24 +24,24 @@ def forwards_func(apps, schema_editor):
     dssContinentState.SetNotNullFields()
     dssContinentState.save()
 
-    mmContinent=dssContinentState.create_model_metadata(name="Continent",module="test1",name_field="name",description_field="")
-    mmSubContinent=dssContinentState.create_model_metadata(name="SubContinent",module="test1",name_field="name",description_field="")
-    mmState=dssContinentState.create_model_metadata(name="State",module="test1",name_field="name",description_field="")
+    mmContinent=dssContinentState.create_model_metadata("Continent","test1","name")
+    mmSubContinent=dssContinentState.create_model_metadata("SubContinent","test1","name")
+    mmState=dssContinentState.create_model_metadata("State","test1","name")
     
     # It creates ModelMetadata and a DataSet for each of them; having the DataSetStructure makes it
     # possible to release and materialize the datasets with dangling references that will be
     # resolved once the dss is released and materialized. 
     KnowledgeServer.register_models([mmContinent, mmSubContinent, mmState])
      
-    # it creates the root node from the ModelMetadata provided
+    # it creates the root node of the dataset structure
     dssContinentState.root_model_metadata(mmContinent)
-    # child nodes for two attributes/fields
-    dssContinentState.root_node.children_for(["subcontinent_set", "state_set"], this_ks_d.netloc)
+    # and child nodes for two attributes/fields
+    dssContinentState.root_node.children_nodes_for(["subcontinent_set", "state_set"], this_ks_d.netloc)
     dssContinentState.save()
     
     dss_dss = DataSetStructure.get_from_name(DataSetStructure.dataset_structure_DSN)
     
-    ds = DataSet(description='DataSet for data set structure "Continent-SubContinent-State"', knowledge_server=this_ks_d, dataset_structure=dss_dss, root=dssContinentState, version_major=0, version_minor=1, version_patch=0, version_description="")
+    ds = DataSet(description='DataSet for data set structure "Continent-SubContinent-State"', knowledge_server=this_ks_d, dataset_structure=dss_dss, root=dssContinentState, version_major=0, version_minor=1, version_patch=0)
     ds.save();
     ds.set_released()
         

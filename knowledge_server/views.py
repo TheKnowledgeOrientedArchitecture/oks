@@ -42,7 +42,7 @@ def ks_explorer(request):
         this_ks = KnowledgeServer.this_knowledge_server()
         # info on the remote ks
         ar_ks_info = ApiResponse()
-        ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info', args=("JSON",))
+        ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info') + "?format=JSON"
         if ar_ks_info.status == ApiResponse.success:
             organization = ar_ks_info.content['DataSet']['ActualInstance']['Organization']
             for ks in organization['knowledgeserver_set']:
@@ -51,7 +51,7 @@ def ks_explorer(request):
                 
             # info about structures on the remote ks
             ar_ds_types = ApiResponse()
-            ar_ds_types.invoke_oks_api(ks_url, 'api_dataset_types', args=("JSON",))
+            ar_ds_types.invoke_oks_api(ks_url, 'api_dataset_types') + "?format=JSON"
             owned_structures = []
             other_structures = []
             for ei in ar_ds_types.content['DataSets']:
@@ -95,7 +95,7 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
     if this_ks.scheme != tmp_ks_url.scheme or this_ks.netloc != tmp_ks_url.netloc:
         # info on the remote ks
         ar_ks_info = ApiResponse()
-        ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info', args=("JSON",))
+        ar_ks_info.invoke_oks_api(ks_url, 'api_ks_info') + "?format=JSON"
         organization = ar_ks_info.content['DataSet']['ActualInstance']['Organization']
         for ks in organization['knowledgeserver_set']:
             if ks['this_ks']:
@@ -116,9 +116,9 @@ def datasets_of_type(request, ks_url, UKCL, response_format):
     es_info_json = json_loads(response.read().decode("utf-8"))
     
     if response_format == 'XML':
-        local_url = reverse('api_datasets', args=(q_UKCL,response_format))
+        local_url = reverse('api_datasets') + ("?UKCL=%s&format=%s" % (q_UKCL,response_format))
     if response_format == 'JSON' or response_format == 'BROWSE':
-        local_url = reverse ('api_datasets', args=(q_UKCL,'JSON'))
+        local_url = reverse('api_datasets') + ("?UKCL=%s&format=JSON" % q_UKCL)
     response = urlopen(ks_url + local_url)
     datasets = response.read().decode("utf-8")
     if response_format == 'XML':
@@ -202,7 +202,7 @@ def this_ks_subscribes_to(request, UKCL):
             this_ks = KnowledgeServer.this_knowledge_server()
             url_to_invoke = urllib.parse.urlencode({'':this_ks.url() + reverse('api_notify')})[1:]
             ar = ApiResponse()
-            ar.invoke_oks_api(other_ks_uri, 'api_subscribe', args=(encoded_UKCL,url_to_invoke,))
+            ar.invoke_oks_api(other_ks_uri, 'api_subscribe') + ("?UKCL=%s&remote_url=%s" % ((encoded_UKCL,url_to_invoke)))
             if ar.status == ApiResponse.success:
                 # save locally
                 sto = SubscriptionToOther()
@@ -434,7 +434,6 @@ def json(request):
         return HttpResponse(str(ex))
 
 
-@login_required
 def debug(request):
     '''
     created to debug code
@@ -442,6 +441,8 @@ def debug(request):
     Args:
         request: 
     '''
+    UKCL = request.GET["UKCL"]
+    return HttpResponse( "OK: " + UKCL )
     try:
         from django.core import management
 #         management.call_command('migrate', "--database=materialized", interactive=False)

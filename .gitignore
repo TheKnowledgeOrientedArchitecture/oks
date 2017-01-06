@@ -55,3 +55,17 @@ docs/_build/
 
 # PyBuilder
 target/
+/.idea/codeStyleSettings.xml
+/.idea/dataSources/e5742750-5930-45e6-889e-5e1f3c98056e.xml
+/.idea/dataSources/ea4fb821-6378-400a-955d-8ca9dc74730c.xml
+/.idea/dataSources/f0ba9837-6a76-4835-8c5e-dea86f1d1442.xml
+/.idea/dataSources.ids
+/.idea/dataSources.local.xml
+/.idea/dataSources.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/oks.iml
+/.idea/vcs.xml
+/.idea/workspace.xml

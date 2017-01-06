@@ -8,9 +8,25 @@ https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/
 """
 
 import os
+import sys
+import site
 
-from django.core.wsgi import get_wsgi_application
+site.addsitedir('/root/py3env/lib/python3.4/site-packages')
+site.addsitedir('/root/ks/beta/root/')
+
+sys.path.append('/root/ks/beta/root/')
+sys.path.append('/root/ks/beta/root/templates')
+sys.path.append('/root/py3env/lib/python3.4/site-packages')
+
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "oks.settings")
 
-application = get_wsgi_application()
+from django.core.wsgi import get_wsgi_application
+
+import signal
+try:
+    application = get_wsgi_application()
+except Exception:
+    if 'mod_wsgi' in sys.modules:
+        os.kill(os.getpid(), signal.SIGINT)
+    raise

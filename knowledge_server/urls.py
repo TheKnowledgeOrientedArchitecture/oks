@@ -8,7 +8,6 @@
 from django.conf.urls import patterns, url
 
 from knowledge_server import views
-from knowledge_server import api
 
 urlpatterns = [
     url(r'^debug/$', views.debug),
@@ -24,26 +23,4 @@ urlpatterns = [
     url(r'^release_dataset/(?P<Dataset_UKCL>[\w|=|%|.]+)/$', views.release_dataset, name='release_dataset'),
     url( r'^upload_page', views.upload_page, name='upload_page' ),
     url( r'^perform_import', views.perform_import, name='perform_import' ),
-
-
-                       ###################   API   ####################
-    #36:
-    url(r'^api/dataset/(?P<DataSet_UKCL>[\w|=|%|.]+)/(?P<response_format>.*)/$', api.api_dataset, name='api_dataset'),
-    url(r'^api/dataset_view/(?P<DataSet_UKCL>[\w|=|%|.]+)/(?P<root_id>[0-9]+)/(?P<response_format>.*)/$', api.api_dataset_view, name='api_dataset_view'),
-    #64: 
-    url(r'^api/datasets/(?P<DataSetStructure_UKCL>[\w|=|%|.]+)/(?P<response_format>.*)/$', api.api_datasets, name='api_datasets'),
-    #46:
-    url(r'^api/dataset_types/(?P<response_format>.*)/$', api.api_dataset_types, name='api_dataset_types'), 
-    #52
-    url(r'^api/dataset_info/(?P<DataSet_UKCL>[\w|=|%|.]+)/(?P<response_format>.*)/$', api.api_dataset_info, name='api_dataset_info'),
-    #80:
-    url(r'^api/ks_info/(?P<response_format>.*)/$', api.api_ks_info, name='api_ks_info'), 
-    #35 
-    url(r'^api/subscribe/(?P<UKCL>[\w|=|%|.]+)/(?P<remote_url>[\w|=|%|.]+)/$', api.api_subscribe, name='api_subscribe'),
-    #123
-    url(r'^api/unsubscribe/(?P<UKCL>[\w|=|%|.]+)/(?P<URL>[\w|=|%|.]+)/$', api.api_unsubscribe, name='api_unsubscribe'),
-    #37
-    url(r'^api/notify/$', api.api_notify, name='api_notify'),
-    url(r'^api/dataset_structure_code/(?P<DataSetStructure_UKCL>[\w|=|%|.]+)/$', api.api_dataset_structure_code, name='api_dataset_structure_code'),
-                       ###################   API ^ ####################
 ]

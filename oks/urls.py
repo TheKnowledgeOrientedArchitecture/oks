@@ -26,7 +26,9 @@ from django.contrib import admin
 urlpatterns = [
     url(r'^$', views.home, name='home'),
 
-    url(r'^oks/', include('knowledge_server.urls')),
+    url( r'^oks/', include( 'knowledge_server.urls' ) ),
+    url( r'^api/', include( 'knowledge_server.urlsapi' ) ),
+    url( r'^ap/', include( 'ap.urls' ) ),
 
     url(r'^admin/', admin.site.urls),
     

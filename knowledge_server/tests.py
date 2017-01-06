@@ -5,4 +5,17 @@
 # Author: Davide Galletti                davide   ( at )   c4k.it
 
 from django.test import TestCase
+from knowledge_server.models import KnowledgeServer
+
+class ThisKSTestCase(TestCase):
+    def setUp(self):
+        pass
+
+    def test_this_ks_esists(self):
+        thisKS = None
+        try:
+            thisKS = KnowledgeServer.this_knowledge_server()
+        except:
+            pass
+        self.assertIsNotNone(thisKS)
 

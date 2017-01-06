@@ -21,7 +21,9 @@
         </div>
         Type: {{ dataset.dataset_structure.name }}
         </h3>
-    	<p> Get the data in <a href="{% url 'api_dataset' DataSet_UKCL "XML" %}">XML</a> or <a href="{% url 'api_dataset' DataSet_UKCL "JSON" %}">JSON</a>.<br>
+    	<p> Get the data in
+            <a href="{% url 'api_dataset' %}?UKCL={% autoescape off %}{{ DataSet_UKCL }}{% endautoescape %}&format=XML">XML</a> or
+            <a href="{% url 'api_dataset' %}?UKCL={% autoescape off %}{{ DataSet_UKCL }}{% endautoescape %}&format=JSON">JSON</a>.<br>
     	{% if actual_instance %}{% autoescape off %}{% browse_json_data actual_instance actual_instance_json sn %}{% endautoescape %}{% endif %}
     </div>
 {% endblock %}
