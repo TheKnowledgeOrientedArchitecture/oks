@@ -382,7 +382,7 @@ def api_unsubscribe(request):
     '''
     ar = ApiResponse( request = request )
     UKCL = request.GET[ 'UKCL' ]
-    # remote_url has to be a parameter becaus without it I would have to guess the remote
+    # remote_url has to be a parameter because without it I would have to guess the remote
     # server who has subscribed from the IP and/or the domain name in the request: unreliable
     remote_url = request.GET[ 'remote_url' ]
     # I want to check the request comes from the same domain as the remote_url

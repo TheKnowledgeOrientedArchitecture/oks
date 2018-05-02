@@ -26,7 +26,7 @@ class KsUrl(object):
 
     def __init__(self, url):
         '''
-        '   The followin attributes are used only when searching on the database
+        '   The following attributes are used only when searching on the database
         '''
         self.knowledge_server = None
         self.is_ks_known = None
